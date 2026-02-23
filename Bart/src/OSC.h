@@ -1,9 +1,6 @@
-#include <MicroOsc.h>
-#include <MicroOscUdp.h>
-#include <WiFi.h>
-#include <WiFiUdp.h>
+#include "main.h"
 
-String name = "/annieData/test/";
+String device_name = "/annieData/test/";
 char ssid[] = "NETGEAR20";          // your network SSID (name)
 char pass[] = "wateryshrub305";                    // your network password
 IPAddress local_IP(192, 168, 1, 105);
@@ -14,6 +11,18 @@ const unsigned int out_port = 9999;          // remote port to receive OSC
 const unsigned int local_port = 8888;        // local port to listen for OSC packets (actually not used for sending)
 
 WiFiUDP Udp;                                // A UDP instance to let us send and receive packets over UDP
+
+//every reading needs a list of ports, ips, and scales that it sends messages to
+// oh ! and polling? yea, lets do that.
+
+
+//scale: min, max, type
+
+
+
+
+
+// make a struct: stores IP, port, scalar.
 
 
 MicroOscUdp<1024> osc(&Udp, out_ip, out_port);
@@ -29,6 +38,14 @@ void begin_udp(){
   Serial.print("Local port: ");
   Serial.println(local_port);
 }
+
+
+
+
+
+
+
+
 
 
 void myOnOscMessageReceived( MicroOscMessage & oscMessage ) {

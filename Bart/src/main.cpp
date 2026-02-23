@@ -1,30 +1,10 @@
-#include <Wire.h>
-#include <SPI.h>
-#include <Adafruit_Sensor.h>
-#include "Adafruit_BMP5xx.h"
-#include <FastLED.h>
-#include <WiFi.h>
-#include <esp_wifi.h>
-#include <SparkFun_MMC5983MA_Arduino_Library.h>
-#include "SparkFun_ISM330DHCX.h"
-#include <SensorFusion.h>
-#include <Filters.h>
-#include "bart_def.h"
-#include "bart_imu.h"
-#include "bart_baro.h"
-#include "OSC.h"
+#include "main.h"
 
 // Structs for X,Y,Z data
 // sfe_ism_data_t accel_data; 
 // sfe_ism_data_t gyro_data; 
 // double mag_data[3];
 
-
-CRGB led[5];
-long change;
-long old;
-float start_point;
-float max_yet;
 
 void setup() {
   Serial.begin(115200);
@@ -82,14 +62,14 @@ void accel_osc(float aX, float aY, float aZ){
   aY = aY / 2.0;
   aZ = aZ / 2.0;
   float norm = sqrt(aX*aX + aY*aY + aZ*aZ);
-  osc.sendMessage((name + String("acceleration")).c_str(), "ffff", aX, aY, aZ, norm);
+  osc.sendMessage((device_name + String("acceleration")).c_str(), "ffff", aX, aY, aZ, norm);
 }
 
 void gyro_osc(float gX, float gY, float gZ){
   gX = gX / 2.0;
   gY = gY / 2.0;
   gZ = gZ / 2.0;
-  osc.sendMessage((name + String("gyroscope")).c_str(), "fff", gX, gY, gZ);
+  osc.sendMessage((device_name + String("gyroscope")).c_str(), "fff", gX, gY, gZ);
 }
 
 

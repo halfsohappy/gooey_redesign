@@ -24,3 +24,18 @@ void begin_pins(bool b13, bool b46, bool cen1, bool cen2){
   digitalWrite(SEL13, b13); digitalWrite(SEL46, b46);
   digitalWrite(CC_EN1, cen1); digitalWrite(CC_EN2, cen2);
 }
+
+
+#define NUM_DATA_STREAMS 12
+#define ACCELX 0
+#define ACCELY 1
+#define ACCELZ 2
+#define ACCELLENGTH 3
+#define GYROX 4
+#define GYROY 5
+#define GYROZ 6
+#define GYROLENGTH 7
+#define BARO 8
+#define EULERX 9
+#define EULERY 10
+#define EULERZ 11
