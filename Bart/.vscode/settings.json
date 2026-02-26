@@ -1,4 +1,5 @@
 {
     "workbench.colorTheme": "Pink Cat Boo",
-    "idf.adapterTargetName": "esp32"
+    "idf.adapterTargetName": "esp32",
+    "idf.currentSetup": "/Users/bugsy/esp/esp-idf"
 }
