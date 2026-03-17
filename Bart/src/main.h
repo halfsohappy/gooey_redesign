@@ -17,6 +17,7 @@
 #include "SparkFun_ISM330DHCX.h"
 #include <SensorFusion.h>
 #include <Filters.h>
+#include <WiFiProvisioner.h>
 
 
 
@@ -42,6 +43,7 @@ float max_yet;
 
 float data_streams[NUM_DATA_STREAMS]; // accel x,y,z, accel length, gyro x,y,z, gyro length, baro, euler x,y,z
 
+#include "device_setup.h"
 #include "bart_def.h"
 #include "bart_imu.h"
 #include "bart_baro.h"
