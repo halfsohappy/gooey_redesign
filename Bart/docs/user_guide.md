@@ -239,6 +239,9 @@ original case.
 a command needs two values (like clone or rename), they are sent as a single
 comma-separated string: `"name1, name2"`.
 
+**"none" payload:** When a payload is listed as *(none)*, it simply means the payload is discarded. Feel free to send it whatever you like: the float 3.14, the string "Torment Nexus", a midi file of Livin' La Vida Loca, anything. (Can you tell i, annie lee, wrote this part and not an LLM. sam altman can rot in hell.)
+
+
 ### Message Commands
 
 | Address | Payload | What it does |
