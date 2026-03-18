@@ -20,42 +20,97 @@
 
 #include "main.h"
 
+/// True once the device has connected to WiFi and UDP is ready for OSC.
+static bool network_ready = false;
+
 void setup() {
     Serial.begin(115200);
-    delay(500);  // brief pause for serial monitor to connect
-    Serial.println("TheaterGWD — booting...");
+    delay(1000);  // brief pause for serial monitor to connect
+    Serial.println();
+    Serial.println(F("════════════════════════════════════════════════"));
+    Serial.println(F("  TheaterGWD — booting..."));
+    Serial.println(F("════════════════════════════════════════════════"));
+    Serial.print(F("  Chip     : "));
+    Serial.println(ESP.getChipModel());
+    Serial.print(F("  CPU      : "));
+    Serial.print(ESP.getCpuFreqMHz());
+    Serial.println(F(" MHz"));
+    Serial.print(F("  Free heap: "));
+    Serial.print(ESP.getFreeHeap());
+    Serial.println(F(" bytes"));
+    Serial.println();
 
     // --- Hardware initialisation --------------------------------------------
+    Serial.println(F("[BOOT] Initialising GPIO pins..."));
     begin_pins(0, 0, 0, 0);
+
+    Serial.println(F("[BOOT] Initialising SPI bus..."));
     SPI.begin(SCK_PIN, SDO_PIN, SDI_PIN, CS_IMU);
+
+    Serial.println(F("[BOOT] Initialising barometer (BMP5xx)..."));
     begin_baro(CS_BAR);
+
+    Serial.println(F("[BOOT] Initialising IMU (ISM330DHCX) + magnetometer (MMC5983MA)..."));
     begin_imu(CS_IMU, CS_MAG);
-    Serial.println("Hardware initialised.");
+
+    Serial.println(F("[BOOT] Hardware initialised."));
+    Serial.println();
 
     // --- Provisioning / network ---------------------------------------------
-    preferences.begin("device_config", true);
+    preferences.begin("device_config", true);  // read-only
 
     if (preferences.getBool("provisioned", false)) {
-        begin_udp(
-            preferences.getString("ip"),
-            preferences.getString("ssid"),
-            preferences.getString("network_password"),
-            preferences.getInt("port")
-        );
+        Serial.println(F("[BOOT] Device is provisioned — loading config..."));
 
-        device_adr = preferences.getString("device_adr");
+        String ssid     = preferences.getString("ssid", "");
+        String password = preferences.getString("network_password", "");
+        bool   use_dhcp = preferences.getBool("use_dhcp", true);
+        String ip_str   = use_dhcp ? "dhcp" : preferences.getString("static_ip", "dhcp");
+        int    port     = preferences.getInt("port", 8000);
+
+        device_adr = preferences.getString("device_adr", "");
+
+        Serial.print(F("  SSID       : "));
+        Serial.println(ssid);
+        Serial.print(F("  IP mode    : "));
+        Serial.println(use_dhcp ? F("DHCP") : ip_str);
+        Serial.print(F("  Port       : "));
+        Serial.println(port);
+        Serial.print(F("  Device name: "));
+        Serial.println(device_adr);
 
         // Normalise: must start with '/' and not end with '/'.
-        if (!device_adr.startsWith("/")) device_adr = "/" + device_adr;
-        if (device_adr.endsWith("/"))    device_adr.remove(device_adr.length() - 1);
+        if (device_adr.length() > 0) {
+            if (!device_adr.startsWith("/")) device_adr = "/" + device_adr;
+            if (device_adr.endsWith("/"))    device_adr.remove(device_adr.length() - 1);
+        }
 
-        Serial.println("Device address: " + device_adr);
+        preferences.end();
+
+        Serial.println();
+        begin_udp(ip_str, ssid, password, port);
+        network_ready = true;
+
+        Serial.print(F("[BOOT] Device address: "));
+        Serial.println(device_adr);
     } else {
-        Serial.println("Not provisioned — starting captive portal...");
-        network_config();
-    }
+        preferences.end();
 
-    preferences.end();
+        Serial.println(F("[BOOT] Not provisioned — starting captive portal..."));
+        Serial.println(F("[BOOT] Connect to WiFi AP 'annieData Setup' and open a browser."));
+        Serial.println();
+
+        // Initialise WiFi STA first so the WiFiProvisioner's internal
+        // WiFi.disconnect() call does not trigger the ESP-IDF error
+        // "[E][STA.cpp:530] disconnect(): STA not started!".
+        WiFi.mode(WIFI_STA);
+        WiFi.disconnect(true);
+        delay(100);
+
+        network_config();
+        // network_config() calls ESP.restart() on success, so we only reach
+        // here if provisioning is still in progress (blocking call).
+    }
 
     // --- Sensor reading task ------------------------------------------------
     //
@@ -88,14 +143,30 @@ void setup() {
         }
     }, "sensor_task", 4096, nullptr, 1, nullptr);
 
-    Serial.println("Sensor task started.");
-    Serial.println("TheaterGWD ready.  Listening for OSC commands on /annieData"
-                   + device_adr + "/...");
+    Serial.println(F("[BOOT] Sensor task started (simulated data)."));
+    Serial.println();
+    Serial.println(F("════════════════════════════════════════════════"));
+    if (network_ready) {
+        Serial.println(F("  TheaterGWD ready."));
+        Serial.print(F("  Listening for OSC on /annieData"));
+        Serial.print(device_adr);
+        Serial.println(F("/..."));
+    } else {
+        Serial.println(F("  TheaterGWD ready (no network)."));
+    }
+    Serial.println(F("  Type 'help' in serial monitor for debug commands."));
+    Serial.println(F("════════════════════════════════════════════════"));
+    Serial.println();
 }
 
 void loop() {
+    // Process serial debug commands (non-blocking).
+    serial_process();
+
     // Process any incoming OSC message.  MicroOsc calls osc_handle_message()
     // for each complete message received on the UDP port.
-    osc.onOscMessageReceived(osc_handle_message);
+    if (network_ready) {
+        osc.onOscMessageReceived(osc_handle_message);
+    }
 }
 

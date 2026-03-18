@@ -76,6 +76,7 @@ public:
     unsigned int dest_port    = 0;
     String       dest_address = "/status";
     StatusLevel  min_level    = STATUS_INFO;
+    StatusLevel  serial_level = STATUS_DEBUG;   // serial is verbose by default
     bool         configured   = false;
 
     StatusReporter() : dest_ip(0, 0, 0, 0) {}
@@ -88,12 +89,20 @@ public:
         configured   = true;
     }
 
-    /// Set the minimum importance level.  Messages below this are dropped.
+    /// Set the minimum importance level for OSC output.
     void set_level(StatusLevel lvl) { min_level = lvl; }
 
-    /// Returns true if a message at `lvl` would actually be sent.
+    /// Set the minimum importance level for Serial output.
+    void set_serial_level(StatusLevel lvl) { serial_level = lvl; }
+
+    /// Returns true if a message at `lvl` would be sent over OSC.
     bool would_send(StatusLevel lvl) const {
         return configured && (lvl <= min_level);
+    }
+
+    /// Returns true if a message at `lvl` would be printed to Serial.
+    bool would_serial(StatusLevel lvl) const {
+        return lvl <= serial_level;
     }
 
     // send() is implemented in osc_engine.h after the MicroOsc instance and
