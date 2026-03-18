@@ -6,12 +6,22 @@
 // message arrives.  It parses the address, identifies the target (message,
 // patch, or system command), and dispatches to the appropriate action.
 //
+// CASE HANDLING:
+//   All command segments accept camelCase, snake_case, and lowercase.
+//   For example, "addMsg", "add_msg", and "addmsg" are all equivalent.
+//   User-defined names (message and patch names) preserve their original case.
+//
+// PAYLOAD FORMAT:
+//   All incoming payloads are a single string (CSV when multiple values are
+//   needed) or a single float/integer.  Commands that need two names (e.g.
+//   clone, rename, move) accept them as "name1, name2" in one string.
+//
 // ADDRESS FORMAT:
 //   /annieData{device_adr}/{category}/{name}/{command}
 //
 //   {device_adr}  — the device's provisioned name (e.g. "/bart")
-//   {category}    — "msg", "patch", "list", "clone", "rename", or a
-//                    top-level command like "blackout", "restore", "status"
+//   {category}    — "msg", "patch", "list", "clone", "rename", "save",
+//                    "load", "nvs", or a top-level command
 //   {name}        — the name of the target message or patch
 //   {command}     — the action to perform (defaults to "assign" if omitted)
 //
@@ -32,26 +42,27 @@
 //   stop                   — stop the send task
 //   enable                 — re-enable a stopped patch (same as start)
 //   disable / mute         — stop sending without deleting the task
-//   addmsg                 — add message(s) to this patch (comma-separated)
-//   removemsg              — remove a message from this patch
+//   addMsg                 — add message(s) to this patch (CSV payload)
+//   removeMsg              — remove a message from this patch
 //   period                 — set the send period in milliseconds
 //   override               — set which fields the patch forces on its messages
-//   adrmode                — set address composition mode (fallback/override/prepend/append)
-//   setall                 — set a property on all messages in this patch
+//   adrMode                — set address composition mode
+//   setAll                 — set a property on all messages in this patch
 //   solo                   — enable one message, disable all others in patch
 //   unsolo                 — re-enable all messages in this patch
+//   enableAll              — enable all messages in this patch
 //   info                   — reply with patch details
 //
 // ── CLONE COMMANDS (/annieData{dev}/clone/...) ─────────────────────────────
-//   msg      [src, dest]   — duplicate a message under a new name
-//   patch    [src, dest]   — duplicate a patch (and optionally its messages)
+//   msg     "src, dest"    — duplicate a message under a new name
+//   patch   "src, dest"    — duplicate a patch (and optionally its messages)
 //
 // ── RENAME COMMANDS (/annieData{dev}/rename/...) ───────────────────────────
-//   msg      [old, new]    — rename a message
-//   patch    [old, new]    — rename a patch
+//   msg     "old, new"     — rename a message
+//   patch   "old, new"     — rename a patch
 //
 // ── MOVE COMMAND (/annieData{dev}/move) ────────────────────────────────────
-//   (string args: msgName, patchName) — move a message into a different patch
+//   "msgName, patchName"   — move a message into a different patch
 //
 // ── LIST COMMANDS (/annieData{dev}/list/...) ───────────────────────────────
 //   msgs     [verbose?]    — reply with all message names (+ params if verbose)
@@ -66,6 +77,15 @@
 //   config   [config_str]  — set status destination (ip, port, address)
 //   level    [level_str]   — set minimum importance level
 //
+// ── SAVE / LOAD COMMANDS (/annieData{dev}/...) ─────────────────────────────
+//   save                   — save all patches and messages to NVS
+//   save/all               — same as save
+//   save/msg    "name"     — save one message to NVS
+//   save/patch  "name"     — save one patch to NVS
+//   load                   — load all patches and messages from NVS
+//   load/all               — same as load
+//   nvs/clear              — erase all saved OSC data from NVS
+//
 // =============================================================================
 
 #ifndef OSC_COMMANDS_H
@@ -75,6 +95,23 @@
 
 // Forward-declare the device address (defined in main.h / main.cpp).
 extern String device_adr;
+
+// ---------------------------------------------------------------------------
+// Command normaliser — accepts camelCase, snake_case, and lowercase
+// ---------------------------------------------------------------------------
+//
+// Strips underscores and lowercases everything, so "addMsg", "add_msg",
+// "addmsg", and "ADDMSG" all normalise to "addmsg".
+
+static inline String normalise_cmd(const String& raw) {
+    String out;
+    out.reserve(raw.length());
+    for (unsigned int i = 0; i < raw.length(); i++) {
+        char c = raw.charAt(i);
+        if (c != '_') out += (char)tolower(c);
+    }
+    return out;
+}
 
 // ---------------------------------------------------------------------------
 // Reply helper — sends a string back to whoever sent the command
@@ -108,6 +145,10 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
     address = address.substring(prefix.length());  // strip prefix
 
+    // Create a normalised copy for command matching (lowercase, no underscores).
+    // The original `address` is still used to extract user-defined names.
+    String norm_adr = normalise_cmd(address);
+
     // Source address for replies (remote IP + port the message came from).
     IPAddress sender_ip = Udp.remoteIP();
     unsigned int sender_port = Udp.remotePort();
@@ -117,13 +158,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
     // ── TOP-LEVEL COMMANDS (no name required) ──────────────────────────────
 
-    if (address == "/blackout") {
+    if (norm_adr == "/blackout") {
         blackout_all();
         osc_reply(sender_ip, sender_port, reply_adr, "BLACKOUT");
         return;
     }
 
-    if (address == "/restore") {
+    if (norm_adr == "/restore") {
         restore_all();
         osc_reply(sender_ip, sender_port, reply_adr, "RESTORE");
         return;
@@ -131,8 +172,8 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
     // ── STATUS COMMANDS ────────────────────────────────────────────────────
 
-    if (address.startsWith("/status")) {
-        String sub = address.substring(7);  // after "/status"
+    if (norm_adr.startsWith("/status")) {
+        String sub = normalise_cmd(address.substring(7));  // after "/status"
         if (sub == "/config" || sub == "/configure") {
             // Payload: "ip:x.x.x.x, port:NNNN, adr:/some/address"
             OscMessage cfg;
@@ -160,8 +201,8 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
     // ── LIST COMMANDS ──────────────────────────────────────────────────────
 
-    if (address.startsWith("/list")) {
-        String sub = address.substring(5);  // after "/list"
+    if (norm_adr.startsWith("/list")) {
+        String sub = normalise_cmd(address.substring(5));  // after "/list"
         // Optional "verbose" flag: any string argument → verbose.
         bool verbose = false;
         // Check if there is a string argument.
@@ -206,13 +247,21 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── CLONE COMMANDS ─────────────────────────────────────────────────────
+    //    Payload: single CSV string "sourceName, destName"
 
-    if (address.startsWith("/clone")) {
-        String sub = address.substring(6);  // after "/clone"
-        const char* src_name  = osc_msg.nextAsString();
-        const char* dest_name = osc_msg.nextAsString();
-        if (!src_name || !dest_name) {
-            status_reporter().error("cmd", "clone requires two string args: source, destination");
+    if (norm_adr.startsWith("/clone")) {
+        String sub = normalise_cmd(address.substring(6));  // after "/clone"
+        String arg = osc_msg.nextAsString();
+        arg.trim();
+        int comma = arg.indexOf(',');
+        if (comma < 0) {
+            status_reporter().error("cmd", "clone requires a CSV string: \"source, destination\"");
+            return;
+        }
+        String src_name  = osc_trim_copy(arg.substring(0, comma));
+        String dest_name = osc_trim_copy(arg.substring(comma + 1));
+        if (src_name.length() == 0 || dest_name.length() == 0) {
+            status_reporter().error("cmd", "clone requires two non-empty names: \"source, destination\"");
             return;
         }
 
@@ -221,7 +270,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         if (sub == "/msg" || sub == "/message") {
             OscMessage* src = reg.find_msg(src_name);
             if (!src) {
-                status_reporter().error("cmd", String("clone/msg: source '") + src_name + "' not found");
+                status_reporter().error("cmd", "clone/msg: source '" + src_name + "' not found");
                 reg.unlock();
                 return;
             }
@@ -232,16 +281,14 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 return;
             }
             // Copy all fields except name.
-            ExistFlags saved_exist = dest->exist;
-            String saved_name = dest->name;
             *dest = *src;
-            dest->name = String(dest_name);
+            dest->name = dest_name;
             dest->exist.name = true;
-            status_reporter().info("cmd", String("Cloned msg '") + src_name + "' → '" + dest_name + "'");
+            status_reporter().info("cmd", "Cloned msg '" + src_name + "' → '" + dest_name + "'");
         } else if (sub == "/patch") {
             OscPatch* src = reg.find_patch(src_name);
             if (!src) {
-                status_reporter().error("cmd", String("clone/patch: source '") + src_name + "' not found");
+                status_reporter().error("cmd", "clone/patch: source '" + src_name + "' not found");
                 reg.unlock();
                 return;
             }
@@ -262,12 +309,12 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->overrides      = src->overrides;
             dest->exist          = src->exist;
             dest->exist.name     = true;
-            dest->name           = String(dest_name);
+            dest->name           = dest_name;
             // Copy message list.
             dest->msg_count = src->msg_count;
             memcpy(dest->msg_indices, src->msg_indices,
                    src->msg_count * sizeof(int));
-            status_reporter().info("cmd", String("Cloned patch '") + src_name + "' → '" + dest_name + "'");
+            status_reporter().info("cmd", "Cloned patch '" + src_name + "' → '" + dest_name + "'");
         } else {
             status_reporter().warning("cmd", "Unknown clone target: " + sub);
         }
@@ -277,13 +324,21 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── RENAME COMMANDS ────────────────────────────────────────────────────
+    //    Payload: single CSV string "oldName, newName"
 
-    if (address.startsWith("/rename")) {
-        String sub = address.substring(7);  // after "/rename"
-        const char* old_name = osc_msg.nextAsString();
-        const char* new_name = osc_msg.nextAsString();
-        if (!old_name || !new_name) {
-            status_reporter().error("cmd", "rename requires two string args: old, new");
+    if (norm_adr.startsWith("/rename")) {
+        String sub = normalise_cmd(address.substring(7));  // after "/rename"
+        String arg = osc_msg.nextAsString();
+        arg.trim();
+        int comma = arg.indexOf(',');
+        if (comma < 0) {
+            status_reporter().error("cmd", "rename requires a CSV string: \"oldName, newName\"");
+            return;
+        }
+        String old_name = osc_trim_copy(arg.substring(0, comma));
+        String new_name = osc_trim_copy(arg.substring(comma + 1));
+        if (old_name.length() == 0 || new_name.length() == 0) {
+            status_reporter().error("cmd", "rename requires two non-empty names: \"oldName, newName\"");
             return;
         }
 
@@ -292,18 +347,18 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         if (sub == "/msg" || sub == "/message") {
             OscMessage* m = reg.find_msg(old_name);
             if (!m) {
-                status_reporter().error("cmd", String("rename/msg: '") + old_name + "' not found");
+                status_reporter().error("cmd", "rename/msg: '" + old_name + "' not found");
             } else {
-                m->name = String(new_name);
-                status_reporter().info("cmd", String("Renamed msg '") + old_name + "' → '" + new_name + "'");
+                m->name = new_name;
+                status_reporter().info("cmd", "Renamed msg '" + old_name + "' → '" + new_name + "'");
             }
         } else if (sub == "/patch") {
             OscPatch* p = reg.find_patch(old_name);
             if (!p) {
-                status_reporter().error("cmd", String("rename/patch: '") + old_name + "' not found");
+                status_reporter().error("cmd", "rename/patch: '" + old_name + "' not found");
             } else {
-                p->name = String(new_name);
-                status_reporter().info("cmd", String("Renamed patch '") + old_name + "' → '" + new_name + "'");
+                p->name = new_name;
+                status_reporter().info("cmd", "Renamed patch '" + old_name + "' → '" + new_name + "'");
             }
         } else {
             status_reporter().warning("cmd", "Unknown rename target: " + sub);
@@ -314,12 +369,20 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── MOVE COMMAND ───────────────────────────────────────────────────────
+    //    Payload: single CSV string "msgName, patchName"
 
-    if (address == "/move") {
-        const char* msg_name   = osc_msg.nextAsString();
-        const char* patch_name = osc_msg.nextAsString();
-        if (!msg_name || !patch_name) {
-            status_reporter().error("cmd", "move requires two args: msgName, patchName");
+    if (norm_adr == "/move") {
+        String arg = osc_msg.nextAsString();
+        arg.trim();
+        int comma = arg.indexOf(',');
+        if (comma < 0) {
+            status_reporter().error("cmd", "move requires a CSV string: \"msgName, patchName\"");
+            return;
+        }
+        String msg_name   = osc_trim_copy(arg.substring(0, comma));
+        String patch_name = osc_trim_copy(arg.substring(comma + 1));
+        if (msg_name.length() == 0 || patch_name.length() == 0) {
+            status_reporter().error("cmd", "move requires two non-empty names: \"msgName, patchName\"");
             return;
         }
 
@@ -328,12 +391,12 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         OscMessage* m = reg.find_msg(msg_name);
         OscPatch*   p = reg.find_patch(patch_name);
         if (!m) {
-            status_reporter().error("cmd", String("move: msg '") + msg_name + "' not found");
+            status_reporter().error("cmd", "move: msg '" + msg_name + "' not found");
             reg.unlock();
             return;
         }
         if (!p) {
-            status_reporter().error("cmd", String("move: patch '") + patch_name + "' not found");
+            status_reporter().error("cmd", "move: patch '" + patch_name + "' not found");
             reg.unlock();
             return;
         }
@@ -350,16 +413,91 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         m->patch = p;
         m->exist.patch = true;
 
-        status_reporter().info("cmd", String("Moved msg '") + msg_name
+        status_reporter().info("cmd", "Moved msg '" + msg_name
                                + "' → patch '" + patch_name + "'");
         reg.unlock();
         return;
     }
 
+    // ── SAVE COMMANDS ──────────────────────────────────────────────────────
+    //    /save          — save all patches and messages to NVS
+    //    /save/all      — same as /save
+    //    /save/msg      — save one message (payload: name)
+    //    /save/patch    — save one patch (payload: name)
+
+    if (norm_adr.startsWith("/save")) {
+        String sub = normalise_cmd(address.substring(5));  // after "/save"
+        reg.lock();
+
+        if (sub == "" || sub == "/all") {
+            int n = nvs_save_all();
+            status_reporter().info("nvs", "Saved " + String(n) + " objects to NVS");
+            osc_reply(sender_ip, sender_port, reply_adr + "/save", "Saved " + String(n) + " objects");
+        } else if (sub == "/msg" || sub == "/message") {
+            String name = osc_trim_copy(osc_msg.nextAsString());
+            if (name.length() == 0) {
+                status_reporter().error("nvs", "save/msg requires a message name");
+            } else if (nvs_save_msg(name)) {
+                status_reporter().info("nvs", "Saved msg '" + name + "' to NVS");
+            } else {
+                status_reporter().error("nvs", "save/msg: '" + name + "' not found");
+            }
+        } else if (sub == "/patch") {
+            String name = osc_trim_copy(osc_msg.nextAsString());
+            if (name.length() == 0) {
+                status_reporter().error("nvs", "save/patch requires a patch name");
+            } else if (nvs_save_patch(name)) {
+                status_reporter().info("nvs", "Saved patch '" + name + "' to NVS");
+            } else {
+                status_reporter().error("nvs", "save/patch: '" + name + "' not found");
+            }
+        } else {
+            status_reporter().warning("cmd", "Unknown save target: " + sub);
+        }
+
+        reg.unlock();
+        return;
+    }
+
+    // ── LOAD COMMANDS ──────────────────────────────────────────────────────
+    //    /load          — load all patches and messages from NVS
+    //    /load/all      — same as /load
+
+    if (norm_adr.startsWith("/load")) {
+        String sub = normalise_cmd(address.substring(5));  // after "/load"
+        reg.lock();
+
+        if (sub == "" || sub == "/all") {
+            int n = nvs_load_all();
+            status_reporter().info("nvs", "Loaded " + String(n) + " objects from NVS");
+            osc_reply(sender_ip, sender_port, reply_adr + "/load", "Loaded " + String(n) + " objects");
+        } else {
+            status_reporter().warning("cmd", "Unknown load target: " + sub);
+        }
+
+        reg.unlock();
+        return;
+    }
+
+    // ── NVS COMMANDS ───────────────────────────────────────────────────────
+    //    /nvs/clear     — erase all saved OSC data from NVS
+
+    if (norm_adr.startsWith("/nvs")) {
+        String sub = normalise_cmd(address.substring(4));  // after "/nvs"
+        if (sub == "/clear") {
+            nvs_clear_osc_data();
+            status_reporter().info("nvs", "Cleared all saved OSC data from NVS");
+            osc_reply(sender_ip, sender_port, reply_adr + "/nvs", "NVS cleared");
+        } else {
+            status_reporter().warning("cmd", "Unknown nvs command: " + sub);
+        }
+        return;
+    }
+
     // ── CATEGORY DISPATCH: /msg or /patch ──────────────────────────────────
 
-    bool is_msg   = address.startsWith("/msg");
-    bool is_patch = address.startsWith("/patch");
+    bool is_msg   = norm_adr.startsWith("/msg");
+    bool is_patch = norm_adr.startsWith("/patch");
 
     if (!is_msg && !is_patch) {
         status_reporter().warning("cmd", "Unknown category in: " + address);
@@ -394,6 +532,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     command.toLowerCase();
+    command = normalise_cmd(command);  // "addMsg" / "add_msg" / "addmsg" → "addmsg"
     Serial.println("  name=" + name_mp + "  cmd=" + command);
 
     // ════════════════════════════════════════════════════════════════════════
@@ -516,12 +655,15 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         // ── period ─────────────────────────────────────────────────────────
+        //    Payload: a string or integer with the period in milliseconds.
         else if (command == "period" || command == "rate") {
             OscPatch* p = reg.find_patch(name_mp);
             if (!p) {
                 status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
             } else {
-                int ms = (int)osc_msg.nextAsInt();
+                // Accept either a string like "50" or an integer argument.
+                String period_str = osc_msg.nextAsString();
+                int ms = period_str.toInt();
                 if (ms < 1) ms = 1;
                 if (ms > 60000) ms = 60000;
                 p->send_period_ms = (unsigned int)ms;
@@ -668,9 +810,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             status_reporter().info("patch", "Solo '" + solo_name + "' in patch '" + name_mp + "'");
         }
 
-        // ── unsolo ─────────────────────────────────────────────────────────
+        // ── unsolo / enableall ──────────────────────────────────────────────
         //    Re-enable all messages in this patch.
-        else if (command == "unsolo" || command == "unmute") {
+        else if (command == "unsolo" || command == "unmute" || command == "enableall") {
             OscPatch* p = reg.find_patch(name_mp);
             if (!p) {
                 status_reporter().warning("patch", "Patch '" + name_mp + "' not found");

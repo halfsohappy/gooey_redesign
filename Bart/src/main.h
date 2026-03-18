@@ -30,6 +30,9 @@ String device_adr;
 // --- Sending engine (FreeRTOS tasks, UDP, MicroOsc) -------------------------
 #include "osc_engine.h"
 
+// --- Non-volatile storage for patches and messages --------------------------
+#include "osc_storage.h"
+
 // --- Network provisioning (captive portal) ----------------------------------
 #include "network_setup.h"
 
