@@ -63,15 +63,18 @@ static inline SemaphoreHandle_t& osc_send_mutex() {
 
 inline void StatusReporter::send(StatusLevel lvl, const String& category,
                                   const String& message) {
-    if (!would_send(lvl)) return;
-
     // Build the payload: "[LEVEL] category: message"
     String payload = String("[") + status_level_label(lvl) + "] "
                    + category + ": " + message;
 
-    Serial.println(payload);  // always echo to serial for debugging
+    // Always echo to serial if the level passes the serial filter.
+    if (would_serial(lvl)) {
+        Serial.println(payload);
+    }
 
-    if (!configured || dest_port == 0) return;
+    // Send over OSC only if configured and level passes the OSC filter.
+    if (!would_send(lvl)) return;
+    if (dest_port == 0) return;
 
     xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
     osc.setDestination(dest_ip, dest_port);

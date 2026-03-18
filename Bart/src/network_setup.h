@@ -112,6 +112,7 @@ void network_config(){
 void reset_network_config(){
   preferences.begin("device_config", false);
   preferences.clear();
+  preferences.end();
 }
 
 #endif

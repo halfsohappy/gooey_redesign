@@ -39,4 +39,7 @@ String device_adr;
 // --- Incoming OSC command handler -------------------------------------------
 #include "osc_commands.h"
 
+// --- Serial debug command interface -----------------------------------------
+#include "serial_commands.h"
+
 #endif // _MAIN_H_
