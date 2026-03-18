@@ -394,7 +394,7 @@ Payload:  "low:0, high:127"
 This changes the output range to 0–127 without affecting the IP, port, or
 sensor assignment.
 
-### Referencing other objects
+### Referencing other objects (COOL & POWERFUL & IMPORTANT !!)
 
 Use `-` instead of `:` to copy a value from another registered message or
 patch:
