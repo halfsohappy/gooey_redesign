@@ -1,0 +1,707 @@
+# TheaterGWD Technical Guide
+
+## For Computer Engineering Students
+
+This document explains the complete TheaterGWD firmware codebase.  It covers the
+architecture, every module, and every OSC command the device supports.  The
+firmware runs on an ESP32-S3 microcontroller and turns sensor data into OSC
+messages that can be consumed by lighting consoles, audio mixers, or any other
+OSC-capable software.
+
+---
+
+## Table of Contents
+
+1. [System Overview](#1-system-overview)
+2. [Build System](#2-build-system)
+3. [Hardware Layer](#3-hardware-layer)
+4. [Network & Provisioning](#4-network--provisioning)
+5. [Data Streams](#5-data-streams)
+6. [Core Object Model](#6-core-object-model)
+7. [The OscRegistry](#7-the-oscregistry)
+8. [Sending Engine & FreeRTOS Tasks](#8-sending-engine--freertos-tasks)
+9. [Status Reporting](#9-status-reporting)
+10. [Command Reference](#10-command-reference)
+11. [Data Flow Diagram](#11-data-flow-diagram)
+12. [File Map](#12-file-map)
+13. [Concurrency & Mutex Strategy](#13-concurrency--mutex-strategy)
+14. [Memory Model](#14-memory-model)
+15. [Extending the Firmware](#15-extending-the-firmware)
+
+---
+
+## 1. System Overview
+
+TheaterGWD is firmware for an ESP32-S3 microcontroller equipped with:
+
+- **IMU** (SparkFun ISM330DHCX) — 3-axis accelerometer + 3-axis gyroscope
+- **Magnetometer** (SparkFun MMC5983MA) — 3-axis magnetic field
+- **Barometer** (Adafruit BMP5xx) — atmospheric pressure / altitude
+- **NeoPixel LED** — status indicator
+- **USB-C / Serial** — for debugging and firmware upload
+
+The device connects to a WiFi network (configured through a captive portal on
+first boot), then continuously reads its sensors and makes the data available
+as normalised `[0, 1]` floating-point values.
+
+Users configure **OscMessages** and **OscPatches** remotely by sending OSC
+commands to the device.  Once configured, the device autonomously sends sensor
+values as OSC float messages to the destinations defined by those patches, at
+the configured polling rates.
+
+### Key concepts
+
+| Term        | Meaning |
+|-------------|---------|
+| **OscMessage** | Maps one sensor value to one OSC destination (IP + port + address). |
+| **OscPatch**   | Groups one or more OscMessages.  A FreeRTOS task sends them all at a configurable rate. |
+| **Override**   | A patch can force its own IP / port / address / bounds on all its messages. |
+| **Address Mode** | Controls how patch and message OSC addresses are composed (fallback, override, prepend, append). |
+| **StatusReporter** | Sends status / error / progress strings to a monitoring device. |
+
+---
+
+## 2. Build System
+
+The project uses **PlatformIO** with the **Arduino framework** for
+**ESP32-S3**.
+
+### platformio.ini highlights
+
+```ini
+[env:esp32-s3-devkitc-1]
+platform  = espressif32
+board     = esp32-s3-devkitc-1
+framework = arduino
+
+lib_deps =
+    FastLED
+    MicroOSC=https://github.com/thomasfredericks/MicroOsc
+    WiFiProvisioner.git=https://github.com/halfsohappy/WiFiProvisioner.git
+    adafruit/Adafruit BMP5xx Library@^1.0.2
+    sparkfun/SparkFun 6DoF ISM330DHCX@^1.0.6
+    SparkFun MMC5983MA Magnetometer Arduino Library
+    martinbudden/SensorFusion@^0.2.14
+    martinbudden/VectorQuaternionMatrix@^0.4.10
+    martinbudden/Filters@^0.9.4
+```
+
+**Build command:** `pio run` (or use the PlatformIO IDE).
+
+**Upload command:** `pio run -t upload` (via USB/esptool).
+
+---
+
+## 3. Hardware Layer
+
+**Files:** `bart_hardware.h`, `bart_hardware.cpp`
+
+These files define pin mappings, sensor object declarations (`extern`), and
+initialisation routines:
+
+| Function              | Purpose |
+|-----------------------|---------|
+| `begin_pins()`        | Configure GPIO direction and mux selects. |
+| `begin_baro(CS_BAR)`  | Initialise the BMP5xx barometer over SPI. |
+| `begin_imu(ICS, MCS)` | Initialise the ISM330DHCX IMU and MMC5983MA magnetometer. |
+| `process_imu_data()`  | Normalise raw IMU readings. |
+
+All sensor drivers communicate over a shared SPI bus.
+
+---
+
+## 4. Network & Provisioning
+
+**File:** `network_setup.h`
+
+On first boot (or after a factory reset), the device has no WiFi credentials.
+It starts a **captive portal** using the WiFiProvisioner library:
+
+1. The ESP32 creates a soft-AP named *"annieData Setup"*.
+2. Connecting to it presents a web page where you enter:
+   - WiFi SSID and password
+   - Static IP address (or `"dhcp"`)
+   - UDP port number
+   - Device name (used as the OSC address prefix)
+3. On success the credentials are written to `Preferences` (NVS flash) and the
+   device reboots into normal mode.
+
+After provisioning, `begin_udp()` (in `osc_engine.h`) connects to WiFi and
+opens a UDP listener on the configured port.
+
+---
+
+## 5. Data Streams
+
+**File:** `data_streams.h`
+
+The global array `float data_streams[12]` holds the current normalised sensor
+values.  All values are in the range **[0, 1]**.
+
+| Index | Name | Physical meaning |
+|-------|------|-----------------|
+| 0  | `ACCELX` | Accelerometer X |
+| 1  | `ACCELY` | Accelerometer Y |
+| 2  | `ACCELZ` | Accelerometer Z |
+| 3  | `ACCELLENGTH` | Acceleration magnitude |
+| 4  | `GYROX` | Gyroscope X |
+| 5  | `GYROY` | Gyroscope Y |
+| 6  | `GYROZ` | Gyroscope Z |
+| 7  | `GYROLENGTH` | Gyroscope magnitude |
+| 8  | `BARO` | Barometric pressure |
+| 9  | `EULERX` | Euler angle X (roll) |
+| 10 | `EULERY` | Euler angle Y (pitch) |
+| 11 | `EULERZ` | Euler angle Z (yaw) |
+
+### Simulated data
+
+For development and testing, `update_simulated_data()` fills the array with
+sine waves at distinct frequencies (0.05 Hz – 2.3 Hz).  This is called from
+the sensor FreeRTOS task every 10 ms.
+
+### Helper functions
+
+- `data_stream_name(int index)` → human-readable name for an index.
+- `data_stream_index_from_name(String)` → case-insensitive name-to-index
+  lookup.
+- `data_stream_index_from_ptr(float*)` → reverse-lookup from a pointer into
+  `data_streams[]`.
+
+---
+
+## 6. Core Object Model
+
+### OscMessage (`osc_message.h`)
+
+An OscMessage binds a single sensor stream to an outbound OSC destination:
+
+```
+┌─────────────────────────────────────────┐
+│ OscMessage                              │
+├─────────────────────────────────────────┤
+│ name         : String                   │
+│ ip           : IPAddress                │
+│ port         : unsigned int             │
+│ osc_address  : String                   │
+│ patch        : OscPatch* (optional)     │
+│ value_ptr    : float*  → data_streams[] │
+│ bounds[2]    : float  (low, high)       │
+│ enabled      : bool                     │
+│ exist        : ExistFlags               │
+├─────────────────────────────────────────┤
+│ sendable()   : bool                     │
+│ from_config_str(csv) : bool             │
+│ to_info_string(verbose) : String        │
+│ operator*(other) : OscMessage           │
+└─────────────────────────────────────────┘
+```
+
+**ExistFlags** tracks which fields have been explicitly set.  This enables
+sparse configuration: you can set just `ip` and `port` in one command, then
+set `value` later, and the message remembers both.
+
+**The merge operator `*`:** `a * b` returns a new message whose fields come
+from `a` where set, falling back to `b` otherwise.  This is used when applying
+a partial config on top of an existing message.
+
+**Bounds / scaling:** Since all sensor values are normalised to [0, 1], the
+bounds define the output range.  The send task maps the value:
+`output = low + value × (high − low)`.  Default bounds are [0, 1] (no
+scaling).
+
+**`from_config_str()`** parses a CSV string like
+`"ip:192.168.1.100, port:9000, adr:/mixer/fader1, value:accelX, low:0, high:255"`.
+It supports two separator modes:
+- `:` (colon) — the value is a literal.
+- `-` (dash) — the value is a name in the registry to look up (reference mode).
+
+### OscPatch (`osc_patch.h`)
+
+An OscPatch groups messages and manages their transmission:
+
+```
+┌──────────────────────────────────────────────┐
+│ OscPatch                                     │
+├──────────────────────────────────────────────┤
+│ name           : String                      │
+│ ip / port / osc_address                      │
+│ bounds[2]      : float  (patch-level scale)  │
+│ address_mode   : AddressMode enum            │
+│ send_period_ms : unsigned int  (default 50)  │
+│ enabled        : bool                        │
+│ task_handle    : TaskHandle_t                │
+│ overrides      : OverrideFlags               │
+│ msg_indices[]  : int[MAX_MSGS_PER_PATCH]     │
+│ msg_count      : uint8_t                     │
+├──────────────────────────────────────────────┤
+│ add_msg(idx)   remove_msg(idx)               │
+│ has_msg(idx)   to_info_string(verbose)       │
+└──────────────────────────────────────────────┘
+```
+
+#### OverrideFlags
+
+When an override flag is **true**, every message in the patch uses the
+**patch's** value for that field instead of its own:
+
+| Flag   | Effect when ON |
+|--------|----------------|
+| `ip`   | All messages use the patch's IP. |
+| `port` | All messages use the patch's port. |
+| `adr`  | All messages use the patch's OSC address (see also AddressMode). |
+| `low`  | All messages use the patch's `bounds[0]` (low scale). |
+| `high` | All messages use the patch's `bounds[1]` (high scale). |
+
+When an override flag is **false**, each message uses its own value, with the
+patch providing a fallback if the message's value is not set.
+
+#### AddressMode
+
+Controls how the patch's `osc_address` and a message's `osc_address` are
+combined when sending:
+
+| Mode | Result | Example (patch=`/mixer`, msg=`/fader1`) |
+|------|--------|----------------------------------------|
+| `ADR_FALLBACK` (default) | Message address if set, else patch address. | `/fader1` |
+| `ADR_OVERRIDE` | Patch address replaces message address. | `/mixer` |
+| `ADR_PREPEND` | Patch address + message address. | `/mixer/fader1` |
+| `ADR_APPEND` | Message address + patch address. | `/fader1/mixer` |
+
+---
+
+## 7. The OscRegistry
+
+**File:** `osc_registry.h`
+
+The OscRegistry is a **Meyer's singleton** that owns every OscPatch and
+OscMessage in fixed-size arrays:
+
+```cpp
+OscPatch   patches[MAX_OSC_PATCHES];   // 64 slots
+OscMessage messages[MAX_OSC_MESSAGES]; // 256 slots
+```
+
+### Key methods
+
+| Method | Purpose |
+|--------|---------|
+| `find_patch(name)` | Case-insensitive lookup.  Returns `nullptr` if not found. |
+| `find_msg(name)` | Same for messages. |
+| `get_or_create_patch(name)` | Find or create.  Returns `nullptr` if full. |
+| `get_or_create_msg(name)` | Same for messages. |
+| `update_patch(src)` | Merge only the `exist`-flagged fields from `src`. |
+| `update_msg(src)` | Same for messages. |
+| `delete_patch(name)` | Delete + clean up all references. |
+| `delete_msg(name)` | Delete + remove from any patch. |
+| `patch_index(ptr)` / `msg_index(ptr)` | Convert pointer to array index. |
+
+### Thread safety
+
+The registry provides a FreeRTOS mutex via `lock()` / `unlock()`.  All command
+handlers and send tasks hold this mutex during access.
+
+---
+
+## 8. Sending Engine & FreeRTOS Tasks
+
+**File:** `osc_engine.h`
+
+### Transport globals
+
+```cpp
+WiFiUDP           Udp;             // shared UDP socket
+MicroOscUdp<1024> osc(&Udp);      // OSC encoder/decoder
+```
+
+### Send mutex
+
+A separate `osc_send_mutex()` serialises all `osc.sendFloat()` /
+`osc.sendString()` calls across tasks, since the MicroOscUdp instance is not
+thread-safe.
+
+### Patch send task
+
+Each running patch creates a FreeRTOS task (`patch_send_task`) that loops:
+
+```
+loop:
+  vTaskDelay(send_period_ms)
+  if not enabled → continue
+  lock registry
+  for each message in patch:
+    skip if disabled or no value_ptr
+    resolve effective IP, port, address, bounds
+    read sensor value from data_streams[]
+    map [0,1] → [low, high]
+    lock send mutex
+    osc.setDestination(ip, port)
+    osc.sendFloat(address, value)
+    unlock send mutex
+  unlock registry
+```
+
+### Resolution logic
+
+For each field (ip, port, address, bounds), the resolution follows:
+
+1. If the **patch overrides** the field AND the patch has it set → **patch
+   wins**.
+2. Else if the **message** has it set → **message wins**.
+3. Else if the **patch** has it set (no override, just fallback) → **patch**.
+4. Else → empty/zero (message is skipped).
+
+For addresses, the `AddressMode` adds composition:
+
+- **Prepend:** `patch.adr + msg.adr` (e.g. `/mixer/fader1`)
+- **Append:** `msg.adr + patch.adr` (e.g. `/fader1/mixer`)
+
+For bounds, the mapping is:
+```
+output = low + sensor_value × (high − low)
+```
+where `sensor_value` is always in [0, 1].
+
+### Lifecycle helpers
+
+| Function | Purpose |
+|----------|---------|
+| `start_patch(p)` | Create the FreeRTOS task, set `enabled = true`. |
+| `stop_patch(p)` | Delete the task, set `enabled = false`. |
+| `blackout_all()` | Stop every patch task. |
+| `restore_all()` | Restart every patch that has at least one message. |
+
+---
+
+## 9. Status Reporting
+
+**File:** `osc_status.h`
+
+The `StatusReporter` singleton sends human-readable strings to a single
+configurable OSC destination (typically a laptop running a monitoring tool).
+
+### Severity levels
+
+| Level | Value | Label | Purpose |
+|-------|-------|-------|---------|
+| `STATUS_ERROR` | 0 | `ERROR` | Something failed. |
+| `STATUS_WARNING` | 1 | `WARN` | Non-fatal problem. |
+| `STATUS_INFO` | 2 | `INFO` | Normal confirmations. |
+| `STATUS_DEBUG` | 3 | `DEBUG` | Verbose diagnostics. |
+
+The reporter has a configurable minimum level.  Only messages at or above this
+importance threshold are sent.  For example, setting the level to `ERROR` means
+only errors are forwarded.
+
+### Payload format
+
+```
+[LEVEL] category: message
+```
+
+Example: `[INFO] patch: Started patch 'mixer1'`
+
+All status messages are also printed to Serial for debugging.
+
+---
+
+## 10. Command Reference
+
+All commands are OSC messages sent to the device's UDP port.  The address
+format is:
+
+```
+/annieData{device_adr}/{category}/{name}/{command}
+```
+
+Where `{device_adr}` is the name set during provisioning (e.g. `/bart`).
+
+If `{command}` is omitted, it defaults to `"assign"`.
+
+**Case flexibility:** All command segments accept camelCase, snake_case, and
+plain lowercase.  `addMsg`, `add_msg`, and `addmsg` all normalise to the same
+command.  User-defined names preserve their case.
+
+**Payload format:** All payloads are a single string or a single number.
+Commands that need two values accept a single CSV string: `"name1, name2"`.
+
+### Message Commands
+
+`/annieData{dev}/msg/{name}/{command}`
+
+| Command | Payload | Description |
+|---------|---------|-------------|
+| *(none)* / `assign` | `"key:value, ..."` config string | Create or update a message. |
+| `delete` | *(none)* | Remove the message from the registry. |
+| `enable` / `unmute` | *(none)* | Enable the message for sending. |
+| `disable` / `mute` | *(none)* | Disable the message (skipped during send). |
+| `info` | *(none)* | Reply with the message's current parameters. |
+
+#### Config string keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `ip` | IP address | Destination IP (e.g. `192.168.1.100`). |
+| `port` | integer | Destination port (1–65535). |
+| `adr` / `addr` / `address` | string | OSC address (e.g. `/mixer/fader1`). |
+| `value` / `val` | sensor name | Sensor stream to send (e.g. `accelX`, `gyroZ`, `baro`). |
+| `low` / `min` / `lo` | float | Output bounds low (default 0). |
+| `high` / `max` / `hi` | float | Output bounds high (default 1). |
+| `patch` | patch name | Assign this message to a patch. |
+| `enabled` | `true`/`false` | Enable or disable the message. |
+
+**Reference mode:** Use `-` instead of `:` to inherit a value from a named
+registry object:
+
+```
+ip-mixer1, port-mixer1, value:accelX
+```
+
+This copies `ip` and `port` from the registered object named `mixer1`.
+
+**Default/all reference:** `default-mixer1` copies all set fields from
+`mixer1` as fallback values (only filling in fields not already set in this
+config string).
+
+### Patch Commands
+
+`/annieData{dev}/patch/{name}/{command}`
+
+| Command | Payload | Description |
+|---------|---------|-------------|
+| *(none)* / `assign` | config string | Create or update a patch (ip, port, adr, low, high). |
+| `delete` | *(none)* | Delete the patch and stop its task. |
+| `start` / `enable` / `go` | *(none)* | Create the FreeRTOS task and begin sending. |
+| `stop` / `disable` / `mute` | *(none)* | Stop the send task. |
+| `addMsg` / `add` | `"msg1, msg2, ..."` | Add messages to this patch (CSV names). |
+| `removeMsg` / `rmMsg` | `"msgName"` | Remove a message from this patch. |
+| `period` / `rate` | `"50"` (string or int) | Set the send period in milliseconds (1–60000). |
+| `override` | `"field1, field2, ..."` | Set which fields the patch overrides on its messages. |
+| `adrMode` / `addressMode` | mode string | Set address composition mode. |
+| `setAll` | config string | Apply a config to every message in this patch. |
+| `solo` | `"msgName"` | Enable one message, disable all others. |
+| `unsolo` / `unmute` | *(none)* | Re-enable all messages in the patch. |
+| `enableAll` | *(none)* | Enable all messages in this patch. |
+| `info` | *(none)* | Reply with the patch's parameters and message list. |
+
+#### Override field names
+
+`"ip"`, `"port"`, `"adr"`/`"addr"`/`"address"`, `"low"`/`"min"`,
+`"high"`/`"max"`, `"scale"`/`"bounds"` (sets both low and high),
+`"all"`, `"none"`.
+
+Prefix with `-` to turn off: `"-ip"`.
+
+#### Address modes
+
+`"fallback"` (default), `"override"`, `"prepend"`, `"append"`.
+
+### Clone Commands
+
+`/annieData{dev}/clone/msg` — payload: `"srcName, destName"`
+`/annieData{dev}/clone/patch` — payload: `"srcName, destName"`
+
+Creates a copy of a message or patch under a new name.  For patches, the
+message list is copied (task state is not).
+
+### Rename Commands
+
+`/annieData{dev}/rename/msg` — payload: `"oldName, newName"`
+`/annieData{dev}/rename/patch` — payload: `"oldName, newName"`
+
+### Move Command
+
+`/annieData{dev}/move` — payload: `"msgName, patchName"`
+
+Removes the message from its current patch and adds it to the named patch.
+
+### List Commands
+
+`/annieData{dev}/list/msgs` — optional payload: `"verbose"` or `"v"`
+`/annieData{dev}/list/patches` — optional payload: `"verbose"` or `"v"`
+`/annieData{dev}/list/all` — optional payload: `"verbose"` or `"v"`
+
+Replies with a text listing of all registered messages and/or patches.
+
+### Global Commands
+
+| Address | Description |
+|---------|-------------|
+| `/annieData{dev}/blackout` | Stop all patch tasks immediately. |
+| `/annieData{dev}/restore` | Restart all patches that have messages. |
+
+### Status Commands
+
+| Address | Payload | Description |
+|---------|---------|-------------|
+| `/annieData{dev}/status/config` | config string | Set status destination (ip, port, adr). |
+| `/annieData{dev}/status/level` | level string | Set minimum importance (`error`, `warn`, `info`, `debug`). |
+
+### Save / Load Commands
+
+| Address | Payload | Description |
+|---------|---------|-------------|
+| `/annieData{dev}/save` | *(none)* | Save all patches and messages to NVS. |
+| `/annieData{dev}/save/msg` | `"msgName"` | Save one message to NVS. |
+| `/annieData{dev}/save/patch` | `"patchName"` | Save one patch to NVS. |
+| `/annieData{dev}/load` | *(none)* | Load all patches and messages from NVS. |
+| `/annieData{dev}/nvs/clear` | *(none)* | Erase all saved OSC data from NVS. |
+
+### Direct Command
+
+| Address | Payload | Description |
+|---------|---------|-------------|
+| `/annieData{dev}/direct/{name}` | config string | One-step: create msg + patch, link, and start sending. |
+
+The config string is parsed with `from_config_str()` and also accepts an
+optional `period:N` key.  A message and patch are both created (or updated)
+with the name `{name}`, the message is added to the patch, and the patch
+task is started.  This is the fastest path to getting data flowing.
+
+---
+
+## 11. Data Flow Diagram
+
+```
+┌──────────────┐
+│   Sensors    │  (IMU, Baro, Mag)
+│   or Sim     │  update_simulated_data()
+└──────┬───────┘
+       │ writes
+       ▼
+┌──────────────┐
+│ data_streams │  float[12], all values in [0, 1]
+│    [0..11]   │
+└──────┬───────┘
+       │ read by
+       ▼
+┌──────────────────────────────────────────────────────┐
+│  Patch Send Task (FreeRTOS, one per patch)            │
+│                                                       │
+│  for each message:                                    │
+│    val = *msg.value_ptr                     [0, 1]    │
+│    low, high = resolve_bounds(msg, patch)              │
+│    output = low + val * (high - low)                  │
+│    ip, port, adr = resolve_destination(msg, patch)    │
+│    osc.setDestination(ip, port)                       │
+│    osc.sendFloat(adr, output)                         │
+└──────────────────────────────────────┬────────────────┘
+                                       │ UDP
+                                       ▼
+                              ┌─────────────────┐
+                              │  Network Target  │
+                              │  (mixer, QLab,   │
+                              │   console, etc.) │
+                              └─────────────────┘
+
+┌──────────────────┐
+│ Incoming OSC     │  from network (control laptop, etc.)
+│ (MicroOscUdp)    │
+└───────┬──────────┘
+        │ osc.onOscMessageReceived()
+        ▼
+┌──────────────────────────────────────────────────────┐
+│ osc_handle_message()  (osc_commands.h)                │
+│                                                       │
+│  Parse address → category / name / command            │
+│  Dispatch to handler → modify registry                │
+│  Send status reply                                    │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+## 12. File Map
+
+```
+Bart/src/
+├── main.cpp          Entry point: setup(), loop(), sensor task.
+├── main.h            Include orchestrator; defines device_adr.
+├── bart_hardware.h   Pin constants, sensor externs, struct norm_imu_data.
+├── bart_hardware.cpp Sensor init implementations (SPI, IMU, baro, mag).
+├── network_setup.h   WiFi captive-portal provisioning.
+├── data_streams.h    data_streams[12] array, index constants, simulated data.
+├── osc_message.h     OscMessage class, ExistFlags, from_config_str().
+├── osc_patch.h       OscPatch class, OverrideFlags, AddressMode enum.
+├── osc_registry.h    OscRegistry singleton, method implementations.
+├── osc_status.h      StatusReporter class, StatusLevel enum.
+├── osc_engine.h      WiFiUDP/MicroOscUdp globals, send task, lifecycle helpers.
+├── osc_storage.h     NVS persistence: save/load patches and messages.
+└── osc_commands.h    Incoming OSC command dispatcher (the big handler).
+```
+
+---
+
+## 13. Concurrency & Mutex Strategy
+
+The firmware runs multiple FreeRTOS tasks:
+
+| Task | Priority | Purpose |
+|------|----------|---------|
+| `loop()` (Arduino main) | 1 | Receive and process incoming OSC commands. |
+| `sensor_task` | 1 | Read sensors (or generate simulated data) at ~100 Hz. |
+| `p_{patchName}` (one per started patch) | 1 | Send OSC messages at the patch's rate. |
+
+Two mutexes protect shared state:
+
+1. **Registry mutex** (`reg.lock()` / `reg.unlock()`) — protects all reads
+   and writes to the `OscRegistry` arrays.  Both the command handler (main
+   loop) and the send tasks take this mutex.
+
+2. **Send mutex** (`osc_send_mutex()`) — serialises all `osc.sendFloat()` and
+   `osc.sendString()` calls.  The MicroOscUdp instance is not thread-safe, so
+   only one task may write to the UDP socket at a time.
+
+The `data_streams[]` array is written by the sensor task and read by the send
+tasks.  These are simple float writes (atomic on ARM Cortex-M / Xtensa), so
+no mutex is needed — a send task might read a value that is one cycle stale,
+which is acceptable for sensor data.
+
+---
+
+## 14. Memory Model
+
+All objects live in fixed-size arrays in the BSS segment.  No heap allocation
+(`new` / `malloc`) is used for registry storage.
+
+Approximate memory footprint:
+
+| Array | Size | Rough bytes |
+|-------|------|-------------|
+| `patches[64]` | 64 × ~300 bytes | ~19 KB |
+| `messages[256]` | 256 × ~100 bytes | ~25 KB |
+| `data_streams[12]` | 12 × 4 bytes | 48 bytes |
+
+The ESP32-S3 has ~512 KB of SRAM, of which ~300 KB is available after WiFi and
+BLE stacks.  The registry uses about 44 KB, leaving plenty of room.
+
+To change capacity, modify `MAX_OSC_PATCHES` and `MAX_OSC_MESSAGES` in
+`osc_message.h` and recompile.
+
+---
+
+## 15. Extending the Firmware
+
+### Adding a new sensor stream
+
+1. Increase `NUM_DATA_STREAMS` in `data_streams.h`.
+2. Add a new `#define` constant for the index.
+3. Update `data_stream_name()` and `data_stream_index_from_name()`.
+4. In the sensor task (`main.cpp`), write to `data_streams[NEW_INDEX]`.
+5. If using simulated data, add a sine wave in `update_simulated_data()`.
+
+### Adding a new command
+
+1. In `osc_commands.h`, add a new `else if` clause in the appropriate command
+   section (message commands or patch commands).
+2. Read arguments with `osc_msg.nextAsString()` or `osc_msg.nextAsInt()`.
+3. Modify the registry under `reg.lock()` / `reg.unlock()`.
+4. Send a status message with `status_reporter().info(...)`.
+5. Document the command in this guide and in the user guide.
+
+### Adding a new override field
+
+1. Add the field to `OverrideFlags` in `osc_patch.h`.
+2. Add a `resolve_*()` function in `osc_engine.h`.
+3. Use the resolved value in `patch_send_task()`.
+4. Add parsing in the `override` command handler in `osc_commands.h`.
+5. Update `to_info_string()` in `osc_registry.h`.
