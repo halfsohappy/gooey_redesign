@@ -487,6 +487,8 @@ To turn off an override, prefix the field with `-`:
 ```
 /annieData/bart/patch/showPatch/override  "-ip"
 ```
+(WAIT, THIS IS ANNOYING. WE ALREADY ESTABLISHED THAT '-' MEANS REFERENCING OBJECTS, NOT SUBTRACTION. WHAT THE HECK CLAUDE, WHY DID U DO THIS. AND WHY DIDNT I CATCH IT. ETHAN REMIND ME TOMORROW TO CHANGE THIS.)
+
 
 Available override fields: `ip`, `port`, `adr`, `low`, `high`, `scale`
 (shortcut for both low and high), `all`, `none`.
