@@ -180,10 +180,10 @@ Address:  /annieData/bart/patch/sensors/addMsg
 Payload:  "accelX"
 ```
 
-**Step 3: Set the send rate**
+**Step 3: Set the send rate (optional, default is 50ms)**
 ```
 Address:  /annieData/bart/patch/sensors/period
-Payload:  "50"
+Payload:  "100"
 ```
 
 **Step 4: Start sending**
@@ -191,7 +191,7 @@ Payload:  "50"
 Address:  /annieData/bart/patch/sensors/start
 ```
 
-The device is now sending the X-axis acceleration value to your target 20
+The device is now sending the X-axis acceleration value to your target 10
 times per second.
 
 **Step 5: Stop sending**
