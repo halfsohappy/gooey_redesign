@@ -141,6 +141,26 @@ your computer is on the same network.
 
 Using any OSC sender (such as Protokol, TouchOSC, oscsend, or a QLab script):
 
+### Fastest method — one command with `direct`
+
+```
+Address:  /annieData/bart/direct/mySetup
+Payload:  "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/accel/x, period:50"
+```
+
+That single command creates a message and patch, links them, and starts
+sending the X-axis acceleration to 192.168.1.50:9000 at 20 Hz.  Open an OSC
+monitor on your target machine and you will see values arriving immediately.
+
+To stop:
+```
+Address:  /annieData/bart/patch/mySetup/stop
+```
+
+### Step-by-step method
+
+If you need more control over the message and patch separately:
+
 **Step 1: Create a message**
 ```
 Address:  /annieData/bart/msg/accelX
@@ -163,7 +183,7 @@ Payload:  "accelX"
 **Step 3: Set the send rate**
 ```
 Address:  /annieData/bart/patch/sensors/period
-Payload:  50    (integer: 50 ms = 20 sends per second)
+Payload:  "50"
 ```
 
 **Step 4: Start sending**
@@ -296,6 +316,31 @@ power cycles.
 | `/annieData/{dev}/save/patch` | `"patchName"` | Save one patch to NVS. |
 | `/annieData/{dev}/load` | *(none)* | Load all patches and messages from NVS. |
 | `/annieData/{dev}/nvs/clear` | *(none)* | Erase all saved OSC data from NVS. |
+
+### Direct Command
+
+The `direct` command creates a message and patch, links them, and starts
+sending — all in one step.  This is the fastest way to start receiving data.
+
+| Address | Payload | What it does |
+|---------|---------|--------------|
+| `/annieData/{dev}/direct/{name}` | config string | Create msg + patch, add, and start sending. |
+
+The config string uses the same format as message creation, with an optional
+`period` key:
+
+```
+/annieData/bart/direct/mySetup   "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/x, period:50"
+```
+
+This single command:
+1. Creates a message named `mySetup` with the sensor and destination.
+2. Creates a patch named `mySetup` with the same destination.
+3. Adds the message to the patch.
+4. Starts sending at 50 ms intervals (20 Hz).
+
+If a message or patch with that name already exists, it is updated with the
+new values and restarted.
 
 ---
 

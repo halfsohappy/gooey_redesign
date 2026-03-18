@@ -546,6 +546,17 @@ Replies with a text listing of all registered messages and/or patches.
 | `/annieData{dev}/load` | *(none)* | Load all patches and messages from NVS. |
 | `/annieData{dev}/nvs/clear` | *(none)* | Erase all saved OSC data from NVS. |
 
+### Direct Command
+
+| Address | Payload | Description |
+|---------|---------|-------------|
+| `/annieData{dev}/direct/{name}` | config string | One-step: create msg + patch, link, and start sending. |
+
+The config string is parsed with `from_config_str()` and also accepts an
+optional `period:N` key.  A message and patch are both created (or updated)
+with the name `{name}`, the message is added to the patch, and the patch
+task is started.  This is the fastest path to getting data flowing.
+
 ---
 
 ## 11. Data Flow Diagram

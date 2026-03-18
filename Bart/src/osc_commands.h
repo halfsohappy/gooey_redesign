@@ -73,6 +73,9 @@
 //   blackout               — stop ALL patch tasks immediately
 //   restore                — restart all patches that have messages
 //
+// ── DIRECT COMMAND (/annieData{dev}/direct/{name}) ────────────────────────
+//   (config string payload) — one-step: create msg + patch, add, and start
+//
 // ── STATUS COMMANDS (/annieData{dev}/status/...) ───────────────────────────
 //   config   [config_str]  — set status destination (ip, port, address)
 //   level    [level_str]   — set minimum importance level
@@ -167,6 +170,113 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     if (norm_adr == "/restore") {
         restore_all();
         osc_reply(sender_ip, sender_port, reply_adr, "RESTORE");
+        return;
+    }
+
+    // ── DIRECT COMMAND ────────────────────────────────────────────────────
+    //    One-step: create a message + patch, add the message, and start
+    //    sending — all from a single OSC command.
+    //
+    //    Address:  /annieData{dev}/direct/{name}
+    //    Payload:  config string with value, ip, port, adr, and optionally
+    //              period, low, high.
+    //
+    //    Creates a message named "{name}" and a patch named "{name}" (or
+    //    updates them if they exist).  The message gets the sensor value and
+    //    destination fields.  The patch gets the destination and period.
+    //    The message is added to the patch, and the patch is started.
+    //
+    //    Example:
+    //      /annieData/bart/direct/mySetup
+    //      "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/x, period:50"
+
+    if (norm_adr.startsWith("/direct")) {
+        // Extract the name from the original address (preserves user's case).
+        String dname = address.substring(8);  // after "/direct/"
+        // Strip leading slash if present.
+        if (dname.startsWith("/")) dname = dname.substring(1);
+        dname.trim();
+        if (dname.length() == 0) {
+            status_reporter().error("cmd", "direct requires a name: /direct/{name}");
+            return;
+        }
+
+        // Parse the config string.
+        String cfg_str = osc_msg.nextAsString();
+        OscMessage parsed;
+        String err;
+        if (!parsed.from_config_str(cfg_str, &err)) {
+            status_reporter().warning("direct", "Parse warning: " + err);
+        }
+
+        // Extract period from config string (from_config_str doesn't handle it).
+        unsigned int period_ms = 50;  // default 50 ms = 20 Hz
+        {
+            String lower_cfg = cfg_str;
+            lower_cfg.toLowerCase();
+            int pi = lower_cfg.indexOf("period:");
+            if (pi < 0) pi = lower_cfg.indexOf("period-");
+            if (pi >= 0) {
+                int vstart = pi + 7;
+                int vend = lower_cfg.indexOf(',', vstart);
+                String pval = (vend < 0) ? cfg_str.substring(vstart)
+                                         : cfg_str.substring(vstart, vend);
+                pval.trim();
+                int pms = pval.toInt();
+                if (pms >= 1 && pms <= 60000) period_ms = (unsigned int)pms;
+            }
+        }
+
+        reg.lock();
+
+        // Create or update the message.
+        OscMessage* m = reg.get_or_create_msg(dname);
+        if (!m) {
+            status_reporter().error("direct", "Registry full (messages)");
+            reg.unlock();
+            return;
+        }
+        // Apply parsed fields to the message.
+        if (parsed.exist.ip)   { m->ip = parsed.ip;                   m->exist.ip   = true; }
+        if (parsed.exist.port) { m->port = parsed.port;               m->exist.port = true; }
+        if (parsed.exist.adr)  { m->osc_address = parsed.osc_address; m->exist.adr  = true; }
+        if (parsed.exist.val)  { m->value_ptr = parsed.value_ptr;     m->exist.val  = true; }
+        if (parsed.exist.low)  { m->bounds[0] = parsed.bounds[0];     m->exist.low  = true; }
+        if (parsed.exist.high) { m->bounds[1] = parsed.bounds[1];     m->exist.high = true; }
+        m->enabled = true;
+
+        // Create or update the patch.
+        OscPatch* p = reg.get_or_create_patch(dname);
+        if (!p) {
+            status_reporter().error("direct", "Registry full (patches)");
+            reg.unlock();
+            return;
+        }
+        if (parsed.exist.ip)   { p->ip = parsed.ip;                   p->exist.ip   = true; }
+        if (parsed.exist.port) { p->port = parsed.port;               p->exist.port = true; }
+        if (parsed.exist.adr)  { p->osc_address = parsed.osc_address; p->exist.adr  = true; }
+        if (parsed.exist.low)  { p->bounds[0] = parsed.bounds[0];     p->exist.low  = true; }
+        if (parsed.exist.high) { p->bounds[1] = parsed.bounds[1];     p->exist.high = true; }
+        p->send_period_ms = period_ms;
+
+        // Add the message to the patch (no-op if already there).
+        int mi = reg.msg_index(m);
+        p->add_msg(mi);
+        m->patch = p;
+        m->exist.patch = true;
+
+        // Start the patch (stop first if already running to pick up changes).
+        if (p->task_handle) {
+            stop_patch(p);
+        }
+        start_patch(p);
+
+        reg.unlock();
+
+        status_reporter().info("direct", "Created and started '" + dname
+                               + "' → " + (parsed.exist.ip ? parsed.ip.toString() : "?")
+                               + ":" + (parsed.exist.port ? String(parsed.port) : "?")
+                               + " @ " + String(period_ms) + "ms");
         return;
     }
 
