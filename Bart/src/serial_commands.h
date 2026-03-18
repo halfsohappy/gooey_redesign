@@ -378,13 +378,32 @@ static inline void serial_process() {
                     delay(500);
                     ESP.restart();
                 } else if (cmd == "provision") {
-                    Serial.println(F("Erasing provisioning data and rebooting..."));
-                    Preferences prefs;
-                    prefs.begin("device_config", false);
-                    prefs.clear();
-                    prefs.end();
-                    delay(500);
-                    ESP.restart();
+                    Serial.println(F("This will erase all provisioning data and reboot."));
+                    Serial.println(F("Type 'yes' to confirm:"));
+                    // Wait up to 10 seconds for confirmation.
+                    unsigned long t0 = millis();
+                    String confirm;
+                    while (millis() - t0 < 10000) {
+                        if (Serial.available()) {
+                            char ch = Serial.read();
+                            if (ch == '\n' || ch == '\r') break;
+                            confirm += ch;
+                        }
+                        delay(10);
+                    }
+                    confirm.trim();
+                    confirm.toLowerCase();
+                    if (confirm == "yes" || confirm == "y") {
+                        Serial.println(F("Erasing provisioning data and rebooting..."));
+                        Preferences prefs;
+                        prefs.begin("device_config", false);
+                        prefs.clear();
+                        prefs.end();
+                        delay(500);
+                        ESP.restart();
+                    } else {
+                        Serial.println(F("  Cancelled."));
+                    }
                 } else if (cmd == "uptime") {
                     _serial_cmd_uptime();
                 } else {
