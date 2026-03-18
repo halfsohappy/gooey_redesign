@@ -1,6 +1,6 @@
 # TheaterGWD Technical Guide
 
-## For Computer Engineering Students
+## For Computer Engineers
 
 This document explains the complete TheaterGWD firmware codebase.  It covers the
 architecture, every module, and every OSC command the device supports.  The
