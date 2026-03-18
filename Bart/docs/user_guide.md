@@ -711,6 +711,14 @@ To start fresh, clear all saved data:
   exact name you set during provisioning.
 - Check that your OSC sender is using UDP (not TCP).
 
+### You miss when the device layout was about mailmen/mailwomen/mailpeople
+
+- cry
+- skeuomorphism in system design is dead
+- I can't believe you made me rename it to "patch", ethan.
+- I recognize patch is better by every metric
+- hehe mailman(/woman/person). like the ones that go to your house
+
 ### Values are not arriving at my target
 
 - Make sure the patch is started (`/start`).
