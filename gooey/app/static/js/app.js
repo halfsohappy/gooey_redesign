@@ -229,11 +229,15 @@
     text = text.trim();
     if (!text) return;
 
-    /* Determine which device this reply belongs to */
+    /* Determine which device this reply belongs to.
+       Match "/deviceName/" or "/deviceName" at end of path. */
     var matchedId = "";
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
-      if (entry.address && entry.address.indexOf(d.name) !== -1) matchedId = id;
+      if (!entry.address) return;
+      var seg = "/" + d.name + "/";
+      var tail = "/" + d.name;
+      if (entry.address.indexOf(seg) !== -1 || entry.address.slice(-tail.length) === tail) matchedId = id;
     });
     if (!matchedId) matchedId = activeDeviceId;
     if (!matchedId) return;
@@ -528,7 +532,10 @@
     var deviceTag = "";
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
-      if (entry.address && entry.address.indexOf("/" + d.name + "/") !== -1) {
+      if (!entry.address) return;
+      var seg = "/" + d.name + "/";
+      var tail = "/" + d.name;
+      if (entry.address.indexOf(seg) !== -1 || entry.address.slice(-tail.length) === tail) {
         deviceTag = '<span class="log-device-tag">' + d.name + '</span> ';
       }
     });
@@ -546,7 +553,11 @@
   function appendToFeed(entry) {
     /* Device filter */
     var devFilter = ($("#feedDeviceFilter").value || "").trim();
-    if (devFilter && entry.address && entry.address.indexOf("/" + devFilter + "/") === -1) return;
+    if (devFilter && entry.address) {
+      var seg = "/" + devFilter + "/";
+      var tail = "/" + devFilter;
+      if (entry.address.indexOf(seg) === -1 && entry.address.slice(-tail.length) !== tail) return;
+    }
 
     /* Text filter */
     var filterText = ($("#feedFilter").value || "").trim().toLowerCase();

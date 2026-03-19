@@ -1,6 +1,5 @@
 """Flask application with SocketIO for TheaterGWD Control Center."""
 
-import json
 import re
 import threading
 
