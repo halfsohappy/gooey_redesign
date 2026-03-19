@@ -1,10 +1,10 @@
 /* =============================================
-   Gooey — Control Center
+   TheaterGWD Control Center
    Annabel Portfolio–inspired design language
    Light theme · Martian Mono · Playwrite DE Grund
    ============================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&family=Playwrite+IE:wght@400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&display=swap');
 
 :root {
   --bg: #ffffff;
@@ -47,14 +47,13 @@
 
   --font: "Martian Mono", monospace;
   --font-title: "Playwrite DE Grund", cursive;
-  --font-header: "Playwrite IE", cursive;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 300;
   color: var(--text-dark);
   background: var(--bg-alt);
@@ -82,9 +81,9 @@ body {
 .top-bar-left { flex-shrink: 0; }
 
 .logo {
-  font-family: var(--font-header);
-  font-size: 22px;
-  font-weight: 400;
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 500;
   color: var(--header-text);
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -274,10 +273,10 @@ body {
 }
 
 .nav-btn {
-  font-family: var(--font-title);
-  font-size: 12px;
+  font-family: var(--font);
+  font-size: 10px;
   font-weight: 400;
-  padding: 10px 14px;
+  padding: 10px 12px;
   border: none;
   background: none;
   color: var(--text-light);
@@ -361,7 +360,7 @@ body {
 
 label {
   display: block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -382,9 +381,9 @@ textarea,
 select {
   width: 100%;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
-  padding: 6px 10px;
+  padding: 5px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-input);
