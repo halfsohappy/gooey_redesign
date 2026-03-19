@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TheaterGWD Control Center</title>
+  <title>Gooey — Control Center</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
@@ -12,7 +12,7 @@
   <!-- ===== Top Bar ===== -->
   <header class="top-bar">
     <div class="top-bar-left">
-      <h1 class="logo">TheaterGWD<span class="logo-sub">Control Center</span></h1>
+      <h1 class="logo">Gooey<span class="logo-sub">Control Center</span></h1>
     </div>
     <div class="top-bar-center">
       <div class="conn-group conn-narrow">
@@ -41,40 +41,37 @@
     <!-- Left: Controls -->
     <div class="panel-left">
       <nav class="section-nav">
-        <button class="nav-btn active" data-section="dashboard">Dashboard</button>
-        <button class="nav-btn" data-section="messages">Messages</button>
-        <button class="nav-btn" data-section="patches">Patches</button>
-        <button class="nav-btn" data-section="direct">Direct</button>
-        <button class="nav-btn" data-section="advanced">Advanced</button>
-        <button class="nav-btn" data-section="reference">Reference</button>
+        <button class="nav-btn active" data-section="dashboard" title="Device controls, queries, and status config">Dashboard</button>
+        <button class="nav-btn" data-section="messages" title="View, create, and edit OSC messages">Messages</button>
+        <button class="nav-btn" data-section="patches" title="Manage patch groups and their messages">Patches</button>
+        <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + patch and starts streaming">Direct</button>
+        <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
+        <button class="nav-btn" data-section="reference" title="Command reference and keyword glossary">Reference</button>
       </nav>
 
       <div class="section-content">
 
         <!-- ===== DASHBOARD ===== -->
         <section class="section active" id="sec-dashboard">
-          <div class="card">
+          <div class="card" data-card-id="device-control">
             <h2>Device Control</h2>
             <div class="quick-grid">
-              <button class="qbtn qbtn-danger" data-cmd="blackout">⬛ Blackout</button>
-              <button class="qbtn qbtn-success" data-cmd="restore">🔆 Restore</button>
-              <button class="qbtn" data-cmd="save">💾 Save All</button>
-              <button class="qbtn" data-cmd="load">📂 Load All</button>
-              <button class="qbtn qbtn-warn" data-cmd="nvs_clear">🗑 NVS Clear</button>
+              <button class="qbtn qbtn-danger" data-cmd="blackout" title="Immediately stop all outputs">⬛ Blackout</button>
+              <button class="qbtn qbtn-success" data-cmd="restore" title="Restore previous output state">🔆 Restore</button>
+              <button class="qbtn" data-cmd="save" title="Save all messages, patches, and settings to NVS flash">💾 Save All</button>
+              <button class="qbtn" data-cmd="load" title="Load messages, patches, and settings from NVS flash">📂 Load All</button>
+              <button class="qbtn qbtn-warn" data-cmd="nvs_clear" data-confirm="Are you sure? This will erase all saved settings from flash memory." title="Erase all saved data from NVS flash">🗑 NVS Clear</button>
             </div>
           </div>
-          <div class="card">
+          <div class="card" data-card-id="query-device">
             <h2>Query Device</h2>
             <p class="hint-text">Refresh the local registry by querying the device. Results appear in the live feed and automatically update the Messages/Patches tables.</p>
             <div class="quick-grid">
-              <button class="qbtn" data-cmd="list_messages">📋 List Messages</button>
-              <button class="qbtn" data-cmd="list_patches">📋 List Patches</button>
-              <button class="qbtn" data-cmd="list_all">📋 List All</button>
-              <button class="qbtn" data-cmd="list_messages" data-payload="verbose">📋 Messages (verbose)</button>
-              <button class="qbtn" data-cmd="list_patches" data-payload="verbose">📋 Patches (verbose)</button>
+              <button class="qbtn" data-cmd="list_all" title="Query all messages and patches (names only)">📋 Query</button>
+              <button class="qbtn" data-cmd="list_all" data-payload="verbose" title="Query all messages and patches with full details">📋 Query Verbose</button>
             </div>
           </div>
-          <div class="card">
+          <div class="card" data-card-id="status-config">
             <h2>Status Configuration</h2>
             <p class="hint-text">Tell the device where to send status messages so you can monitor it in the live feed.</p>
             <div class="form-row">
@@ -104,8 +101,8 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnStatusConfig">Apply Status Config</button>
-              <button class="btn btn-secondary" id="btnStatusLevel">Set Level</button>
+              <button class="btn btn-primary" id="btnStatusConfig" title="Send status destination config to device">Apply Status Config</button>
+              <button class="btn btn-secondary" id="btnStatusLevel" title="Change the OSC status reporting level">Set Level</button>
             </div>
           </div>
         </section>
@@ -114,7 +111,7 @@
         <section class="section" id="sec-messages">
           <div class="card">
             <h2>Messages</h2>
-            <p class="hint-text">Click "List Messages" on the Dashboard to populate from device, or add manually below. Select a row to edit.</p>
+            <p class="hint-text">Click "Query" on the Dashboard to populate from device, or add manually below. Select a row to edit.</p>
             <div style="overflow-x:auto">
               <table class="data-table" id="msgTable">
                 <thead>
@@ -198,8 +195,8 @@
               <input type="text" id="msgPreview" class="preview-input" readonly>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnMsgApply">Apply to Device</button>
-              <button class="btn btn-secondary" id="btnMsgClear">Clear Form</button>
+              <button class="btn btn-primary" id="btnMsgApply" title="Send this message config to the device">Apply to Device</button>
+              <button class="btn btn-secondary" id="btnMsgClear" title="Clear all form fields">Clear Form</button>
             </div>
           </div>
 
@@ -217,8 +214,8 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnMsgClone">Clone</button>
-              <button class="btn btn-secondary" id="btnMsgRename">Rename</button>
+              <button class="btn btn-primary" id="btnMsgClone" title="Duplicate a message with a new name">Clone</button>
+              <button class="btn btn-secondary" id="btnMsgRename" title="Rename an existing message">Rename</button>
             </div>
           </div>
         </section>
@@ -227,7 +224,7 @@
         <section class="section" id="sec-patches">
           <div class="card">
             <h2>Patches</h2>
-            <p class="hint-text">Click "List Patches" on the Dashboard to populate from device. Start/stop patches directly from the table.</p>
+            <p class="hint-text">Click "Query" on the Dashboard to populate from device. Start/stop patches directly from the table.</p>
             <div style="overflow-x:auto">
               <table class="data-table" id="patchTable">
                 <thead>
@@ -280,9 +277,9 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchApply">Apply to Device</button>
-              <button class="btn btn-accent" id="btnPatchStart">▶ Start</button>
-              <button class="btn btn-stop" id="btnPatchStop">⏹ Stop</button>
+              <button class="btn btn-primary" id="btnPatchApply" title="Send this patch config to the device">Apply to Device</button>
+              <button class="btn btn-accent" id="btnPatchStart" title="Start streaming this patch">▶ Start</button>
+              <button class="btn btn-stop" id="btnPatchStop" title="Stop streaming this patch">⏹ Stop</button>
             </div>
           </div>
 
@@ -301,10 +298,10 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchAddMsg">Add to Patch</button>
-              <button class="btn btn-secondary" id="btnPatchRemoveMsg">Remove from Patch</button>
-              <button class="btn btn-secondary" id="btnPatchSolo">Solo</button>
-              <button class="btn btn-secondary" id="btnPatchMove">Move</button>
+              <button class="btn btn-primary" id="btnPatchAddMsg" title="Add message(s) to the patch">Add to Patch</button>
+              <button class="btn btn-secondary" id="btnPatchRemoveMsg" title="Remove message(s) from the patch">Remove from Patch</button>
+              <button class="btn btn-secondary" id="btnPatchSolo" title="Solo: keep only these messages in the patch">Solo</button>
+              <button class="btn btn-secondary" id="btnPatchMove" title="Move message(s) from their current patch to this one">Move</button>
             </div>
           </div>
 
@@ -322,8 +319,8 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchClone">Clone</button>
-              <button class="btn btn-secondary" id="btnPatchRename">Rename</button>
+              <button class="btn btn-primary" id="btnPatchClone" title="Duplicate a patch with a new name">Clone</button>
+              <button class="btn btn-secondary" id="btnPatchRename" title="Rename an existing patch">Rename</button>
             </div>
           </div>
         </section>
@@ -390,17 +387,17 @@
               <input type="text" id="directPreview" class="preview-input" readonly>
             </div>
             <div class="btn-row">
-              <button class="btn btn-accent" id="btnDirectSend">🚀 Send Direct</button>
-              <button class="btn btn-secondary" id="btnDirectCopy">📋 Copy Config</button>
+              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + patch, links, and starts streaming immediately">🚀 Send Direct</button>
+              <button class="btn btn-secondary" id="btnDirectCopy" title="Copy the config string to clipboard">📋 Copy Config</button>
             </div>
           </div>
         </section>
 
         <!-- ===== ADVANCED ===== -->
         <section class="section" id="sec-advanced">
-          <div class="card">
+          <div class="card" data-card-id="raw-osc">
             <h2>Raw OSC Send</h2>
-            <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated.</p>
+            <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated by default.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="rawHost">Host</label>
@@ -416,8 +413,11 @@
               <input type="text" id="rawAddress" placeholder="/path/to/control">
             </div>
             <div class="form-group">
-              <label for="rawArgs">Arguments <span class="hint">(space-separated)</span></label>
+              <label for="rawArgs">Arguments <span class="hint">(space-separated unless "single string" is checked)</span></label>
               <input type="text" id="rawArgs" placeholder='1 2.0 "hello"'>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label" title="Send the entire argument field as one string argument instead of splitting on spaces"><input type="checkbox" id="rawSingleString"> Send as single string</label>
             </div>
             <div class="form-row">
               <div class="form-group fg-narrow">
@@ -426,13 +426,13 @@
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnRawSend">Send Once</button>
-              <button class="btn btn-accent" id="btnRawRepeat">Start Repeat</button>
-              <button class="btn btn-stop" id="btnRawStop" disabled>Stop Repeat</button>
+              <button class="btn btn-primary" id="btnRawSend" title="Send this OSC message once">Send Once</button>
+              <button class="btn btn-accent" id="btnRawRepeat" title="Send this message repeatedly at the interval above">Start Repeat</button>
+              <button class="btn btn-stop" id="btnRawStop" disabled title="Stop the repeated send">Stop Repeat</button>
             </div>
           </div>
 
-          <div class="card">
+          <div class="card" data-card-id="bridge">
             <h2>Bridge</h2>
             <p class="hint-text">Forward OSC messages from one port to another host/port.</p>
             <div class="form-row">
@@ -454,8 +454,8 @@
               <input type="text" id="bridgeFilter" placeholder="e.g. sensor or -debug">
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnBridgeStart">Start Bridge</button>
-              <button class="btn btn-stop" id="btnBridgeStop" disabled>Stop All Bridges</button>
+              <button class="btn btn-primary" id="btnBridgeStart" title="Start forwarding messages from listen port to target">Start Bridge</button>
+              <button class="btn btn-stop" id="btnBridgeStop" disabled title="Stop all active bridges">Stop All Bridges</button>
             </div>
             <div class="active-list" id="activeBridges"></div>
           </div>
@@ -501,7 +501,7 @@
           </select>
           <label class="toggle-label"><input type="checkbox" id="feedAutoScroll" checked> Auto-scroll</label>
           <input type="text" id="feedFilter" class="feed-filter-input" placeholder="Filter...">
-          <button class="btn btn-small btn-ghost" id="btnFeedClear">Clear</button>
+          <button class="btn btn-small btn-ghost" id="btnFeedClear" title="Clear all entries from the live feed">Clear</button>
         </div>
       </div>
       <div class="feed-log" id="feedLog"></div>
