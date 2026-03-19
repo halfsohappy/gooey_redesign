@@ -9,30 +9,17 @@
 </head>
 <body>
 
-  <!-- ===== Top Bar: Connection Settings ===== -->
+  <!-- ===== Top Bar ===== -->
   <header class="top-bar">
     <div class="top-bar-left">
       <h1 class="logo">TheaterGWD<span class="logo-sub">Control Center</span></h1>
     </div>
     <div class="top-bar-center">
-      <div class="conn-group">
-        <label for="deviceHost">Device IP</label>
-        <input type="text" id="deviceHost" value="127.0.0.1" placeholder="192.168.x.x">
-      </div>
       <div class="conn-group conn-narrow">
-        <label for="devicePort">Port</label>
-        <input type="number" id="devicePort" value="8000" min="1" max="65535">
-      </div>
-      <div class="conn-group">
-        <label for="deviceName">Name</label>
-        <input type="text" id="deviceName" value="bart" placeholder="bart">
-      </div>
-      <div class="conn-sep"></div>
-      <div class="conn-group conn-narrow">
-        <label for="replyPort">Reply Port</label>
+        <label for="replyPort">Listen Port</label>
         <input type="number" id="replyPort" value="9000" min="1" max="65535">
       </div>
-      <button class="btn btn-listen" id="btnReplyListen" title="Start listening for device replies">
+      <button class="btn-listen" id="btnReplyListen" title="Start/stop listening for device replies">
         <span class="listen-dot" id="listenDot"></span> Listen
       </button>
     </div>
@@ -41,6 +28,12 @@
       <span class="ws-label" id="wsLabel">Connecting...</span>
     </div>
   </header>
+
+  <!-- ===== Device Strip ===== -->
+  <div class="device-strip" id="deviceStrip">
+    <!-- Populated by JS -->
+    <button id="btnAddDevice" title="Add device">+</button>
+  </div>
 
   <!-- ===== Main Split Layout ===== -->
   <div class="app-layout">
@@ -67,23 +60,23 @@
               <button class="qbtn qbtn-success" data-cmd="restore">🔆 Restore</button>
               <button class="qbtn" data-cmd="save">💾 Save All</button>
               <button class="qbtn" data-cmd="load">📂 Load All</button>
-              <button class="qbtn qbtn-warn" data-cmd="nvs_clear">🗑️ NVS Clear</button>
+              <button class="qbtn qbtn-warn" data-cmd="nvs_clear">🗑 NVS Clear</button>
             </div>
           </div>
           <div class="card">
-            <h2>List &amp; Query</h2>
+            <h2>Query Device</h2>
+            <p class="hint-text">Refresh the local registry by querying the device. Results appear in the live feed and automatically update the Messages/Patches tables.</p>
             <div class="quick-grid">
-              <button class="qbtn" data-cmd="list_messages">📋 Messages</button>
-              <button class="qbtn" data-cmd="list_patches">📋 Patches</button>
-              <button class="qbtn" data-cmd="list_all">📋 All</button>
-              <button class="qbtn" data-cmd="list_messages" data-payload="verbose">📋 Messages (v)</button>
-              <button class="qbtn" data-cmd="list_patches" data-payload="verbose">📋 Patches (v)</button>
-              <button class="qbtn" data-cmd="list_all" data-payload="verbose">📋 All (v)</button>
+              <button class="qbtn" data-cmd="list_messages">📋 List Messages</button>
+              <button class="qbtn" data-cmd="list_patches">📋 List Patches</button>
+              <button class="qbtn" data-cmd="list_all">📋 List All</button>
+              <button class="qbtn" data-cmd="list_messages" data-payload="verbose">📋 Messages (verbose)</button>
+              <button class="qbtn" data-cmd="list_patches" data-payload="verbose">📋 Patches (verbose)</button>
             </div>
           </div>
           <div class="card">
             <h2>Status Configuration</h2>
-            <p class="hint-text">Tell the device where to send status messages so you can see them in the feed.</p>
+            <p class="hint-text">Tell the device where to send status messages so you can monitor it in the live feed.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="statusIP">Your IP</label>
@@ -120,17 +113,43 @@
         <!-- ===== MESSAGES ===== -->
         <section class="section" id="sec-messages">
           <div class="card">
-            <h2>Create / Update Message</h2>
+            <h2>Messages</h2>
+            <p class="hint-text">Click "List Messages" on the Dashboard to populate from device, or add manually below. Select a row to edit.</p>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="msgTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Sensor</th>
+                    <th>IP</th>
+                    <th>Port</th>
+                    <th>Address</th>
+                    <th>Low</th>
+                    <th>High</th>
+                    <th>Patch</th>
+                    <th>Enabled</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="msgTableBody">
+                  <tr><td colspan="10" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Create / Edit Message</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="msgName">Message Name</label>
-                <input type="text" id="msgName" value="accelX" placeholder="e.g. accelX">
+                <label for="msgName">Name</label>
+                <input type="text" id="msgName" placeholder="e.g. accelX">
               </div>
               <div class="form-group">
-                <label for="msgValue">Sensor Value</label>
+                <label for="msgValue">Sensor</label>
                 <select id="msgValue">
                   <option value="">— none —</option>
-                  <option value="accelX" selected>accelX</option>
+                  <option value="accelX">accelX</option>
                   <option value="accelY">accelY</option>
                   <option value="accelZ">accelZ</option>
                   <option value="accelLength">accelLength</option>
@@ -148,15 +167,15 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="msgIP">Target IP</label>
-                <input type="text" id="msgIP" value="192.168.1.50" placeholder="192.168.1.50">
+                <input type="text" id="msgIP" placeholder="192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
-                <label for="msgPort">Target Port</label>
+                <label for="msgPort">Port</label>
                 <input type="number" id="msgPort" value="9000" min="1" max="65535">
               </div>
               <div class="form-group">
-                <label for="msgAdr">Target Address</label>
-                <input type="text" id="msgAdr" value="/sensor/x" placeholder="/sensor/x">
+                <label for="msgAdr">Address</label>
+                <input type="text" id="msgAdr" placeholder="/sensor/x">
               </div>
             </div>
             <div class="form-row">
@@ -170,7 +189,8 @@
               </div>
               <div class="form-group">
                 <label for="msgPatch">Patch</label>
-                <input type="text" id="msgPatch" placeholder="assign to patch">
+                <input type="text" id="msgPatch" placeholder="assign to patch" list="patchNameList">
+                <datalist id="patchNameList"></datalist>
               </div>
             </div>
             <div class="form-group">
@@ -178,24 +198,8 @@
               <input type="text" id="msgPreview" class="preview-input" readonly>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnMsgCreate">Create Message</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>Message Actions</h2>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="msgActionName">Message Name</label>
-                <input type="text" id="msgActionName" placeholder="message name">
-              </div>
-            </div>
-            <div class="quick-grid">
-              <button class="qbtn" data-msg-action="info">ℹ️ Info</button>
-              <button class="qbtn qbtn-success" data-msg-action="enable">✅ Enable</button>
-              <button class="qbtn qbtn-warn" data-msg-action="disable">⏸️ Disable</button>
-              <button class="qbtn qbtn-danger" data-msg-action="delete">🗑️ Delete</button>
-              <button class="qbtn" data-msg-action="save">💾 Save</button>
+              <button class="btn btn-primary" id="btnMsgApply">Apply to Device</button>
+              <button class="btn btn-secondary" id="btnMsgClear">Clear Form</button>
             </div>
           </div>
 
@@ -203,8 +207,9 @@
             <h2>Clone / Rename Message</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="msgSrcName">Source Name</label>
-                <input type="text" id="msgSrcName" placeholder="existing name">
+                <label for="msgSrcName">Source</label>
+                <input type="text" id="msgSrcName" placeholder="existing name" list="msgNameList">
+                <datalist id="msgNameList"></datalist>
               </div>
               <div class="form-group">
                 <label for="msgDestName">New Name</label>
@@ -221,33 +226,41 @@
         <!-- ===== PATCHES ===== -->
         <section class="section" id="sec-patches">
           <div class="card">
-            <h2>Patch Control</h2>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="patchName">Patch Name</label>
-                <input type="text" id="patchName" value="sensors" placeholder="patch name">
-              </div>
-            </div>
-            <div class="quick-grid">
-              <button class="qbtn qbtn-success" data-patch-action="start">▶️ Start</button>
-              <button class="qbtn qbtn-danger" data-patch-action="stop">⏹️ Stop</button>
-              <button class="qbtn" data-patch-action="info">ℹ️ Info</button>
-              <button class="qbtn qbtn-warn" data-patch-action="delete">🗑️ Delete</button>
-              <button class="qbtn" data-patch-action="save">💾 Save</button>
-              <button class="qbtn" data-patch-action="enableAll">✅ Enable All</button>
-              <button class="qbtn" data-patch-action="unsolo">🔊 Unsolo</button>
+            <h2>Patches</h2>
+            <p class="hint-text">Click "List Patches" on the Dashboard to populate from device. Start/stop patches directly from the table.</p>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="patchTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Period</th>
+                    <th>Adr Mode</th>
+                    <th>Overrides</th>
+                    <th>Messages</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="patchTableBody">
+                  <tr><td colspan="6" class="empty-state">No patches tracked. Query the device or create one below.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
           <div class="card">
-            <h2>Patch Configuration</h2>
+            <h2>Create / Edit Patch</h2>
             <div class="form-row">
+              <div class="form-group">
+                <label for="patchName">Patch Name</label>
+                <input type="text" id="patchName" placeholder="e.g. sensors" list="patchNameList2">
+                <datalist id="patchNameList2"></datalist>
+              </div>
               <div class="form-group fg-narrow">
                 <label for="patchPeriod">Period (ms)</label>
-                <input type="number" id="patchPeriod" value="50" min="1" placeholder="50">
+                <input type="number" id="patchPeriod" value="50" min="1">
               </div>
               <div class="form-group">
-                <label for="patchAdrMode">Address Mode</label>
+                <label for="patchAdrMode">Adr Mode</label>
                 <select id="patchAdrMode">
                   <option value="fallback">fallback</option>
                   <option value="override">override</option>
@@ -257,13 +270,19 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="patchOverride">Override Flags <span class="hint">(e.g. ip+port+adr)</span></label>
-              <input type="text" id="patchOverride" placeholder="ip+port+adr+low+high">
+              <label>Override Flags</label>
+              <div class="cb-row">
+                <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
+                <label class="cb-label"><input type="checkbox" id="ovPort"> port</label>
+                <label class="cb-label"><input type="checkbox" id="ovAdr"> adr</label>
+                <label class="cb-label"><input type="checkbox" id="ovLow"> low</label>
+                <label class="cb-label"><input type="checkbox" id="ovHigh"> high</label>
+              </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchPeriod">Set Period</button>
-              <button class="btn btn-secondary" id="btnPatchAdrMode">Set Adr Mode</button>
-              <button class="btn btn-secondary" id="btnPatchOverride">Set Override</button>
+              <button class="btn btn-primary" id="btnPatchApply">Apply to Device</button>
+              <button class="btn btn-accent" id="btnPatchStart">▶ Start</button>
+              <button class="btn btn-stop" id="btnPatchStop">⏹ Stop</button>
             </div>
           </div>
 
@@ -271,27 +290,21 @@
             <h2>Patch ↔ Message</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchMsgNames">Message Name(s) <span class="hint">(comma-sep)</span></label>
-                <input type="text" id="patchMsgNames" placeholder="msg1, msg2">
+                <label for="patchMsgPatch">Patch</label>
+                <input type="text" id="patchMsgPatch" placeholder="patch name" list="patchNameList3">
+                <datalist id="patchNameList3"></datalist>
+              </div>
+              <div class="form-group">
+                <label for="patchMsgNames">Message(s) <span class="hint">(comma-sep)</span></label>
+                <input type="text" id="patchMsgNames" placeholder="msg1, msg2" list="msgNameList2">
+                <datalist id="msgNameList2"></datalist>
               </div>
             </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="btnPatchAddMsg">Add to Patch</button>
               <button class="btn btn-secondary" id="btnPatchRemoveMsg">Remove from Patch</button>
               <button class="btn btn-secondary" id="btnPatchSolo">Solo</button>
-              <button class="btn btn-secondary" id="btnPatchMove">Move to Patch</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>Patch setAll</h2>
-            <p class="hint-text">Apply a config string to every message in the patch.</p>
-            <div class="form-group">
-              <label for="patchSetAllConfig">Config String</label>
-              <input type="text" id="patchSetAllConfig" placeholder="ip:192.168.1.50, port:9000">
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchSetAll">Apply setAll</button>
+              <button class="btn btn-secondary" id="btnPatchMove">Move</button>
             </div>
           </div>
 
@@ -299,8 +312,9 @@
             <h2>Clone / Rename Patch</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchSrcName">Source Name</label>
-                <input type="text" id="patchSrcName" placeholder="existing patch">
+                <label for="patchSrcName">Source</label>
+                <input type="text" id="patchSrcName" placeholder="existing patch" list="patchNameList4">
+                <datalist id="patchNameList4"></datalist>
               </div>
               <div class="form-group">
                 <label for="patchDestName">New Name</label>
@@ -318,14 +332,14 @@
         <section class="section" id="sec-direct">
           <div class="card">
             <h2>Direct Command</h2>
-            <p class="hint-text">One-step setup: creates a message + patch, links them, and starts streaming immediately.</p>
+            <p class="hint-text">One-step: creates a message + patch, links them, and starts streaming immediately.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="directName">Name</label>
                 <input type="text" id="directName" value="quickSend" placeholder="name">
               </div>
               <div class="form-group">
-                <label for="directValue">Sensor Value</label>
+                <label for="directValue">Sensor</label>
                 <select id="directValue">
                   <option value="">— none —</option>
                   <option value="accelX">accelX</option>
@@ -346,15 +360,15 @@
             <div class="form-row">
               <div class="form-group">
                 <label for="directIP">Target IP</label>
-                <input type="text" id="directIP" value="192.168.1.50" placeholder="192.168.1.50">
+                <input type="text" id="directIP" value="192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
-                <label for="directPort">Target Port</label>
+                <label for="directPort">Port</label>
                 <input type="number" id="directPort" value="9000" min="1" max="65535">
               </div>
               <div class="form-group">
-                <label for="directAdr">Target Address</label>
-                <input type="text" id="directAdr" value="/sensor/x" placeholder="/sensor/x">
+                <label for="directAdr">Address</label>
+                <input type="text" id="directAdr" value="/sensor/x">
               </div>
             </div>
             <div class="form-row">
@@ -368,7 +382,7 @@
               </div>
               <div class="form-group fg-narrow">
                 <label for="directPeriod">Period (ms)</label>
-                <input type="number" id="directPeriod" value="50" min="1" placeholder="50">
+                <input type="number" id="directPeriod" value="50" min="1">
               </div>
             </div>
             <div class="form-group">
@@ -377,7 +391,7 @@
             </div>
             <div class="btn-row">
               <button class="btn btn-accent" id="btnDirectSend">🚀 Send Direct</button>
-              <button class="btn btn-secondary" id="btnDirectCopy" title="Copy config string">📋 Copy Config</button>
+              <button class="btn btn-secondary" id="btnDirectCopy">📋 Copy Config</button>
             </div>
           </div>
         </section>
@@ -386,11 +400,11 @@
         <section class="section" id="sec-advanced">
           <div class="card">
             <h2>Raw OSC Send</h2>
-            <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated; use the list format for a single string payload.</p>
+            <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="rawHost">Host</label>
-                <input type="text" id="rawHost" value="127.0.0.1" placeholder="127.0.0.1">
+                <input type="text" id="rawHost" value="127.0.0.1">
               </div>
               <div class="form-group fg-narrow">
                 <label for="rawPort">Port</label>
@@ -402,7 +416,7 @@
               <input type="text" id="rawAddress" placeholder="/path/to/control">
             </div>
             <div class="form-group">
-              <label for="rawArgs">Arguments <span class="hint">(space-separated: 1 2.0 hello)</span></label>
+              <label for="rawArgs">Arguments <span class="hint">(space-separated)</span></label>
               <input type="text" id="rawArgs" placeholder='1 2.0 "hello"'>
             </div>
             <div class="form-row">
@@ -415,34 +429,6 @@
               <button class="btn btn-primary" id="btnRawSend">Send Once</button>
               <button class="btn btn-accent" id="btnRawRepeat">Start Repeat</button>
               <button class="btn btn-stop" id="btnRawStop" disabled>Stop Repeat</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>JSON Batch Send</h2>
-            <div class="form-group">
-              <label for="jsonInput">JSON Messages</label>
-              <textarea id="jsonInput" rows="6" placeholder='[
-  { "address": "/light/on", "args": [1] },
-  { "address": "/light/off", "args": [0] }
-]'></textarea>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="jsonHost">Host</label>
-                <input type="text" id="jsonHost" value="127.0.0.1">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="jsonPort">Port</label>
-                <input type="number" id="jsonPort" value="8000" min="1" max="65535">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="jsonInterval">Interval (ms)</label>
-                <input type="number" id="jsonInterval" value="0" min="0">
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnJsonSend">Send JSON</button>
             </div>
           </div>
 
@@ -510,6 +496,9 @@
       <div class="feed-header">
         <h2>Live Activity</h2>
         <div class="feed-controls">
+          <select class="feed-device-select" id="feedDeviceFilter" title="Filter by device">
+            <option value="">All devices</option>
+          </select>
           <label class="toggle-label"><input type="checkbox" id="feedAutoScroll" checked> Auto-scroll</label>
           <input type="text" id="feedFilter" class="feed-filter-input" placeholder="Filter...">
           <button class="btn btn-small btn-ghost" id="btnFeedClear">Clear</button>

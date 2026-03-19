@@ -1,141 +1,561 @@
 /* ==============================================
    TheaterGWD Control Center — Frontend
+   Multi-device · registry-based · table-driven
    ============================================== */
 
 (function () {
   "use strict";
 
-  const MAX_LOG_ENTRIES = 500;
+  var MAX_LOG_ENTRIES = 500;
 
-  // ---- Socket.IO ----
-  const socket = io({ transports: ["websocket", "polling"] });
+  /* ── Socket.IO ── */
+  var socket = io({ transports: ["websocket", "polling"] });
 
-  // ---- DOM helpers ----
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => document.querySelectorAll(sel);
+  /* ── DOM helpers ── */
+  var $ = function (sel) { return document.querySelector(sel); };
+  var $$ = function (sel) { return document.querySelectorAll(sel); };
 
-  // ---- Connection status ----
-  socket.on("connect", () => {
+  /* ── Connection indicator ── */
+  socket.on("connect", function () {
     $("#wsDot").className = "ws-dot connected";
     $("#wsLabel").textContent = "Connected";
   });
-
-  socket.on("disconnect", () => {
+  socket.on("disconnect", function () {
     $("#wsDot").className = "ws-dot error";
     $("#wsLabel").textContent = "Disconnected";
   });
 
-  // ---- Section navigation ----
-  $$(".nav-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      $$(".nav-btn").forEach((b) => b.classList.remove("active"));
-      $$(".section").forEach((s) => s.classList.remove("active"));
+  /* ── Section nav ── */
+  $$(".nav-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      $$(".nav-btn").forEach(function (b) { b.classList.remove("active"); });
+      $$(".section").forEach(function (s) { s.classList.remove("active"); });
       btn.classList.add("active");
-      const sec = $(`#sec-${btn.dataset.section}`);
+      var sec = $("#sec-" + btn.dataset.section);
       if (sec) sec.classList.add("active");
     });
   });
 
-  // ---- Toast ----
+  /* ── Toast ── */
   function toast(msg, type) {
     type = type || "info";
-    const container = $("#toastContainer");
-    const el = document.createElement("div");
+    var el = document.createElement("div");
     el.className = "toast toast-" + type;
     el.textContent = msg;
-    container.appendChild(el);
-    setTimeout(() => {
+    $("#toastContainer").appendChild(el);
+    setTimeout(function () {
       el.style.opacity = "0";
       el.style.transform = "translateX(20px)";
       el.style.transition = "all 0.2s ease-out";
-      setTimeout(() => el.remove(), 250);
+      setTimeout(function () { el.remove(); }, 250);
     }, 3000);
   }
 
-  // ---- API helper ----
-  function api(endpoint, data) {
-    return fetch("/api/" + endpoint, {
-      method: "POST",
+  /* ── API helper ── */
+  function api(endpoint, data, method) {
+    var opts = {
+      method: method || "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    })
-      .then((r) => r.json())
-      .then((res) => {
+    };
+    if (data) opts.body = JSON.stringify(data);
+    return fetch("/api/" + endpoint, opts)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
         if (res.status === "error") toast(res.message, "error");
         return res;
       })
-      .catch((err) => {
+      .catch(function (err) {
         toast("Request failed: " + err.message, "error");
         return { status: "error", message: err.message };
       });
   }
 
-  // ---- Device connection helpers ----
-  function devHost() { return $("#deviceHost").value.trim() || "127.0.0.1"; }
-  function devPort() { return parseInt($("#devicePort").value, 10) || 8000; }
-  function devName() { return $("#deviceName").value.trim() || "bart"; }
+  /* ═══════════════════════════════════════════
+     DEVICE MANAGEMENT  (multi-device)
+     ═══════════════════════════════════════════ */
+  var devices = {};        // { id: { host, port, name, messages:{}, patches:{} } }
+  var activeDeviceId = "";  // current tab
 
-  /**
-   * Send a TheaterGWD command.
-   * @param {string} address - OSC address (with {device}/{name} placeholders resolved)
-   * @param {string|null} payload - Config string payload (sent as single string arg)
-   */
+  function generateDeviceId(host, port, name) {
+    return name + "@" + host + ":" + port;
+  }
+
+  function addDevice(host, port, name) {
+    var id = generateDeviceId(host, port, name);
+    if (!devices[id]) {
+      devices[id] = { host: host, port: parseInt(port, 10), name: name, messages: {}, patches: {} };
+    }
+    activeDeviceId = id;
+    renderDeviceTabs();
+    refreshAllDropdowns();
+    return id;
+  }
+
+  function removeDevice(id) {
+    delete devices[id];
+    if (activeDeviceId === id) {
+      var keys = Object.keys(devices);
+      activeDeviceId = keys.length > 0 ? keys[0] : "";
+    }
+    renderDeviceTabs();
+    renderMsgTable();
+    renderPatchTable();
+    refreshAllDropdowns();
+  }
+
+  function getActiveDev() {
+    return devices[activeDeviceId] || null;
+  }
+
+  function devHost() { var d = getActiveDev(); return d ? d.host : "127.0.0.1"; }
+  function devPort() { var d = getActiveDev(); return d ? d.port : 8000; }
+  function devName() { var d = getActiveDev(); return d ? d.name : "bart"; }
+
+  /* ── Device tab rendering ── */
+  function renderDeviceTabs() {
+    var strip = $("#deviceStrip");
+    var addBtn = $("#btnAddDevice");
+    /* remove existing tabs */
+    $$(".device-tab").forEach(function (t) { t.remove(); });
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      var tab = document.createElement("button");
+      tab.className = "device-tab" + (id === activeDeviceId ? " active" : "");
+      tab.dataset.deviceId = id;
+      tab.innerHTML = '<span class="dev-dot"></span>' + d.name + " <span class='dev-remove' title='Remove'>✕</span>";
+      tab.addEventListener("click", function (e) {
+        if (e.target.classList.contains("dev-remove")) {
+          removeDevice(id);
+          return;
+        }
+        activeDeviceId = id;
+        renderDeviceTabs();
+        renderMsgTable();
+        renderPatchTable();
+        refreshAllDropdowns();
+      });
+      strip.insertBefore(tab, addBtn);
+    });
+    /* Update feed device filter */
+    var sel = $("#feedDeviceFilter");
+    var curVal = sel.value;
+    sel.innerHTML = '<option value="">All devices</option>';
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      var opt = document.createElement("option");
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    sel.value = curVal;
+  }
+
+  /* ── Add-device button ── */
+  $("#btnAddDevice").addEventListener("click", function () {
+    var host = prompt("Device IP address:", "192.168.1.100");
+    if (!host) return;
+    var port = prompt("Device port:", "8000");
+    if (!port) return;
+    var name = prompt("Device name (unique identifier):", "bart");
+    if (!name) return;
+    addDevice(host.trim(), parseInt(port, 10), name.trim());
+    renderMsgTable();
+    renderPatchTable();
+    toast("Device added: " + name, "success");
+  });
+
+  /* Initialize with one default device */
+  addDevice("127.0.0.1", 8000, "bart");
+
+  /* ═══════════════════════════════════════════
+     SEND HELPERS
+     ═══════════════════════════════════════════ */
+
+  /** Send a TheaterGWD command for the active device. */
   function sendCmd(address, payload) {
     var data = {
       host: devHost(),
       port: devPort(),
       address: address,
     };
-    // CRITICAL FIX: Send config-string payloads as a single-element array
-    // so the backend does NOT split them by spaces. TheaterGWD expects one
-    // string argument for config strings like "value:accelX, ip:192.168.1.50".
+    /* Config-string payloads must be sent as single-element array
+       so the backend does NOT split them by spaces. */
     if (payload) {
       data.args = [payload];
     }
     return api("send", data);
   }
 
-  /** Build an address from a template, substituting {device} and {name}. */
+  /** Build an OSC address from a template, substituting {device} and {name}. */
   function addr(template, name) {
     var a = template.replace("{device}", devName());
     if (name !== undefined) a = a.replace("{name}", name);
     return a;
   }
 
-  // ---- Log rendering ----
+  /* ── Command address map ── */
+  var CMD_ADDRESSES = {
+    blackout:       "/annieData/{device}/blackout",
+    restore:        "/annieData/{device}/restore",
+    save:           "/annieData/{device}/save",
+    load:           "/annieData/{device}/load",
+    nvs_clear:      "/annieData/{device}/nvs/clear",
+    list_messages:  "/annieData/{device}/list/msgs",
+    list_patches:   "/annieData/{device}/list/patches",
+    list_all:       "/annieData/{device}/list/all",
+  };
+
+  /* ═══════════════════════════════════════════
+     REPLY PARSING  — auto-populate registry
+     ═══════════════════════════════════════════ */
+
+  /**
+   * Parse incoming OSC messages from the device. The device sends status
+   * replies that include message and patch info. We try to extract names
+   * and parameters from them to keep the local registry in sync.
+   *
+   * Typical reply patterns:
+   *   /annieData/{device}/status   "msg: accelX | value:accelX ip:192.168.1.50 ..."
+   *   /annieData/{device}/status   "patch: sensors | period:50 adrMode:fallback msgs:accelX+accelY"
+   *   /annieData/{device}/status   "[INFO] list/msgs: accelX, accelY, gyroZ"
+   */
+  function parseReplyIntoRegistry(entry) {
+    if (entry.direction !== "recv") return;
+
+    var text = "";
+    (entry.args || []).forEach(function (a) {
+      if (a.value !== undefined) text += " " + a.value;
+    });
+    text = text.trim();
+    if (!text) return;
+
+    /* Determine which device this reply belongs to */
+    var matchedId = "";
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      if (entry.address && entry.address.indexOf(d.name) !== -1) matchedId = id;
+    });
+    if (!matchedId) matchedId = activeDeviceId;
+    if (!matchedId) return;
+    var dev = devices[matchedId];
+    if (!dev) return;
+
+    /* ── Parse list replies ── */
+    var listMatch = text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
+    if (listMatch) {
+      var names = listMatch[1].split(/[,\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+      var isMsgList = text.match(/list\/msgs/i) || text.match(/list\/all/i);
+      var isPatchList = text.match(/list\/patches/i) || text.match(/list\/all/i);
+      names.forEach(function (n) {
+        if (isMsgList && !dev.messages[n]) {
+          dev.messages[n] = {};
+        }
+        if (isPatchList && !dev.patches[n]) {
+          dev.patches[n] = {};
+        }
+      });
+      renderMsgTable();
+      renderPatchTable();
+      refreshAllDropdowns();
+      return;
+    }
+
+    /* ── Parse msg info reply ── */
+    var msgMatch = text.match(/msg:\s*(\S+)\s*\|\s*(.*)/i);
+    if (msgMatch) {
+      var mName = msgMatch[1];
+      var mParams = parseConfigString(msgMatch[2]);
+      dev.messages[mName] = Object.assign(dev.messages[mName] || {}, mParams);
+      renderMsgTable();
+      refreshAllDropdowns();
+      return;
+    }
+
+    /* ── Parse patch info reply ── */
+    var patchMatch = text.match(/patch:\s*(\S+)\s*\|\s*(.*)/i);
+    if (patchMatch) {
+      var pName = patchMatch[1];
+      var pParams = parseConfigString(patchMatch[2]);
+      dev.patches[pName] = Object.assign(dev.patches[pName] || {}, pParams);
+      renderPatchTable();
+      refreshAllDropdowns();
+      return;
+    }
+
+    /* ── Parse verbose list lines (key:val pairs with a leading name) ── */
+    var verboseMatch = text.match(/^\[(?:INFO|DEBUG)\]\s+(\S+)\s*[:=]\s*(.*)/i);
+    if (verboseMatch) {
+      var vName = verboseMatch[1];
+      var vRest = verboseMatch[2];
+      if (vRest.indexOf("value:") !== -1 || vRest.indexOf("ip:") !== -1 || vRest.indexOf("adr:") !== -1) {
+        var vParams = parseConfigString(vRest);
+        dev.messages[vName] = Object.assign(dev.messages[vName] || {}, vParams);
+        renderMsgTable();
+        refreshAllDropdowns();
+      } else if (vRest.indexOf("period:") !== -1 || vRest.indexOf("adrMode:") !== -1 || vRest.indexOf("msgs:") !== -1) {
+        var vpParams = parseConfigString(vRest);
+        dev.patches[vName] = Object.assign(dev.patches[vName] || {}, vpParams);
+        renderPatchTable();
+        refreshAllDropdowns();
+      }
+    }
+  }
+
+  /** Parse a config string like "value:accelX ip:192.168.1.50 port:9000" into an object. */
+  function parseConfigString(str) {
+    var result = {};
+    var parts = str.split(/[\s,]+/);
+    parts.forEach(function (p) {
+      var idx = p.indexOf(":");
+      if (idx > 0) {
+        result[p.substring(0, idx).trim()] = p.substring(idx + 1).trim();
+      }
+    });
+    return result;
+  }
+
+  /* ═══════════════════════════════════════════
+     MESSAGE TABLE
+     ═══════════════════════════════════════════ */
+
+  function renderMsgTable() {
+    var dev = getActiveDev();
+    var tbody = $("#msgTableBody");
+    tbody.innerHTML = "";
+    if (!dev || Object.keys(dev.messages).length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>';
+      return;
+    }
+    Object.keys(dev.messages).forEach(function (name) {
+      var m = dev.messages[name];
+      var tr = document.createElement("tr");
+      tr.dataset.msgName = name;
+      tr.innerHTML =
+        '<td class="cell-name">' + esc(name) + '</td>' +
+        '<td class="cell-mono">' + esc(m.value || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.ip || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.port || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.low || m.min || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.high || m.max || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.patch || "") + '</td>' +
+        '<td>' + (m.enabled === "false" ? "❌" : "✅") + '</td>' +
+        '<td class="cell-actions">' +
+          '<button class="tbl-btn" data-act="info">ℹ️</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="enable">✅</button>' +
+          '<button class="tbl-btn" data-act="disable">🔇</button>' +
+          '<button class="tbl-btn" data-act="save">💾</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete">🗑</button>' +
+        '</td>';
+      /* Row click → populate edit form */
+      tr.querySelector(".cell-name").addEventListener("click", function () {
+        populateMsgForm(name, m);
+      });
+      /* Action buttons */
+      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          msgAction(btn.dataset.act, name);
+        });
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function populateMsgForm(name, m) {
+    $("#msgName").value = name;
+    $("#msgValue").value = m.value || "";
+    $("#msgIP").value = m.ip || "";
+    $("#msgPort").value = m.port || "9000";
+    $("#msgAdr").value = m.adr || m.addr || m.address || "";
+    $("#msgLow").value = m.low || m.min || "";
+    $("#msgHigh").value = m.high || m.max || "";
+    $("#msgPatch").value = m.patch || "";
+    updateMsgPreview();
+    /* scroll to form */
+    $$(".nav-btn")[1].click(); // switch to messages tab
+    $("#msgName").focus();
+  }
+
+  function msgAction(act, name) {
+    var template;
+    switch (act) {
+      case "info":    template = "/annieData/{device}/msg/{name}/info"; break;
+      case "enable":  template = "/annieData/{device}/msg/{name}/enable"; break;
+      case "disable": template = "/annieData/{device}/msg/{name}/disable"; break;
+      case "save":    sendCmd(addr("/annieData/{device}/save/msg"), name); return;
+      case "delete":  template = "/annieData/{device}/msg/{name}/delete"; break;
+      default: return;
+    }
+    sendCmd(addr(template, name), null).then(function (res) {
+      if (res.status === "ok") toast(act + ": " + name, "success");
+    });
+  }
+
+  /* ═══════════════════════════════════════════
+     PATCH TABLE
+     ═══════════════════════════════════════════ */
+
+  function renderPatchTable() {
+    var dev = getActiveDev();
+    var tbody = $("#patchTableBody");
+    tbody.innerHTML = "";
+    if (!dev || Object.keys(dev.patches).length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No patches tracked. Query the device or create one below.</td></tr>';
+      return;
+    }
+    Object.keys(dev.patches).forEach(function (name) {
+      var p = dev.patches[name];
+      var msgsStr = p.msgs || "";
+      if (typeof msgsStr === "string") msgsStr = msgsStr.replace(/\+/g, ", ");
+      var tr = document.createElement("tr");
+      tr.dataset.patchName = name;
+      tr.innerHTML =
+        '<td class="cell-name">' + esc(name) + '</td>' +
+        '<td class="cell-mono">' + esc(p.period || "50") + ' ms</td>' +
+        '<td class="cell-mono">' + esc(p.adrMode || p.adrmode || "fallback") + '</td>' +
+        '<td class="cell-mono">' + esc(p.override || "—") + '</td>' +
+        '<td class="cell-mono" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
+        '<td class="cell-actions">' +
+          '<button class="tbl-btn tbl-btn-success" data-act="start">▶</button>' +
+          '<button class="tbl-btn tbl-btn-stop" data-act="stop">⏹</button>' +
+          '<button class="tbl-btn" data-act="info">ℹ️</button>' +
+          '<button class="tbl-btn" data-act="enableAll">✅</button>' +
+          '<button class="tbl-btn" data-act="unsolo">🔊</button>' +
+          '<button class="tbl-btn" data-act="save">💾</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete">🗑</button>' +
+        '</td>';
+      tr.querySelector(".cell-name").addEventListener("click", function () {
+        populatePatchForm(name, p);
+      });
+      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          patchAction(btn.dataset.act, name);
+        });
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function populatePatchForm(name, p) {
+    $("#patchName").value = name;
+    $("#patchPeriod").value = p.period || "50";
+    $("#patchAdrMode").value = p.adrMode || p.adrmode || "fallback";
+    var ov = (p.override || "").split("+");
+    $("#ovIP").checked = ov.indexOf("ip") !== -1;
+    $("#ovPort").checked = ov.indexOf("port") !== -1;
+    $("#ovAdr").checked = ov.indexOf("adr") !== -1;
+    $("#ovLow").checked = ov.indexOf("low") !== -1;
+    $("#ovHigh").checked = ov.indexOf("high") !== -1;
+    $$(".nav-btn")[2].click(); // patches tab
+    $("#patchName").focus();
+  }
+
+  function patchAction(act, name) {
+    var template;
+    switch (act) {
+      case "start":     template = "/annieData/{device}/patch/{name}/start"; break;
+      case "stop":      template = "/annieData/{device}/patch/{name}/stop"; break;
+      case "info":      template = "/annieData/{device}/patch/{name}/info"; break;
+      case "enableAll": template = "/annieData/{device}/patch/{name}/enableAll"; break;
+      case "unsolo":    template = "/annieData/{device}/patch/{name}/unsolo"; break;
+      case "save":      sendCmd(addr("/annieData/{device}/save/patch"), name); return;
+      case "delete":    template = "/annieData/{device}/patch/{name}/delete"; break;
+      default: return;
+    }
+    sendCmd(addr(template, name), null).then(function (res) {
+      if (res.status === "ok") toast(act + ": " + name, "success");
+    });
+  }
+
+  /* ═══════════════════════════════════════════
+     DROPDOWN / DATALIST REFRESH
+     ═══════════════════════════════════════════ */
+
+  function refreshAllDropdowns() {
+    var dev = getActiveDev();
+    if (!dev) return;
+
+    /* Message name datalists */
+    var msgNames = Object.keys(dev.messages);
+    ["#msgNameList", "#msgNameList2"].forEach(function (sel) {
+      var dl = $(sel);
+      if (!dl) return;
+      dl.innerHTML = "";
+      msgNames.forEach(function (n) {
+        var o = document.createElement("option");
+        o.value = n;
+        dl.appendChild(o);
+      });
+    });
+
+    /* Patch name datalists */
+    var patchNames = Object.keys(dev.patches);
+    ["#patchNameList", "#patchNameList2", "#patchNameList3", "#patchNameList4"].forEach(function (sel) {
+      var dl = $(sel);
+      if (!dl) return;
+      dl.innerHTML = "";
+      patchNames.forEach(function (n) {
+        var o = document.createElement("option");
+        o.value = n;
+        dl.appendChild(o);
+      });
+    });
+  }
+
+  /* ═══════════════════════════════════════════
+     LOG / FEED
+     ═══════════════════════════════════════════ */
+
+  function esc(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function renderLogEntry(entry) {
     var div = document.createElement("div");
     div.className = "log-entry";
-
     var tagClass = { send: "log-tag-send", recv: "log-tag-recv", bridge: "log-tag-bridge" };
-
-    var argsStr = (entry.args || [])
-      .map(function (a) {
-        if (a.type === "s") return '"' + a.value + '"';
-        return a.value;
-      })
-      .join(" ");
-
+    var argsStr = (entry.args || []).map(function (a) {
+      if (a.type === "s") return '"' + a.value + '"';
+      return a.value;
+    }).join(" ");
     var destInfo = "";
     if (entry.dest) destInfo = " → " + entry.dest;
     if (entry.source && entry.dest) destInfo = " " + entry.source + " → " + entry.dest;
     else if (entry.source) destInfo = " ← " + entry.source;
-
+    /* Determine device tag */
+    var deviceTag = "";
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      if (entry.address && entry.address.indexOf("/" + d.name + "/") !== -1) {
+        deviceTag = '<span class="log-device-tag">' + d.name + '</span> ';
+      }
+    });
     div.innerHTML = [
-      '<span class="log-time">' + entry.time + "</span>",
-      '<span class="log-tag ' + (tagClass[entry.direction] || "") + '">' + entry.direction + "</span>",
-      '<span class="log-address">' + entry.address + "</span>",
-      argsStr ? '<span class="log-args">(' + argsStr + ")</span>" : "",
-      destInfo ? '<span class="log-dest">' + destInfo + "</span>" : "",
+      '<span class="log-time">' + entry.time + '</span>',
+      '<span class="log-tag ' + (tagClass[entry.direction] || "") + '">' + entry.direction + '</span>',
+      deviceTag,
+      '<span class="log-address">' + esc(entry.address) + '</span>',
+      argsStr ? '<span class="log-args">(' + esc(argsStr) + ')</span>' : '',
+      destInfo ? '<span class="log-dest">' + esc(destInfo) + '</span>' : '',
     ].join("");
-
     return div;
   }
 
   function appendToFeed(entry) {
-    var feedEl = $("#feedLog");
+    /* Device filter */
+    var devFilter = ($("#feedDeviceFilter").value || "").trim();
+    if (devFilter && entry.address && entry.address.indexOf("/" + devFilter + "/") === -1) return;
+
+    /* Text filter */
     var filterText = ($("#feedFilter").value || "").trim().toLowerCase();
-    if (filterText && !entry.address.toLowerCase().includes(filterText)) return;
+    if (filterText) {
+      var fullText = entry.address + " " + JSON.stringify(entry.args);
+      if (fullText.toLowerCase().indexOf(filterText) === -1) return;
+    }
+
+    var feedEl = $("#feedLog");
     feedEl.appendChild(renderLogEntry(entry));
     while (feedEl.children.length > MAX_LOG_ENTRIES) {
       feedEl.removeChild(feedEl.firstChild);
@@ -145,7 +565,7 @@
     }
   }
 
-  // ---- Message counter ----
+  /* ── Message counter ── */
   var msgCount = 0;
   var rateCounter = 0;
   var lastRateCheck = Date.now();
@@ -162,28 +582,18 @@
     if (rateEl) rateEl.textContent = rate + " msg/s";
   }, 1000);
 
-  // ---- Real-time messages ----
+  /* ── Realtime messages ── */
   socket.on("osc_message", function (entry) {
     msgCount++;
     rateCounter++;
     appendToFeed(entry);
+    /* Auto-parse replies into registry */
+    parseReplyIntoRegistry(entry);
   });
 
-  // ==================================================================
-  //  DASHBOARD
-  // ==================================================================
-
-  // Quick command buttons (data-cmd)
-  var CMD_ADDRESSES = {
-    blackout: "/annieData/{device}/blackout",
-    restore: "/annieData/{device}/restore",
-    save: "/annieData/{device}/save",
-    load: "/annieData/{device}/load",
-    nvs_clear: "/annieData/{device}/nvs/clear",
-    list_messages: "/annieData/{device}/list/msgs",
-    list_patches: "/annieData/{device}/list/patches",
-    list_all: "/annieData/{device}/list/all",
-  };
+  /* ═══════════════════════════════════════════
+     DASHBOARD
+     ═══════════════════════════════════════════ */
 
   $$(".qbtn[data-cmd]").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -193,110 +603,91 @@
       var address = addr(template);
       var payload = btn.dataset.payload || null;
       sendCmd(address, payload).then(function (res) {
-        if (res.status === "ok") toast("Sent: " + address, "success");
+        if (res.status === "ok") toast("Sent: " + cmd, "success");
       });
     });
   });
 
-  // Status config
+  /* Status config */
   $("#btnStatusConfig").addEventListener("click", function () {
-    var ip = $("#statusIP").value.trim();
-    var port = $("#statusPort").value.trim();
-    var adr = $("#statusAdr").value.trim();
-    if (!ip) { toast("Enter your IP address", "error"); return; }
-    var parts = [];
-    if (ip) parts.push("ip:" + ip);
-    if (port) parts.push("port:" + port);
-    if (adr) parts.push("adr:" + adr);
-    var payload = parts.join(", ");
-    var address = addr("/annieData/{device}/status/config");
-    sendCmd(address, payload).then(function (res) {
-      if (res.status === "ok") toast("Status config sent", "success");
+    var ip = ($("#statusIP").value || "").trim();
+    var port = ($("#statusPort").value || "").trim();
+    var adr = ($("#statusAdr").value || "").trim();
+    if (!ip || !port) { toast("IP and port are required", "error"); return; }
+    var cfg = "ip:" + ip + ", port:" + port;
+    if (adr) cfg += ", adr:" + adr;
+    sendCmd(addr("/annieData/{device}/status/config"), cfg).then(function (res) {
+      if (res.status === "ok") toast("Status config applied", "success");
     });
   });
 
   $("#btnStatusLevel").addEventListener("click", function () {
-    var level = $("#statusLevel").value;
-    if (!level) { toast("Select a level first", "error"); return; }
-    var address = addr("/annieData/{device}/status/level");
-    sendCmd(address, level).then(function (res) {
-      if (res.status === "ok") toast("Status level set to " + level, "success");
+    var lvl = $("#statusLevel").value;
+    if (!lvl) return;
+    sendCmd(addr("/annieData/{device}/status/level"), lvl).then(function (res) {
+      if (res.status === "ok") toast("Level set: " + lvl, "success");
     });
   });
 
-  // ==================================================================
-  //  MESSAGES
-  // ==================================================================
+  /* ═══════════════════════════════════════════
+     MESSAGES
+     ═══════════════════════════════════════════ */
 
-  // Config preview builder for message creation
+  /* Config preview update */
   function updateMsgPreview() {
     var parts = [];
-    var val = ($("#msgValue") || {}).value || "";
-    var ip = ($("#msgIP") || {}).value || "";
-    var port = ($("#msgPort") || {}).value || "";
-    var adrVal = ($("#msgAdr") || {}).value || "";
-    var low = (($("#msgLow") || {}).value || "").trim();
-    var high = (($("#msgHigh") || {}).value || "").trim();
-    var patch = (($("#msgPatch") || {}).value || "").trim();
-    if (val) parts.push("value:" + val);
-    if (ip) parts.push("ip:" + ip);
-    if (port) parts.push("port:" + port);
-    if (adrVal) parts.push("adr:" + adrVal);
-    if (low) parts.push("low:" + low);
-    if (high) parts.push("high:" + high);
-    if (patch) parts.push("patch:" + patch);
-    var el = $("#msgPreview");
-    if (el) el.value = parts.join(", ");
+    var v = $("#msgValue").value;   if (v) parts.push("value:" + v);
+    var ip = $("#msgIP").value.trim(); if (ip) parts.push("ip:" + ip);
+    var port = $("#msgPort").value; if (port) parts.push("port:" + port);
+    var a = $("#msgAdr").value.trim(); if (a) parts.push("adr:" + a);
+    var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
+    var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
+    var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    $("#msgPreview").value = parts.join(", ");
   }
 
   ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch"].forEach(function (id) {
     var el = $("#" + id);
-    if (el) {
-      el.addEventListener("input", updateMsgPreview);
-      el.addEventListener("change", updateMsgPreview);
-    }
+    if (el) el.addEventListener("input", updateMsgPreview);
   });
   updateMsgPreview();
 
-  // Create message
-  $("#btnMsgCreate").addEventListener("click", function () {
+  /* Apply message (create/update) */
+  $("#btnMsgApply").addEventListener("click", function () {
     var name = ($("#msgName").value || "").trim();
-    if (!name) { toast("Enter a message name", "error"); return; }
-    var payload = ($("#msgPreview").value || "").trim();
-    if (!payload) { toast("Configure at least one field", "error"); return; }
+    if (!name) { toast("Message name required", "error"); return; }
+    var cfg = ($("#msgPreview").value || "").trim();
     var address = addr("/annieData/{device}/msg/{name}", name);
-    sendCmd(address, payload).then(function (res) {
-      if (res.status === "ok") toast("Created message: " + name, "success");
-    });
-  });
-
-  // Message actions (info, enable, disable, delete, save)
-  $$(".qbtn[data-msg-action]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var action = btn.dataset.msgAction;
-      var name = ($("#msgActionName").value || "").trim();
-      if (!name) { toast("Enter a message name", "error"); return; }
-
-      var address, payload = null;
-      if (action === "save") {
-        address = addr("/annieData/{device}/save/msg");
-        payload = name;
-      } else {
-        address = addr("/annieData/{device}/msg/{name}/" + action, name);
+    sendCmd(address, cfg || null).then(function (res) {
+      if (res.status === "ok") {
+        toast("Applied: " + name, "success");
+        /* Update local registry */
+        var dev = getActiveDev();
+        if (dev) {
+          dev.messages[name] = parseConfigString(cfg);
+          renderMsgTable();
+          refreshAllDropdowns();
+        }
       }
-      sendCmd(address, payload).then(function (res) {
-        if (res.status === "ok") toast(action + ": " + name, "success");
-      });
     });
   });
 
-  // Clone / Rename message
+  /* Clear form */
+  $("#btnMsgClear").addEventListener("click", function () {
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch"].forEach(function (id) {
+      $("#" + id).value = "";
+    });
+    $("#msgValue").value = "";
+    $("#msgPort").value = "9000";
+    updateMsgPreview();
+  });
+
+  /* Clone / Rename */
   $("#btnMsgClone").addEventListener("click", function () {
     var src = ($("#msgSrcName").value || "").trim();
     var dest = ($("#msgDestName").value || "").trim();
-    if (!src || !dest) { toast("Enter both source and destination names", "error"); return; }
-    var address = addr("/annieData/{device}/clone/msg");
-    sendCmd(address, src + ", " + dest).then(function (res) {
+    if (!src || !dest) { toast("Both names required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/clone/msg"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") toast("Cloned: " + src + " → " + dest, "success");
     });
   });
@@ -304,138 +695,131 @@
   $("#btnMsgRename").addEventListener("click", function () {
     var src = ($("#msgSrcName").value || "").trim();
     var dest = ($("#msgDestName").value || "").trim();
-    if (!src || !dest) { toast("Enter both old and new names", "error"); return; }
-    var address = addr("/annieData/{device}/rename/msg");
-    sendCmd(address, src + ", " + dest).then(function (res) {
-      if (res.status === "ok") toast("Renamed: " + src + " → " + dest, "success");
-    });
-  });
-
-  // ==================================================================
-  //  PATCHES
-  // ==================================================================
-
-  function getPatchName() {
-    return ($("#patchName").value || "").trim();
-  }
-
-  // Patch quick actions
-  $$(".qbtn[data-patch-action]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var action = btn.dataset.patchAction;
-      var name = getPatchName();
-      if (!name) { toast("Enter a patch name", "error"); return; }
-
-      var address, payload = null;
-      if (action === "save") {
-        address = addr("/annieData/{device}/save/patch");
-        payload = name;
-      } else {
-        address = addr("/annieData/{device}/patch/{name}/" + action, name);
+    if (!src || !dest) { toast("Both names required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/rename/msg"), src + ", " + dest).then(function (res) {
+      if (res.status === "ok") {
+        toast("Renamed: " + src + " → " + dest, "success");
+        var dev = getActiveDev();
+        if (dev && dev.messages[src]) {
+          dev.messages[dest] = dev.messages[src];
+          delete dev.messages[src];
+          renderMsgTable();
+          refreshAllDropdowns();
+        }
       }
-      sendCmd(address, payload).then(function (res) {
-        if (res.status === "ok") toast(action + ": " + name, "success");
-      });
     });
   });
 
-  // Patch period
-  $("#btnPatchPeriod").addEventListener("click", function () {
-    var name = getPatchName();
-    if (!name) { toast("Enter a patch name", "error"); return; }
+  /* ═══════════════════════════════════════════
+     PATCHES
+     ═══════════════════════════════════════════ */
+
+  /* Apply patch config */
+  $("#btnPatchApply").addEventListener("click", function () {
+    var name = ($("#patchName").value || "").trim();
+    if (!name) { toast("Patch name required", "error"); return; }
     var period = ($("#patchPeriod").value || "").trim();
-    if (!period) { toast("Enter a period value", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/period", name);
-    sendCmd(address, period).then(function (res) {
-      if (res.status === "ok") toast("Period set to " + period + "ms", "success");
+    var mode = ($("#patchAdrMode").value || "").trim();
+
+    /* Build override string from checkboxes */
+    var ovParts = [];
+    if ($("#ovIP").checked) ovParts.push("ip");
+    if ($("#ovPort").checked) ovParts.push("port");
+    if ($("#ovAdr").checked) ovParts.push("adr");
+    if ($("#ovLow").checked) ovParts.push("low");
+    if ($("#ovHigh").checked) ovParts.push("high");
+
+    /* Send individual commands for each setting */
+    var promises = [];
+    if (period) {
+      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), period));
+    }
+    if (mode) {
+      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
+    }
+    if (ovParts.length > 0) {
+      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.join("+")));
+    }
+    if (promises.length === 0) {
+      /* Just create the patch */
+      sendCmd(addr("/annieData/{device}/patch/{name}", name), null).then(function (res) {
+        if (res.status === "ok") toast("Created patch: " + name, "success");
+      });
+    } else {
+      Promise.all(promises).then(function () {
+        toast("Patch config applied: " + name, "success");
+        var dev = getActiveDev();
+        if (dev) {
+          dev.patches[name] = Object.assign(dev.patches[name] || {}, {
+            period: period, adrMode: mode, override: ovParts.join("+")
+          });
+          renderPatchTable();
+          refreshAllDropdowns();
+        }
+      });
+    }
+  });
+
+  /* Start/Stop */
+  $("#btnPatchStart").addEventListener("click", function () {
+    var name = ($("#patchName").value || "").trim();
+    if (!name) { toast("Patch name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/start", name), null).then(function (res) {
+      if (res.status === "ok") toast("Started: " + name, "success");
     });
   });
 
-  // Patch address mode
-  $("#btnPatchAdrMode").addEventListener("click", function () {
-    var name = getPatchName();
-    if (!name) { toast("Enter a patch name", "error"); return; }
-    var mode = $("#patchAdrMode").value;
-    var address = addr("/annieData/{device}/patch/{name}/adrMode", name);
-    sendCmd(address, mode).then(function (res) {
-      if (res.status === "ok") toast("Address mode: " + mode, "success");
+  $("#btnPatchStop").addEventListener("click", function () {
+    var name = ($("#patchName").value || "").trim();
+    if (!name) { toast("Patch name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/stop", name), null).then(function (res) {
+      if (res.status === "ok") toast("Stopped: " + name, "success");
     });
   });
 
-  // Patch override
-  $("#btnPatchOverride").addEventListener("click", function () {
-    var name = getPatchName();
-    if (!name) { toast("Enter a patch name", "error"); return; }
-    var flags = ($("#patchOverride").value || "").trim();
-    if (!flags) { toast("Enter override flags", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/override", name);
-    sendCmd(address, flags).then(function (res) {
-      if (res.status === "ok") toast("Override set", "success");
-    });
-  });
-
-  // Add/Remove message to/from patch
+  /* Add/Remove/Solo/Move messages */
   $("#btnPatchAddMsg").addEventListener("click", function () {
-    var name = getPatchName();
-    var msgs = ($("#patchMsgNames").value || "").trim();
-    if (!name || !msgs) { toast("Enter patch name and message name(s)", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/addMsg", name);
-    sendCmd(address, msgs).then(function (res) {
-      if (res.status === "ok") toast("Added to " + name, "success");
+    var pname = ($("#patchMsgPatch").value || "").trim();
+    var mnames = ($("#patchMsgNames").value || "").trim();
+    if (!pname || !mnames) { toast("Patch and message name(s) required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/addMsg", pname), mnames).then(function (res) {
+      if (res.status === "ok") toast("Added to " + pname, "success");
     });
   });
 
   $("#btnPatchRemoveMsg").addEventListener("click", function () {
-    var name = getPatchName();
-    var msgs = ($("#patchMsgNames").value || "").trim();
-    if (!name || !msgs) { toast("Enter patch name and message name", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/removeMsg", name);
-    sendCmd(address, msgs).then(function (res) {
-      if (res.status === "ok") toast("Removed from " + name, "success");
+    var pname = ($("#patchMsgPatch").value || "").trim();
+    var mnames = ($("#patchMsgNames").value || "").trim();
+    if (!pname || !mnames) { toast("Patch and message name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/removeMsg", pname), mnames).then(function (res) {
+      if (res.status === "ok") toast("Removed from " + pname, "success");
     });
   });
 
-  // Solo
   $("#btnPatchSolo").addEventListener("click", function () {
-    var name = getPatchName();
-    var msgs = ($("#patchMsgNames").value || "").trim();
-    if (!name || !msgs) { toast("Enter patch name and message to solo", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/solo", name);
-    sendCmd(address, msgs).then(function (res) {
-      if (res.status === "ok") toast("Solo: " + msgs, "success");
+    var pname = ($("#patchMsgPatch").value || "").trim();
+    var mname = ($("#patchMsgNames").value || "").trim();
+    if (!pname || !mname) { toast("Patch and message name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/solo", pname), mname).then(function (res) {
+      if (res.status === "ok") toast("Solo: " + mname + " in " + pname, "success");
     });
   });
 
-  // Move message to patch
   $("#btnPatchMove").addEventListener("click", function () {
-    var name = getPatchName();
-    var msgs = ($("#patchMsgNames").value || "").trim();
-    if (!name || !msgs) { toast("Enter patch name and message name", "error"); return; }
-    var address = addr("/annieData/{device}/move");
-    sendCmd(address, msgs + ", " + name).then(function (res) {
-      if (res.status === "ok") toast("Moved " + msgs + " to " + name, "success");
+    var mname = ($("#patchMsgNames").value || "").trim();
+    var pname = ($("#patchMsgPatch").value || "").trim();
+    if (!pname || !mname) { toast("Message and patch name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/move"), mname + ", " + pname).then(function (res) {
+      if (res.status === "ok") toast("Moved: " + mname + " → " + pname, "success");
     });
   });
 
-  // setAll
-  $("#btnPatchSetAll").addEventListener("click", function () {
-    var name = getPatchName();
-    if (!name) { toast("Enter a patch name", "error"); return; }
-    var config = ($("#patchSetAllConfig").value || "").trim();
-    if (!config) { toast("Enter a config string", "error"); return; }
-    var address = addr("/annieData/{device}/patch/{name}/setAll", name);
-    sendCmd(address, config).then(function (res) {
-      if (res.status === "ok") toast("setAll applied", "success");
-    });
-  });
-
-  // Clone / Rename patch
+  /* Clone / Rename */
   $("#btnPatchClone").addEventListener("click", function () {
     var src = ($("#patchSrcName").value || "").trim();
     var dest = ($("#patchDestName").value || "").trim();
-    if (!src || !dest) { toast("Enter both names", "error"); return; }
-    var address = addr("/annieData/{device}/clone/patch");
-    sendCmd(address, src + ", " + dest).then(function (res) {
+    if (!src || !dest) { toast("Both names required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/clone/patch"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") toast("Cloned: " + src + " → " + dest, "success");
     });
   });
@@ -443,80 +827,71 @@
   $("#btnPatchRename").addEventListener("click", function () {
     var src = ($("#patchSrcName").value || "").trim();
     var dest = ($("#patchDestName").value || "").trim();
-    if (!src || !dest) { toast("Enter both names", "error"); return; }
-    var address = addr("/annieData/{device}/rename/patch");
-    sendCmd(address, src + ", " + dest).then(function (res) {
-      if (res.status === "ok") toast("Renamed: " + src + " → " + dest, "success");
+    if (!src || !dest) { toast("Both names required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/rename/patch"), src + ", " + dest).then(function (res) {
+      if (res.status === "ok") {
+        toast("Renamed: " + src + " → " + dest, "success");
+        var dev = getActiveDev();
+        if (dev && dev.patches[src]) {
+          dev.patches[dest] = dev.patches[src];
+          delete dev.patches[src];
+          renderPatchTable();
+          refreshAllDropdowns();
+        }
+      }
     });
   });
 
-  // ==================================================================
-  //  DIRECT
-  // ==================================================================
+  /* ═══════════════════════════════════════════
+     DIRECT
+     ═══════════════════════════════════════════ */
 
   function updateDirectPreview() {
     var parts = [];
-    var val = ($("#directValue") || {}).value || "";
-    var ip = ($("#directIP") || {}).value || "";
-    var port = ($("#directPort") || {}).value || "";
-    var adrVal = ($("#directAdr") || {}).value || "";
-    var low = (($("#directLow") || {}).value || "").trim();
-    var high = (($("#directHigh") || {}).value || "").trim();
-    var period = (($("#directPeriod") || {}).value || "").trim();
-    if (val) parts.push("value:" + val);
-    if (ip) parts.push("ip:" + ip);
-    if (port) parts.push("port:" + port);
-    if (adrVal) parts.push("adr:" + adrVal);
-    if (low) parts.push("low:" + low);
-    if (high) parts.push("high:" + high);
-    if (period) parts.push("period:" + period);
-    var el = $("#directPreview");
-    if (el) el.value = parts.join(", ");
+    var v = $("#directValue").value; if (v) parts.push("value:" + v);
+    var ip = $("#directIP").value.trim(); if (ip) parts.push("ip:" + ip);
+    var port = $("#directPort").value; if (port) parts.push("port:" + port);
+    var a = $("#directAdr").value.trim(); if (a) parts.push("adr:" + a);
+    var lo = $("#directLow").value.trim(); if (lo) parts.push("low:" + lo);
+    var hi = $("#directHigh").value.trim(); if (hi) parts.push("high:" + hi);
+    var per = $("#directPeriod").value; if (per) parts.push("period:" + per);
+    $("#directPreview").value = parts.join(", ");
   }
 
   ["directValue", "directIP", "directPort", "directAdr", "directLow", "directHigh", "directPeriod"].forEach(function (id) {
     var el = $("#" + id);
-    if (el) {
-      el.addEventListener("input", updateDirectPreview);
-      el.addEventListener("change", updateDirectPreview);
-    }
+    if (el) el.addEventListener("input", updateDirectPreview);
   });
   updateDirectPreview();
 
   $("#btnDirectSend").addEventListener("click", function () {
-    var name = ($("#directName").value || "").trim();
-    if (!name) { toast("Enter a name", "error"); return; }
-    var payload = ($("#directPreview").value || "").trim();
-    if (!payload) { toast("Configure at least one field", "error"); return; }
-    var address = addr("/annieData/{device}/direct/{name}", name);
-    sendCmd(address, payload).then(function (res) {
-      if (res.status === "ok") toast("Direct sent: " + name, "success");
+    var name = ($("#directName").value || "").trim() || "quickSend";
+    var cfg = ($("#directPreview").value || "").trim();
+    if (!cfg) { toast("At least one config field required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/direct/{name}", name), cfg).then(function (res) {
+      if (res.status === "ok") toast("Direct: " + name, "success");
     });
   });
 
   $("#btnDirectCopy").addEventListener("click", function () {
-    var text = ($("#directPreview").value || "");
+    var cfg = ($("#directPreview").value || "").trim();
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(function () {
-        toast("Config copied", "success");
-      });
-    } else {
-      toast("Clipboard not available", "error");
+      navigator.clipboard.writeText(cfg).then(function () { toast("Copied!", "success"); });
     }
   });
 
-  // ==================================================================
-  //  ADVANCED: Raw OSC
-  // ==================================================================
+  /* ═══════════════════════════════════════════
+     ADVANCED
+     ═══════════════════════════════════════════ */
 
-  var rawRepeating = false;
+  var repeatId = null;
 
   $("#btnRawSend").addEventListener("click", function () {
     api("send", {
-      host: $("#rawHost").value,
+      host: ($("#rawHost").value || "").trim(),
       port: parseInt($("#rawPort").value, 10),
-      address: $("#rawAddress").value,
-      args: $("#rawArgs").value || null,
+      address: ($("#rawAddress").value || "").trim(),
+      args: ($("#rawArgs").value || "").trim() || null,
     }).then(function (res) {
       if (res.status === "ok") toast("Sent", "success");
     });
@@ -524,152 +899,89 @@
 
   $("#btnRawRepeat").addEventListener("click", function () {
     api("send/repeat", {
-      host: $("#rawHost").value,
+      host: ($("#rawHost").value || "").trim(),
       port: parseInt($("#rawPort").value, 10),
-      address: $("#rawAddress").value,
-      args: $("#rawArgs").value || null,
-      interval: parseInt($("#rawInterval").value, 10) || 1000,
+      address: ($("#rawAddress").value || "").trim(),
+      args: ($("#rawArgs").value || "").trim() || null,
+      interval: parseInt($("#rawInterval").value, 10),
       id: "raw-repeat",
     }).then(function (res) {
       if (res.status === "ok") {
-        rawRepeating = true;
+        repeatId = "raw-repeat";
         $("#btnRawRepeat").disabled = true;
         $("#btnRawStop").disabled = false;
-        toast("Repeat started", "info");
+        toast("Repeat started", "success");
       }
     });
   });
 
   $("#btnRawStop").addEventListener("click", function () {
-    api("send/stop", { id: "raw-repeat" }).then(function (res) {
-      if (res.status === "ok") {
-        rawRepeating = false;
-        $("#btnRawRepeat").disabled = false;
-        $("#btnRawStop").disabled = true;
-        toast("Repeat stopped", "info");
-      }
+    api("send/stop", { id: repeatId || "raw-repeat" }).then(function () {
+      repeatId = null;
+      $("#btnRawRepeat").disabled = false;
+      $("#btnRawStop").disabled = true;
+      toast("Repeat stopped", "info");
     });
   });
 
-  // JSON batch send
-  $("#btnJsonSend").addEventListener("click", function () {
-    var messages;
-    try {
-      messages = JSON.parse($("#jsonInput").value);
-    } catch (err) {
-      toast("Invalid JSON: " + err.message, "error");
-      return;
-    }
-    api("send/json", {
-      host: $("#jsonHost").value,
-      port: parseInt($("#jsonPort").value, 10),
-      messages: messages,
-      interval: parseInt($("#jsonInterval").value, 10) || 0,
-    }).then(function (res) {
-      if (res.status === "ok") toast("Sent " + messages.length + " messages", "success");
-    });
-  });
-
-  // ==================================================================
-  //  ADVANCED: Bridge
-  // ==================================================================
-
-  var activeBridges = {};
-
-  function updateBridgeList() {
-    var list = $("#activeBridges");
-    var items = Object.entries(activeBridges);
-    if (items.length === 0) {
-      list.innerHTML = "";
-      return;
-    }
-    list.innerHTML = "";
-    items.forEach(function (pair) {
-      var id = pair[0], info = pair[1];
-      var row = document.createElement("div");
-      row.className = "active-item";
-      row.innerHTML =
-        '<span><span class="active-item-dot"></span>' +
-        ":" + info.in_port + " → " + info.out_host + ":" + info.out_port +
-        (info.filter ? " (" + info.filter + ")" : "") +
-        "</span>";
-      var btn = document.createElement("button");
-      btn.className = "btn btn-small btn-stop";
-      btn.textContent = "Stop";
-      btn.addEventListener("click", function () { stopBridge(id); });
-      row.appendChild(btn);
-      list.appendChild(row);
-    });
-  }
-
-  function stopBridge(id) {
-    api("bridge/stop", { id: id }).then(function (res) {
-      if (res.status === "ok") {
-        delete activeBridges[id];
-        updateBridgeList();
-        toast("Bridge stopped", "info");
-        if (Object.keys(activeBridges).length === 0) {
-          $("#btnBridgeStop").disabled = true;
-        }
-      }
-    });
-  }
-
+  /* Bridge */
   $("#btnBridgeStart").addEventListener("click", function () {
-    var inPort = parseInt($("#bridgeInPort").value, 10);
-    var outHost = $("#bridgeOutHost").value;
-    var outPort = parseInt($("#bridgeOutPort").value, 10);
-    var filter = $("#bridgeFilter").value;
-    var id = "bridge-" + inPort + "-" + outPort;
     api("bridge/start", {
-      in_port: inPort,
-      out_host: outHost,
-      out_port: outPort,
-      filter: filter,
-      id: id,
+      in_port: parseInt($("#bridgeInPort").value, 10),
+      out_host: ($("#bridgeOutHost").value || "").trim(),
+      out_port: parseInt($("#bridgeOutPort").value, 10),
+      filter: ($("#bridgeFilter").value || "").trim(),
     }).then(function (res) {
       if (res.status === "ok") {
-        activeBridges[id] = {
-          in_port: inPort,
-          out_host: outHost,
-          out_port: outPort,
-          filter: filter,
-        };
-        updateBridgeList();
-        $("#btnBridgeStop").disabled = false;
         toast("Bridge started", "success");
+        $("#btnBridgeStop").disabled = false;
+        refreshBridgeList();
       }
     });
   });
 
   $("#btnBridgeStop").addEventListener("click", function () {
-    Object.keys(activeBridges).forEach(function (id) { stopBridge(id); });
+    api("stop-all", {}).then(function () {
+      toast("All bridges stopped", "info");
+      $("#btnBridgeStop").disabled = true;
+      $("#activeBridges").innerHTML = "";
+    });
   });
 
-  // ==================================================================
-  //  REPLY LISTENER (top bar)
-  // ==================================================================
+  function refreshBridgeList() {
+    fetch("/api/status").then(function (r) { return r.json(); }).then(function (data) {
+      var container = $("#activeBridges");
+      container.innerHTML = "";
+      var bridges = data.bridges || {};
+      Object.keys(bridges).forEach(function (id) {
+        var b = bridges[id];
+        var div = document.createElement("div");
+        div.className = "active-item";
+        div.innerHTML = '<span><span class="active-item-dot"></span>' + b.in_port + ' → ' + b.out_host + ':' + b.out_port + '</span>';
+        container.appendChild(div);
+      });
+    });
+  }
 
-  var replyListening = false;
+  /* ═══════════════════════════════════════════
+     LISTEN (receive replies)
+     ═══════════════════════════════════════════ */
+
+  var isListening = false;
 
   $("#btnReplyListen").addEventListener("click", function () {
-    if (replyListening) {
-      // Stop
-      var port = parseInt($("#replyPort").value, 10);
-      api("recv/stop", { id: "reply-listener" }).then(function (res) {
-        if (res.status === "ok") {
-          replyListening = false;
-          $("#btnReplyListen").classList.remove("active");
-          $("#listenDot").classList.remove("on");
-          toast("Reply listener stopped", "info");
-        }
+    var port = parseInt($("#replyPort").value, 10) || 9000;
+    if (isListening) {
+      api("recv/stop", { id: "reply-listener" }).then(function () {
+        isListening = false;
+        $("#btnReplyListen").classList.remove("active");
+        $("#listenDot").classList.remove("on");
+        toast("Stopped listening", "info");
       });
     } else {
-      // Start
-      var port = parseInt($("#replyPort").value, 10);
-      api("recv/start", { port: port, filter: "", id: "reply-listener" }).then(function (res) {
+      api("recv/start", { port: port, id: "reply-listener" }).then(function (res) {
         if (res.status === "ok") {
-          replyListening = true;
+          isListening = true;
           $("#btnReplyListen").classList.add("active");
           $("#listenDot").classList.add("on");
           toast("Listening on port " + port, "success");
@@ -678,9 +990,9 @@
     }
   });
 
-  // ==================================================================
-  //  FEED CONTROLS
-  // ==================================================================
+  /* ═══════════════════════════════════════════
+     FEED CONTROLS
+     ═══════════════════════════════════════════ */
 
   $("#btnFeedClear").addEventListener("click", function () {
     $("#feedLog").innerHTML = "";
@@ -689,155 +1001,75 @@
     api("log/clear", {});
   });
 
-  // Re-filter on filter input change
-  $("#feedFilter").addEventListener("input", function () {
-    // We only filter new messages; existing ones stay.
-    // For a full re-filter, we'd need to re-render from the log.
-  });
-
-  // ==================================================================
-  //  REFERENCE TAB
-  // ==================================================================
+  /* ═══════════════════════════════════════════
+     REFERENCE — populate from presets
+     ═══════════════════════════════════════════ */
 
   fetch("/api/presets/theater-gwd")
     .then(function (r) { return r.json(); })
     .then(function (data) {
-      if (!data.presets) return;
-      var p = data.presets;
+      var presets = data.presets;
+      if (!presets) return;
 
-      // Commands reference
-      if (p.commands) {
-        renderCommandRef(p.commands);
-      }
+      /* Command list */
+      var cmdContainer = $("#cmdList");
+      var cmds = presets.commands || {};
+      var cmdSearch = $("#cmdSearch");
 
-      // Keywords
-      if (p.keywords) {
-        renderKeywords(p.keywords);
-      }
-
-      // Config keys
-      if (p.config_keys) {
-        renderSimpleRef("configKeyList", p.config_keys);
-      }
-
-      // Address modes
-      if (p.address_modes) {
-        renderSimpleRef("adrModeList", p.address_modes);
-      }
-    })
-    .catch(function () {});
-
-  function renderCommandRef(commands) {
-    var list = $("#cmdList");
-    if (!list) return;
-    var entries = Object.entries(commands).sort(function (a, b) {
-      return a[0].localeCompare(b[0]);
-    });
-    list.innerHTML = "";
-    entries.forEach(function (pair) {
-      var key = pair[0], cmd = pair[1];
-      var div = document.createElement("div");
-      div.className = "ref-item";
-      var html = '<span class="ref-term">' + key + "</span>";
-      if (cmd.address) html += '<span class="ref-addr">' + cmd.address + "</span>";
-      if (cmd.description) html += '<span class="ref-def">' + cmd.description + "</span>";
-      if (cmd.payload) html += '<span class="ref-payload">payload: ' + cmd.payload + "</span>";
-      div.innerHTML = html;
-      list.appendChild(div);
-    });
-
-    // Search
-    var search = $("#cmdSearch");
-    if (search) {
-      search.addEventListener("input", function () {
-        var q = search.value.trim().toLowerCase();
-        list.querySelectorAll(".ref-item").forEach(function (item) {
-          item.style.display = item.textContent.toLowerCase().includes(q) ? "" : "none";
+      function renderCmds(filter) {
+        cmdContainer.innerHTML = "";
+        Object.keys(cmds).forEach(function (key) {
+          var c = cmds[key];
+          if (filter && key.toLowerCase().indexOf(filter) === -1 && (c.description || "").toLowerCase().indexOf(filter) === -1) return;
+          var div = document.createElement("div");
+          div.className = "ref-item";
+          div.innerHTML = '<span class="ref-term">' + esc(key) + '</span>' +
+            '<span class="ref-addr">"' + esc(c.address) + '"</span>' +
+            '<span class="ref-def">' + esc(c.description) + '</span>' +
+            (c.payload ? '<span class="ref-payload">payload: ' + esc(c.payload) + '</span>' : '');
+          cmdContainer.appendChild(div);
         });
+      }
+      renderCmds("");
+      cmdSearch.addEventListener("input", function () { renderCmds(cmdSearch.value.trim().toLowerCase()); });
+
+      /* Keywords */
+      var kwContainer = $("#keywordList");
+      var kws = presets.keywords || {};
+      var kwSearch = $("#keywordSearch");
+
+      function renderKWs(filter) {
+        kwContainer.innerHTML = "";
+        Object.keys(kws).sort().forEach(function (key) {
+          if (filter && key.toLowerCase().indexOf(filter) === -1 && kws[key].toLowerCase().indexOf(filter) === -1) return;
+          var div = document.createElement("div");
+          div.className = "ref-item";
+          div.innerHTML = '<span class="ref-term">' + esc(key) + '</span> <span class="ref-def">' + esc(kws[key]) + '</span>';
+          kwContainer.appendChild(div);
+        });
+      }
+      renderKWs("");
+      kwSearch.addEventListener("input", function () { renderKWs(kwSearch.value.trim().toLowerCase()); });
+
+      /* Config keys */
+      var ckContainer = $("#configKeyList");
+      var cks = presets.config_keys || {};
+      Object.keys(cks).forEach(function (key) {
+        var div = document.createElement("div");
+        div.className = "ref-item";
+        div.innerHTML = '<span class="ref-term">' + esc(key) + '</span> <span class="ref-def">' + esc(cks[key]) + '</span>';
+        ckContainer.appendChild(div);
       });
-    }
-  }
 
-  function renderKeywords(keywords) {
-    var list = $("#keywordList");
-    if (!list) return;
-    var entries = Object.entries(keywords).sort(function (a, b) {
-      return a[0].localeCompare(b[0]);
-    });
-    list.innerHTML = "";
-    entries.forEach(function (pair) {
-      var div = document.createElement("div");
-      div.className = "ref-item";
-      div.innerHTML =
-        '<span class="ref-term">' + pair[0] + "</span> " +
-        '<span class="ref-def">' + pair[1] + "</span>";
-      list.appendChild(div);
-    });
-
-    var search = $("#keywordSearch");
-    if (search) {
-      search.addEventListener("input", function () {
-        var q = search.value.trim().toLowerCase();
-        list.querySelectorAll(".ref-item").forEach(function (item) {
-          item.style.display = item.textContent.toLowerCase().includes(q) ? "" : "none";
-        });
+      /* Address modes */
+      var amContainer = $("#adrModeList");
+      var ams = presets.address_modes || {};
+      Object.keys(ams).forEach(function (key) {
+        var div = document.createElement("div");
+        div.className = "ref-item";
+        div.innerHTML = '<span class="ref-term">' + esc(key) + '</span> <span class="ref-def">' + esc(ams[key]) + '</span>';
+        amContainer.appendChild(div);
       });
-    }
-  }
-
-  function renderSimpleRef(listId, obj) {
-    var list = $("#" + listId);
-    if (!list) return;
-    var entries = Object.entries(obj).sort(function (a, b) {
-      return a[0].localeCompare(b[0]);
     });
-    list.innerHTML = "";
-    entries.forEach(function (pair) {
-      var div = document.createElement("div");
-      div.className = "ref-item";
-      div.innerHTML =
-        '<span class="ref-term">' + pair[0] + "</span> " +
-        '<span class="ref-def">' + pair[1] + "</span>";
-      list.appendChild(div);
-    });
-  }
-
-  // ==================================================================
-  //  INITIAL STATE
-  // ==================================================================
-
-  // Load existing log
-  fetch("/api/log")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (data.log) {
-        data.log.forEach(function (entry) {
-          appendToFeed(entry);
-          msgCount++;
-        });
-      }
-    })
-    .catch(function () {});
-
-  // Restore active state
-  fetch("/api/status")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (data.bridges) {
-        Object.entries(data.bridges).forEach(function (pair) {
-          activeBridges[pair[0]] = pair[1];
-        });
-        updateBridgeList();
-        if (Object.keys(data.bridges).length > 0) {
-          $("#btnBridgeStop").disabled = false;
-        }
-      }
-      if (data.receivers && data.receivers["reply-listener"]) {
-        replyListening = true;
-        $("#btnReplyListen").classList.add("active");
-        $("#listenDot").classList.add("on");
-      }
-    })
-    .catch(function () {});
 
 })();

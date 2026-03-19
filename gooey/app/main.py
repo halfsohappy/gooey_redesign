@@ -1,6 +1,8 @@
 """Flask application with SocketIO for TheaterGWD Control Center."""
 
+import json
 import re
+import threading
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
@@ -12,7 +14,7 @@ app.config["SECRET_KEY"] = "theatergwd-control-center"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 engine = OSCEngine(socketio)
 
-# --- Validation helpers ---
+# ── Validation helpers ──
 
 _IP_RE = re.compile(
     r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}"
@@ -28,14 +30,12 @@ def _resolve_host(host):
 
 
 def _valid_host(host):
-    h = _resolve_host(host)
-    return bool(_IP_RE.match(h))
+    return bool(_IP_RE.match(_resolve_host(host)))
 
 
 def _valid_port(port):
     try:
-        p = int(port)
-        return 1 <= p <= 65535
+        return 1 <= int(port) <= 65535
     except (ValueError, TypeError):
         return False
 
@@ -48,12 +48,33 @@ def _error(msg, code=400):
     return jsonify({"status": "error", "message": msg}), code
 
 
-# --- Routes ---
+# ── Client-side device registry ──
+# Stores per-device known messages/patches so the UI can show dropdowns/tables.
+# This is updated by parsing reply messages and manual user edits.
+
+_device_registry_lock = threading.Lock()
+_device_registry = {}  # {device_id: {"host","port","name","messages":{},"patches":{}}}
+
+
+def _get_device(device_id):
+    """Return device dict, creating if needed."""
+    with _device_registry_lock:
+        if device_id not in _device_registry:
+            _device_registry[device_id] = {
+                "messages": {},
+                "patches": {},
+            }
+        return _device_registry[device_id]
+
+
+# ── Routes ──
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
+
+# -- Send / Receive / Bridge (unchanged OSC transport) --
 
 @app.route("/api/send", methods=["POST"])
 def api_send():
@@ -108,9 +129,7 @@ def api_send_repeat():
 @app.route("/api/send/stop", methods=["POST"])
 def api_send_stop():
     data = request.get_json(silent=True) or {}
-    send_id = data.get("id", "default")
-    result = engine.stop_repeated_send(send_id)
-    return jsonify(result)
+    return jsonify(engine.stop_repeated_send(data.get("id", "default")))
 
 
 @app.route("/api/send/json", methods=["POST"])
@@ -155,8 +174,7 @@ def api_recv_stop():
     recv_id = data.get("id", "")
     if not recv_id:
         return _error("Receiver id is required")
-    result = engine.stop_receiver(recv_id)
-    return jsonify(result)
+    return jsonify(engine.stop_receiver(recv_id))
 
 
 @app.route("/api/bridge/start", methods=["POST"])
@@ -189,8 +207,7 @@ def api_bridge_stop():
     bridge_id = data.get("id", "")
     if not bridge_id:
         return _error("Bridge id is required")
-    result = engine.stop_bridge(bridge_id)
-    return jsonify(result)
+    return jsonify(engine.stop_bridge(bridge_id))
 
 
 @app.route("/api/log", methods=["GET"])
@@ -213,7 +230,105 @@ def api_stop_all():
     return jsonify(engine.stop_all())
 
 
-# --- SocketIO events ---
+# ── Device registry API ──
+
+@app.route("/api/devices", methods=["GET"])
+def api_devices_list():
+    """Return all known devices and their registries."""
+    with _device_registry_lock:
+        return jsonify({"status": "ok", "devices": _device_registry})
+
+
+@app.route("/api/devices/<device_id>", methods=["GET"])
+def api_device_get(device_id):
+    """Return a single device's registry."""
+    dev = _get_device(device_id)
+    return jsonify({"status": "ok", "device": dev})
+
+
+@app.route("/api/devices/<device_id>", methods=["DELETE"])
+def api_device_delete(device_id):
+    """Remove a device from tracking."""
+    with _device_registry_lock:
+        _device_registry.pop(device_id, None)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/devices/<device_id>/messages", methods=["GET"])
+def api_device_messages(device_id):
+    """Return tracked messages for a device."""
+    dev = _get_device(device_id)
+    return jsonify({"status": "ok", "messages": dev["messages"]})
+
+
+@app.route("/api/devices/<device_id>/messages", methods=["POST"])
+def api_device_messages_update(device_id):
+    """Update (merge) tracked messages for a device."""
+    data = request.get_json(silent=True) or {}
+    msgs = data.get("messages", {})
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["messages"].update(msgs)
+    return jsonify({"status": "ok", "messages": dev["messages"]})
+
+
+@app.route("/api/devices/<device_id>/messages/<msg_name>", methods=["PUT"])
+def api_device_message_put(device_id, msg_name):
+    """Create or replace a single tracked message."""
+    data = request.get_json(silent=True) or {}
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["messages"][msg_name] = data
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/devices/<device_id>/messages/<msg_name>", methods=["DELETE"])
+def api_device_message_delete(device_id, msg_name):
+    """Remove a tracked message."""
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["messages"].pop(msg_name, None)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/devices/<device_id>/patches", methods=["GET"])
+def api_device_patches(device_id):
+    """Return tracked patches for a device."""
+    dev = _get_device(device_id)
+    return jsonify({"status": "ok", "patches": dev["patches"]})
+
+
+@app.route("/api/devices/<device_id>/patches", methods=["POST"])
+def api_device_patches_update(device_id):
+    """Update (merge) tracked patches for a device."""
+    data = request.get_json(silent=True) or {}
+    patches = data.get("patches", {})
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["patches"].update(patches)
+    return jsonify({"status": "ok", "patches": dev["patches"]})
+
+
+@app.route("/api/devices/<device_id>/patches/<patch_name>", methods=["PUT"])
+def api_device_patch_put(device_id, patch_name):
+    """Create or replace a single tracked patch."""
+    data = request.get_json(silent=True) or {}
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["patches"][patch_name] = data
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/devices/<device_id>/patches/<patch_name>", methods=["DELETE"])
+def api_device_patch_delete(device_id, patch_name):
+    """Remove a tracked patch."""
+    dev = _get_device(device_id)
+    with _device_registry_lock:
+        dev["patches"].pop(patch_name, None)
+    return jsonify({"status": "ok"})
+
+
+# ── SocketIO events ──
 
 @socketio.on("connect")
 def handle_connect():
@@ -225,7 +340,7 @@ def handle_ping():
     socketio.emit("pong_server", {"status": "ok"})
 
 
-# --- TheaterGWD presets ---
+# ── TheaterGWD presets ──
 
 THEATER_GWD_PRESETS = {
     "sensor_values": [
