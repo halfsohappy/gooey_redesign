@@ -608,6 +608,10 @@
 
   $$(".qbtn[data-cmd]").forEach(function (btn) {
     btn.addEventListener("click", function () {
+      /* "Are you sure?" confirmation for destructive actions */
+      var confirmMsg = btn.dataset.confirm;
+      if (confirmMsg && !confirm(confirmMsg)) return;
+
       var cmd = btn.dataset.cmd;
       var template = CMD_ADDRESSES[cmd];
       if (!template) return;
@@ -897,12 +901,20 @@
 
   var repeatId = null;
 
+  function getRawArgs() {
+    var raw = ($("#rawArgs").value || "").trim() || null;
+    if (raw && $("#rawSingleString") && $("#rawSingleString").checked) {
+      return [raw];
+    }
+    return raw;
+  }
+
   $("#btnRawSend").addEventListener("click", function () {
     api("send", {
       host: ($("#rawHost").value || "").trim(),
       port: parseInt($("#rawPort").value, 10),
       address: ($("#rawAddress").value || "").trim(),
-      args: ($("#rawArgs").value || "").trim() || null,
+      args: getRawArgs(),
     }).then(function (res) {
       if (res.status === "ok") toast("Sent", "success");
     });
@@ -913,7 +925,7 @@
       host: ($("#rawHost").value || "").trim(),
       port: parseInt($("#rawPort").value, 10),
       address: ($("#rawAddress").value || "").trim(),
-      args: ($("#rawArgs").value || "").trim() || null,
+      args: getRawArgs(),
       interval: parseInt($("#rawInterval").value, 10),
       id: "raw-repeat",
     }).then(function (res) {
@@ -1082,5 +1094,91 @@
         amContainer.appendChild(div);
       });
     });
+
+  /* ═══════════════════════════════════════════
+     DRAGGABLE CARD LAYOUT with localStorage
+     ═══════════════════════════════════════════ */
+
+  var CARD_ORDER_KEY = "gooey_card_order";
+
+  function getCardOrder() {
+    try {
+      var stored = localStorage.getItem(CARD_ORDER_KEY);
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) { return null; }
+  }
+
+  function saveCardOrder() {
+    var order = {};
+    $$(".section").forEach(function (sec) {
+      var cards = sec.querySelectorAll(".card[data-card-id]");
+      var ids = [];
+      cards.forEach(function (c) { ids.push(c.dataset.cardId); });
+      if (ids.length > 0) order[sec.id] = ids;
+    });
+    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)); } catch (e) { /* noop */ }
+  }
+
+  function restoreCardOrder() {
+    var order = getCardOrder();
+    if (!order) return;
+    Object.keys(order).forEach(function (secId) {
+      var sec = $("#" + secId);
+      if (!sec) return;
+      var ids = order[secId];
+      ids.forEach(function (id) {
+        var card = sec.querySelector('.card[data-card-id="' + id + '"]');
+        if (card) sec.appendChild(card);
+      });
+    });
+  }
+
+  var dragSrcCard = null;
+
+  function initDraggableCards() {
+    $$(".card[data-card-id]").forEach(function (card) {
+      card.setAttribute("draggable", "true");
+      card.addEventListener("dragstart", function (e) {
+        dragSrcCard = card;
+        card.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", card.dataset.cardId);
+      });
+      card.addEventListener("dragend", function () {
+        card.classList.remove("dragging");
+        $$(".card.drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
+        dragSrcCard = null;
+      });
+      card.addEventListener("dragover", function (e) {
+        if (!dragSrcCard || dragSrcCard === card) return;
+        if (dragSrcCard.parentElement !== card.parentElement) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        card.classList.add("drag-over");
+      });
+      card.addEventListener("dragleave", function () {
+        card.classList.remove("drag-over");
+      });
+      card.addEventListener("drop", function (e) {
+        e.preventDefault();
+        card.classList.remove("drag-over");
+        if (!dragSrcCard || dragSrcCard === card) return;
+        if (dragSrcCard.parentElement !== card.parentElement) return;
+        var parent = card.parentElement;
+        var cards = Array.from(parent.querySelectorAll(".card[data-card-id]"));
+        var srcIdx = cards.indexOf(dragSrcCard);
+        var tgtIdx = cards.indexOf(card);
+        if (srcIdx < tgtIdx) {
+          parent.insertBefore(dragSrcCard, card.nextSibling);
+        } else {
+          parent.insertBefore(dragSrcCard, card);
+        }
+        saveCardOrder();
+      });
+    });
+  }
+
+  restoreCardOrder();
+  initDraggableCards();
 
 })();
