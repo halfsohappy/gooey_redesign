@@ -318,9 +318,24 @@ static inline void begin_udp(const String& start_ip, const String& start_ssid,
 
     WiFi.begin(start_ssid.c_str(), start_pass.c_str());
     Serial.print("Connecting to WiFi");
+    const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
+    unsigned long startTime = millis();
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
+        if (millis() - startTime >= WIFI_CONNECT_TIMEOUT_MS) {
+            Serial.println();
+            Serial.println(F("[BOOT] WiFi connection timed out. Clearing credentials and restarting..."));
+            // Clear provisioned flag so the device re-enters provisioning mode.
+            // Guard against begin() failure (e.g. corrupted NVS): if begin fails,
+            // getBool("provisioned") will also fail and return the default (false),
+            // so provisioning will start correctly on the next boot anyway.
+            if (preferences.begin("device_config", false)) {
+                preferences.putBool("provisioned", false);
+                preferences.end();
+            }
+            ESP.restart();
+        }
     }
     Serial.println();
     Serial.println("WiFi connected — IP: " + WiFi.localIP().toString());
