@@ -41,7 +41,7 @@ brew install gooey
 Or in one line:
 
 ```bash
-brew install halfsohappy/theatergwd/gooey
+brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
 ```
 
 ### Run

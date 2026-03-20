@@ -58,7 +58,7 @@ The `tap` command registers the TheaterGWD repository as a Homebrew tap. You onl
 ### Option B: One-liner
 
 ```bash
-brew install halfsohappy/theatergwd/gooey
+brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
 ```
 
 This taps the repository and installs in a single command.
