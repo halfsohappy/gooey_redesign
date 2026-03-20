@@ -1,4 +1,4 @@
-# TheaterGWD Control Center
+# Gooey – TheaterGWD Control Center
 
 **A professional control interface for [TheaterGWD](https://github.com/halfsohappy/TheaterGWD) sensor devices.**
 
@@ -8,14 +8,42 @@ Built with Python. Runs in your browser. Designed for theater professionals.
 
 ---
 
-## Quick Start
+## Install
+
+### Homebrew (macOS — recommended)
 
 ```bash
-cd gooey
+brew install halfsohappy/theatergwd/gooey
+```
+
+Then run:
+
+```bash
+gooey
+```
+
+That's it — your browser opens automatically.
+
+> See the [Homebrew Guide](docs/homebrew.md) for full details on updating, uninstalling, and troubleshooting.
+
+### pip install (any platform)
+
+```bash
+git clone https://github.com/halfsohappy/TheaterGWD.git
+cd TheaterGWD/gooey
+pip install .
+gooey
+```
+
+### One-command installer
+
+```bash
+git clone https://github.com/halfsohappy/TheaterGWD.git
+cd TheaterGWD/gooey
 bash install.sh
 ```
 
-Or manually:
+### Manual
 
 ```bash
 cd gooey
@@ -24,6 +52,8 @@ python run.py
 ```
 
 The control center opens at **http://127.0.0.1:5000**.
+
+> 📖 **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, all details.
 
 ---
 
@@ -98,7 +128,7 @@ Searchable documentation for all:
 ## Command-Line Options
 
 ```
-python run.py [OPTIONS]
+gooey [OPTIONS]
 
 Options:
   --port PORT       Web server port (default: 5000)
@@ -106,6 +136,28 @@ Options:
   --no-browser      Don't auto-open browser on startup
   --debug           Enable debug mode
 ```
+
+Examples:
+
+```bash
+gooey                           # Default — opens browser at localhost:5000
+gooey --port 8080               # Use a different port
+gooey --host 0.0.0.0            # Allow access from other devices on the network
+gooey --no-browser              # Don't auto-open browser
+```
+
+---
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| **[Installation](docs/installation.md)** | All install methods for every platform |
+| **[Homebrew Guide](docs/homebrew.md)** | Homebrew-specific setup, updating, and troubleshooting |
+| **[Quick Start](docs/quickstart.md)** | First-time walkthrough of the UI |
+| **[Troubleshooting](docs/troubleshooting.md)** | Common issues and solutions |
+| **[User Guide](../docs/user_guide.md)** | Full TheaterGWD user guide |
+| **[Technical Guide](../docs/technical_guide.md)** | Architecture and protocol details |
 
 ---
 
