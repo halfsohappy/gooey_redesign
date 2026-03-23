@@ -238,7 +238,8 @@ void setup() {
         }
 
         sh2_SensorValue_t sv;
-        while (bno.getSensorEvent(&sv)) {
+        const int MAX_EVENT_DRAIN = 20;
+        for (int drain = 0; drain < MAX_EVENT_DRAIN && bno.getSensorEvent(&sv); drain++) {
             switch (sv.sensorId) {
                 case SH2_ROTATION_VECTOR:
                     bno_cache.qi = sv.un.rotationVector.i;
@@ -287,6 +288,9 @@ void setup() {
                         Serial.println(bno_cache.gz, 4);
                     }
                     break;
+            }
+            if (got_rot && got_acc && got_gyro) {
+                break;
             }
         }
         delay(5);
