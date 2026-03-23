@@ -334,9 +334,14 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             reply_ip = status_reporter().dest_ip;
             reply_port = status_reporter().dest_port;
         }
+        if (reply_port == 0) {
+            Serial.println("  → list: reply port is 0; not sending response");
+            status_reporter().warning("list", "No reply port available for list response");
+            return;
+        }
         String sub_label = (sub.length() == 0) ? "(all)" : sub;
         String log;
-        // Reserve enough space for IP strings, ports, and labels to avoid reallocations.
+        // Reserve ~160 chars (~80 chars of labels + two IP strings + two ports + sub name).
         log.reserve(160);
         log += "  → list sub='";
         log += sub_label;
@@ -351,10 +356,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         log += ":";
         log += reply_port;
         Serial.println(log);
-        if (reply_port == 0) {
-            status_reporter().warning("list", "No reply port available for list response");
-            return;
-        }
 
         reg.lock();
 
