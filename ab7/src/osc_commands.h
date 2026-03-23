@@ -336,6 +336,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
         String sub_label = (sub.length() == 0) ? "(all)" : sub;
         String log;
+        // Reserve enough space for IP strings, ports, and labels to avoid reallocations.
         log.reserve(160);
         log += "  → list sub='";
         log += sub_label;
