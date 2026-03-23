@@ -50,6 +50,14 @@
 
 // Maximum number of message indices a single patch can hold.
 #define MAX_MSGS_PER_PATCH 64
+#define MIN_PATCH_PERIOD_MS 20
+#define MAX_PATCH_PERIOD_MS 60000
+
+static inline unsigned int clamp_patch_period_ms(long ms) {
+    if (ms < MIN_PATCH_PERIOD_MS) return MIN_PATCH_PERIOD_MS;
+    if (ms > MAX_PATCH_PERIOD_MS) return MAX_PATCH_PERIOD_MS;
+    return (unsigned int)ms;
+}
 
 // ---------------------------------------------------------------------------
 // AddressMode — how patch and message OSC addresses are combined
