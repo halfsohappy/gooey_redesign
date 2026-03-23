@@ -290,6 +290,8 @@ comma-separated string: `"name1, name2"`.
 | `/annieData/{dev}/list/all` | `"verbose"` *(optional)* | List everything. |
 
 When `"verbose"` is included, the reply includes all parameters for each item.
+If a section is empty, the device replies with `none` for that section
+(for example: `Messages (0): none`).
 
 ### Global Commands
 
