@@ -83,7 +83,9 @@ public:
     OscPatch*     patch;
 
     // Pointer into data_streams[] for the live sensor value to send.
-    float*        value_ptr;
+    // Declared volatile because data_streams[] is updated concurrently by
+    // the sensor task.
+    volatile float*  value_ptr;
 
     // Output bounds: the raw sensor value is linearly mapped from [0, 1]
     // to [bounds[0], bounds[1]] before sending.  If no bounds are set the

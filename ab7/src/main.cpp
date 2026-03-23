@@ -146,17 +146,27 @@ void setup() {
 
     // --- Sensor reading task ------------------------------------------------
     //
-    // This task runs on a separate core and continuously reads the BNO-085
+    // This task runs on core 1 (the same core where SPI.begin() and
+    // bno.begin_SPI() were called) and continuously reads the BNO-085
     // sensor data, updating the global data_streams[] array with real values.
+    //
+    // IMPORTANT: Must be pinned to core 1 because the ESP-IDF SPI driver
+    // registers its interrupt handler on the core that called SPI.begin().
+    // Running the sensor task on a different core can cause getSensorEvent()
+    // to fail silently, returning no data and leaving data_streams[] at zero.
 
-    xTaskCreate([](void*) {
+    xTaskCreatePinnedToCore([](void*) {
         OriTracker& ot = ori_tracker();
         bool first_data = true;
         unsigned long no_data_count = 0;
+        unsigned long total_reads = 0;
+        unsigned long last_heartbeat_ms = 0;
+        static constexpr unsigned long HEARTBEAT_INTERVAL_MS = 10000;
 
         for (;;) {
             if (bno_data_available()) {
                 no_data_count = 0;
+                total_reads++;
 
                 if (first_data) {
                     first_data = false;
@@ -222,9 +232,23 @@ void setup() {
                 }
             }
 
+            // ── Periodic heartbeat — print sensor summary every 10 s ──
+            unsigned long now = millis();
+            if (now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS) {
+                last_heartbeat_ms = now;
+                Serial.print(F("[BNO] Heartbeat — reads: "));
+                Serial.print(total_reads);
+                Serial.print(F("  aX:"));
+                Serial.print((float)data_streams[ACCELX], 3);
+                Serial.print(F("  gX:"));
+                Serial.print((float)data_streams[GYROX], 3);
+                Serial.print(F("  eX:"));
+                Serial.println((float)data_streams[EULERX], 3);
+            }
+
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
         }
-    }, "sensor_task", 16384, nullptr, 1, nullptr);  // 16 KB — SPI HAL + sh2 decode need ~6 KB
+    }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — SPI HAL + sh2 decode need ~6 KB  |  pinned to core 1
 
     Serial.println(F("[BOOT] Sensor task started (BNO-085 real data)."));
     Serial.println();

@@ -41,8 +41,10 @@
 #define EULERZ     11
 
 // The global data array.  Every element is continuously updated either by the
-// real sensor task or by update_simulated_data().
-float data_streams[NUM_DATA_STREAMS];
+// real sensor task or by update_simulated_data().  Declared volatile because
+// the sensor task (writer) and patch send tasks (readers) run concurrently
+// without a mutex protecting individual element access.
+volatile float data_streams[NUM_DATA_STREAMS];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,7 +92,7 @@ static inline int data_stream_index_from_name(const String& value_name) {
 
 /// Return the data-stream index that a given pointer refers to, or -1 if
 /// the pointer does not point into the data_streams array.
-static inline int data_stream_index_from_ptr(const float* ptr) {
+static inline int data_stream_index_from_ptr(const volatile float* ptr) {
     if (!ptr) return -1;
     ptrdiff_t offset = ptr - data_streams;
     if (offset >= 0 && offset < NUM_DATA_STREAMS) return (int)offset;
