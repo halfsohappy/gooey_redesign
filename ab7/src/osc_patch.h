@@ -118,7 +118,7 @@ public:
     AddressMode    address_mode = ADR_FALLBACK;
 
     // Sending configuration.
-    unsigned int   send_period_ms = 20;   // milliseconds between send bursts
+    unsigned int   send_period_ms = 50;   // milliseconds between send bursts
     bool           enabled        = false; // starts disabled; call start()
 
     // FreeRTOS task handle (nullptr when the task is not running).

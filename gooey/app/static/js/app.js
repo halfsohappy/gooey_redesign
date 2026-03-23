@@ -435,7 +435,7 @@
       tr.dataset.patchName = name;
       tr.innerHTML =
         '<td class="cell-name">' + esc(name) + '</td>' +
-        '<td class="cell-mono">' + esc(p.period || "20") + ' ms</td>' +
+        '<td class="cell-mono">' + esc(p.period || "50") + ' ms</td>' +
         '<td class="cell-mono">' + esc(p.adrMode || p.adrmode || "fallback") + '</td>' +
         '<td class="cell-mono">' + esc(p.override || "—") + '</td>' +
         '<td class="cell-mono" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
@@ -462,7 +462,7 @@
 
   function populatePatchForm(name, p) {
     $("#patchName").value = name;
-    $("#patchPeriod").value = p.period || "20";
+    $("#patchPeriod").value = p.period || "50";
     $("#patchAdrMode").value = p.adrMode || p.adrmode || "fallback";
     var ov = (p.override || "").split("+");
     $("#ovIP").checked = ov.indexOf("ip") !== -1;

@@ -214,7 +214,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         // Extract period from config string (from_config_str doesn't handle it).
-        unsigned int period_ms = 20;  // default 20 ms = 50 Hz
+        unsigned int period_ms = 50;  // default 50 ms = 20 Hz
         {
             String lower_cfg = cfg_str;
             lower_cfg.toLowerCase();
