@@ -915,7 +915,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 int ms = 0;
                 bool have_period = false;
                 const char* typetags = osc_msg.getTypeTags();
-                if (typetags && (typetags[0] == 'i' || typetags[0] == 'f')) {
+                if (typetags && typetags[0] == ',' && (typetags[1] == 'i' || typetags[1] == 'f')) {
                     ms = (int)osc_msg.nextAsFloat();
                     have_period = true;
                 }
