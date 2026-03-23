@@ -305,9 +305,11 @@
     }
   }
 
-  /** Parse a config string like "value:accelX ip:192.168.1.50 port:9000" into an object. */
+  /** Parse key:value pairs separated by commas/whitespace; values may contain spaces until the next key:. */
   function parseConfigString(str) {
     var result = {};
+    // Group 1 captures the key; group 2 captures the value.
+    // The lookahead stops value capture at the next "key:" token (optionally comma-separated) or end of string.
     var re = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*?)(?=(?:\s*,?\s*[a-zA-Z_][a-zA-Z0-9_]*\s*:)|$)/g;
     var match;
     while ((match = re.exec(str)) !== null) {
@@ -447,6 +449,7 @@
     $("#patchAdr").value = p.adr || "";
     $("#patchLow").value = p.low || "";
     $("#patchHigh").value = p.high || "";
+    /* Accept both legacy "+" and canonical comma-separated override replies. */
     var ov = (p.override || "").split(/[+,]/).map(function (s) { return s.trim(); }).filter(Boolean);
     $("#ovIP").checked = ov.indexOf("ip") !== -1;
     $("#ovPort").checked = ov.indexOf("port") !== -1;
@@ -497,7 +500,7 @@
 
     /* Patch name datalists */
     var patchNames = Object.keys(dev.patches);
-    ["#patchNameList", "#patchNameList2", "#patchNameList3", "#patchNameList4"].forEach(function (sel) {
+    ["#patchNameList", "#patchNameList2", "#patchNameList3", "#patchNameList4", "#patchNameListSetAll"].forEach(function (sel) {
       var dl = $(sel);
       if (!dl) return;
       dl.innerHTML = "";
@@ -775,7 +778,7 @@
     promises.push(sendCmd(addr("/annieData/{device}/patch/{name}", name), cfg || null));
     if (period) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), period));
     if (mode) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
-    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.length ? ovParts.join("+") : "none"));
+    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
 
     Promise.all(promises).then(function () {
       toast("Patch config applied: " + name, "success");
@@ -783,7 +786,7 @@
       if (dev) {
         dev.patches[name] = Object.assign(dev.patches[name] || {}, {
           ip: ip, port: port, adr: patchAdr, low: low, high: high,
-          period: period, adrMode: mode, override: ovParts.join("+")
+          period: period, adrMode: mode, override: ovParts.join(", ")
         });
         renderPatchTable();
         refreshAllDropdowns();
@@ -1231,7 +1234,7 @@
     if ($("#ovAdr").checked) ovParts.push("adr");
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
-    if (ovParts.length > 0) parts.push("override:" + ovParts.join("+"));
+    if (ovParts.length > 0) parts.push("override:" + ovParts.join(", "));
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
