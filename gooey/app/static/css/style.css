@@ -54,7 +54,7 @@
 
 body {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 300;
   color: var(--text-dark);
   background: var(--bg-alt);
@@ -72,7 +72,7 @@ body {
   gap: 12px;
   padding: 0 20px;
   background: var(--header-bg);
-  min-height: 56px;
+  min-height: 98px;
   flex-shrink: 0;
   box-shadow: 0 2px 6px rgba(0,0,0,0.08);
   position: relative;
@@ -83,7 +83,7 @@ body {
 
 .logo {
   font-family: var(--font-header);
-  font-size: 22px;
+  font-size: 38px;
   font-weight: 300;
   color: var(--header-text);
   letter-spacing: -0.02em;
@@ -94,7 +94,7 @@ body {
   font-family: var(--font);
   font-weight: 300;
   color: var(--text-medium);
-  font-size: 9px;
+  font-size: 12px;
   display: block;
   margin-top: -2px;
   letter-spacing: 0.04em;
@@ -178,15 +178,15 @@ body {
   background: var(--bg);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: 60px;
   overflow-x: auto;
 }
 
 .device-tab {
   font-family: var(--font);
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 400;
-  padding: 8px 14px;
+  padding: 14px 22px;
   border: none;
   background: none;
   color: var(--text-medium);
@@ -229,9 +229,9 @@ body {
 
 #btnAddDevice {
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 22px;
   font-weight: 300;
-  width: 28px; height: 28px;
+  width: 44px; height: 44px;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   background: none;
@@ -275,9 +275,9 @@ body {
 
 .nav-btn {
   font-family: var(--font-title);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 400;
-  padding: 10px 14px;
+  padding: 14px 20px;
   border: none;
   background: none;
   color: var(--text-light);
@@ -319,7 +319,7 @@ body {
 
 .card h2 {
   font-family: var(--font-title);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 400;
   color: var(--text-dark);
   margin-bottom: 12px;
@@ -338,7 +338,7 @@ body {
 }
 
 .hint-text {
-  font-size: 10px;
+  font-size: 14px;
   color: var(--text-light);
   margin-bottom: 10px;
   font-weight: 300;
@@ -361,11 +361,11 @@ body {
 
 label {
   display: block;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-light);
+  color: var(--header-bg);
   margin-bottom: 2px;
 }
 
@@ -382,9 +382,9 @@ textarea,
 select {
   width: 100%;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 400;
-  padding: 6px 10px;
+  padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-input);
@@ -417,7 +417,12 @@ select {
 .preview-input {
   background: var(--bg-alt) !important;
   color: var(--accent) !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
+  min-height: 26px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font);
+  word-break: break-all;
 }
 
 .search-input { margin-bottom: 8px; }
@@ -432,9 +437,9 @@ select {
 
 .btn {
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 500;
-  padding: 6px 14px;
+  padding: 10px 20px;
   border: 1px solid transparent;
   border-radius: var(--radius);
   cursor: pointer;
@@ -518,9 +523,10 @@ select {
 
 .qbtn {
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 400;
-  padding: 7px 12px;
+  padding: 12px 20px;
+  flex: 1;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg);
@@ -549,14 +555,14 @@ select {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10px;
+  font-size: 14px;
   margin-top: 6px;
 }
 
 .data-table th {
   text-align: left;
   font-weight: 500;
-  font-size: 9px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-light);
@@ -912,6 +918,31 @@ select {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+/* ── Card Star ── */
+.card {
+  position: relative;
+}
+
+.card-star {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-light);
+  line-height: 1;
+  z-index: 2;
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.card-star:hover { color: var(--warning); }
+.card-star.starred { color: var(--warning); }
+
+/* ── Ori Section ── */
+.ori-section { display: none; }
+.ori-enabled .ori-section { display: block; }
 
 /* ── Responsive ── */
 @media (max-width: 900px) {

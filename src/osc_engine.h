@@ -318,7 +318,7 @@ static inline void begin_udp(const String& start_ip, const String& start_ssid,
 
     WiFi.begin(start_ssid.c_str(), start_pass.c_str());
     Serial.print("Connecting to WiFi");
-    const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
+    const unsigned long WIFI_CONNECT_TIMEOUT_MS = 8000UL;
     unsigned long startTime = millis();
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
