@@ -244,20 +244,40 @@
     var dev = devices[matchedId];
     if (!dev) return;
 
-    /* ── Parse list replies ── */
-    var listMatch = text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
-    if (listMatch) {
-      var names = listMatch[1].split(/[,\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-      var isMsgList = text.match(/list\/msgs/i) || text.match(/list\/all/i);
-      var isPatchList = text.match(/list\/patches/i) || text.match(/list\/all/i);
-      names.forEach(function (n) {
-        if (isMsgList && !dev.messages[n]) {
-          dev.messages[n] = {};
-        }
-        if (isPatchList && !dev.patches[n]) {
-          dev.patches[n] = {};
-        }
-      });
+    /* ── Parse list replies ──
+       The device sends replies to /reply/{dev}/list/msgs (or /patches, /all)
+       with a multi-line payload: "Messages (N):\n  name1\n  name2\n..."
+       Detect by address; fall back to text-pattern for legacy status messages. */
+    var listAddr = entry.address || "";
+    var isListReply = /\/list\/(msgs|messages|patches|all)/i.test(listAddr);
+    var isLegacyList = !isListReply && text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
+    if (isListReply || isLegacyList) {
+      if (isLegacyList) {
+        var legacyMatch = text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
+        var names = legacyMatch[1].split(/[,\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var isMsgList = text.match(/list\/msgs/i) || text.match(/list\/all/i);
+        var isPatchList = text.match(/list\/patches/i) || text.match(/list\/all/i);
+        names.forEach(function (n) {
+          if (isMsgList   && !dev.messages[n]) dev.messages[n] = {};
+          if (isPatchList && !dev.patches[n])  dev.patches[n]  = {};
+        });
+      } else {
+        /* Multi-line reply format from the device. For /list/all, track which
+           block we are in; for /list/msgs or /list/patches use the address. */
+        var isAllList  = /\/list\/all/i.test(listAddr);
+        var isMsgList  = /\/list\/msgs/i.test(listAddr);
+        var curBlock = isAllList ? "" : (isMsgList ? "msg" : "patch");
+        text.split(/\n/).forEach(function (line) {
+          var trimmed = line.trim();
+          if (!trimmed) return;
+          if (/^messages\s*\(\d+\):/i.test(trimmed)) { curBlock = "msg";   return; }
+          if (/^patches\s*\(\d+\):/i.test(trimmed))  { curBlock = "patch"; return; }
+          var n = trimmed.split(/\s+/)[0];
+          if (!n) return;
+          if (curBlock === "msg"   && !dev.messages[n]) dev.messages[n] = {};
+          if (curBlock === "patch" && !dev.patches[n])  dev.patches[n]  = {};
+        });
+      }
       renderMsgTable();
       renderPatchTable();
       refreshAllDropdowns();

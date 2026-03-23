@@ -241,7 +241,8 @@ inline bool OscMessage::sendable() const {
 ///
 /// Format: "key:value, key:value, ..."
 ///   Direct keys:  name, ip, port, adr/addr/address, patch, value, low/min/lo,
-///                 high/max/hi, period, enabled
+///                 high/max/hi, enabled
+///                 period — accepted but ignored (patch-level field, handled by caller)
 ///   Reference keys (use '-' separator):  ip-refName, port-refName, etc.
 ///   Special:  default-refName / all-refName  copies all set fields from a
 ///             registered patch or message as fallback values.
@@ -402,6 +403,8 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             ori_only = value;
         } else if (key == "orinot" || key == "ori_not") {
             ori_not = value;
+        } else if (key == "period") {
+            // Recognised but handled outside from_config_str (patch-level field).
         } else {
             if (error) *error = "Unknown key: " + key;
             return false;
