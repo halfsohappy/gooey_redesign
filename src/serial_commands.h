@@ -122,7 +122,7 @@ static inline void _serial_cmd_streams() {
         while (name.length() < 12) name += ' ';
         Serial.print(name);
         Serial.print(F(" = "));
-        Serial.println(data_streams[i], 4);
+        Serial.println((float)data_streams[i], 4);
     }
     Serial.println(F("──────────────────────────────────────"));
 }
