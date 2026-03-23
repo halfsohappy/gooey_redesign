@@ -140,7 +140,7 @@ static inline void _serial_cmd_config() {
         Serial.print(F("  SSID        : "));
         Serial.println(prefs.getString("ssid", "(empty)"));
         Serial.print(F("  Password    : "));
-        String pw = prefs.getString("network_password", "");
+        String pw = prefs.getString("net_pass", "");
         Serial.println(pw.length() > 0 ? "(set)" : "(empty)");
         bool use_dhcp = prefs.getBool("use_dhcp", true);
         Serial.print(F("  DHCP        : "));

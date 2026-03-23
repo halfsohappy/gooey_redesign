@@ -94,7 +94,7 @@ void setup() {
         Serial.println(F("[BOOT] Device is provisioned — loading config..."));
 
         String ssid     = preferences.getString("ssid", "");
-        String password = preferences.getString("network_password", "");
+        String password = preferences.getString("net_pass", "");
         bool   use_dhcp = preferences.getBool("use_dhcp", true);
         String ip_str   = use_dhcp ? "dhcp" : preferences.getString("static_ip", "dhcp");
         int    port     = preferences.getInt("port", 8000);
