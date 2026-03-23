@@ -648,15 +648,18 @@
 
   /* Config preview update */
   function updateMsgPreview() {
+    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : "");
+    var adrEl = $("#msgPreviewAdr");
+    var cfgEl = $("#msgPreviewCfg");
+    if (adrEl) adrEl.textContent = a ? "adr: " + a : "(no address)";
     var parts = [];
-    var v = $("#msgValue").value;   if (v) parts.push("value:" + v);
+    var v = $("#msgValue").value; if (v) parts.push("value:" + v);
     var ip = $("#msgIP").value.trim(); if (ip) parts.push("ip:" + ip);
     var port = $("#msgPort").value; if (port) parts.push("port:" + port);
-    var a = $("#msgAdr").value.trim(); if (a) parts.push("adr:" + a);
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
-    $("#msgPreview").value = parts.join(", ");
+    if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
   ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch"].forEach(function (id) {
@@ -669,7 +672,15 @@
   $("#btnMsgApply").addEventListener("click", function () {
     var name = ($("#msgName").value || "").trim();
     if (!name) { toast("Message name required", "error"); return; }
-    var cfg = ($("#msgPreview").value || "").trim();
+    var parts = [];
+    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push("adr:" + a);
+    var v = $("#msgValue").value; if (v) parts.push("value:" + v);
+    var ip = $("#msgIP").value.trim(); if (ip) parts.push("ip:" + ip);
+    var port = $("#msgPort").value; if (port) parts.push("port:" + port);
+    var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
+    var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
+    var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    var cfg = parts.join(", ");
     var address = addr("/annieData/{device}/msg/{name}", name);
     sendCmd(address, cfg || null).then(function (res) {
       if (res.status === "ok") {
@@ -1180,5 +1191,217 @@
 
   restoreCardOrder();
   initDraggableCards();
+
+  /* ═══════════════════════════════════════════
+     PATCH PREVIEW
+     ═══════════════════════════════════════════ */
+
+  function updatePatchPreview() {
+    var name = ($("#patchName") ? $("#patchName").value.trim() : "");
+    var adrEl = $("#patchPreviewAdr");
+    var cfgEl = $("#patchPreviewCfg");
+    if (adrEl) adrEl.textContent = name ? "patch: " + name : "(no patch name)";
+    var parts = [];
+    var period = ($("#patchPeriod").value || "").trim(); if (period) parts.push("period:" + period);
+    var mode = ($("#patchAdrMode").value || "").trim(); if (mode) parts.push("adrMode:" + mode);
+    var ovParts = [];
+    if ($("#ovIP").checked) ovParts.push("ip");
+    if ($("#ovPort").checked) ovParts.push("port");
+    if ($("#ovAdr").checked) ovParts.push("adr");
+    if ($("#ovLow").checked) ovParts.push("low");
+    if ($("#ovHigh").checked) ovParts.push("high");
+    if (ovParts.length > 0) parts.push("override:" + ovParts.join("+"));
+    if (cfgEl) cfgEl.textContent = parts.join(", ");
+  }
+
+  ["patchName", "patchPeriod", "patchAdrMode"].forEach(function (id) {
+    var el = $("#" + id);
+    if (el) el.addEventListener("input", updatePatchPreview);
+    if (el) el.addEventListener("change", updatePatchPreview);
+  });
+  ["ovIP", "ovPort", "ovAdr", "ovLow", "ovHigh"].forEach(function (id) {
+    var el = $("#" + id);
+    if (el) el.addEventListener("change", updatePatchPreview);
+  });
+  updatePatchPreview();
+
+  /* ═══════════════════════════════════════════
+     DEBUG MODE — confirm before send
+     ═══════════════════════════════════════════ */
+
+  var _origSendCmd = sendCmd;
+  sendCmd = function (address, payload) {
+    var dbg = $("#debugMode");
+    if (dbg && dbg.checked) {
+      var msg = "DEBUG — Send OSC?\n\nAddress: " + address + "\nPayload: " + (payload || "(none)");
+      if (!window.confirm(msg)) {
+        return Promise.resolve({ status: "cancelled" });
+      }
+    }
+    return _origSendCmd(address, payload);
+  };
+
+  var _origApi = api;
+  api = function (endpoint, data, method) {
+    if (endpoint === "send" && data) {
+      var dbg = $("#debugMode");
+      if (dbg && dbg.checked) {
+        var msg = "DEBUG — Send OSC?\n\nAddress: " + (data.address || "") + "\nArgs: " + JSON.stringify(data.args || "") + "\nHost: " + (data.host || "") + ":" + (data.port || "");
+        if (!window.confirm(msg)) {
+          return Promise.resolve({ status: "cancelled" });
+        }
+      }
+    }
+    return _origApi(endpoint, data, method);
+  };
+
+  /* ═══════════════════════════════════════════
+     STAR TAB LOGIC
+     ═══════════════════════════════════════════ */
+
+  var STAR_KEY = "gooey_starred_cards";
+
+  function getStarred() {
+    try {
+      var raw = localStorage.getItem(STAR_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) { return []; }
+  }
+
+  function setStarred(arr) {
+    try { localStorage.setItem(STAR_KEY, JSON.stringify(arr)); } catch (e) { /* ignore */ }
+  }
+
+  function isStarred(cardId) {
+    return getStarred().indexOf(cardId) !== -1;
+  }
+
+  function toggleStar(cardId) {
+    var starred = getStarred();
+    var idx = starred.indexOf(cardId);
+    if (idx !== -1) {
+      starred.splice(idx, 1);
+    } else {
+      starred.push(cardId);
+    }
+    setStarred(starred);
+    refreshStarIcons();
+    renderStarredSection();
+  }
+
+  function refreshStarIcons() {
+    $$(".card[data-card-id] .card-star").forEach(function (star) {
+      var card = star.closest(".card");
+      if (!card) return;
+      var cardId = card.dataset.cardId;
+      if (isStarred(cardId)) {
+        star.textContent = "★";
+        star.classList.add("starred");
+      } else {
+        star.textContent = "☆";
+        star.classList.remove("starred");
+      }
+    });
+  }
+
+  function renderStarredSection() {
+    var sec = $("#sec-starred");
+    if (!sec) return;
+    var starred = getStarred();
+    sec.innerHTML = "";
+    if (starred.length === 0) {
+      sec.innerHTML = '<p class="hint-text" style="padding: 20px; text-align: center;">Star cards from any tab to pin them here. Click the ☆ icon in the top-right of any card.</p>';
+      return;
+    }
+    starred.forEach(function (cardId) {
+      var orig = document.querySelector('.card[data-card-id="' + cardId + '"]');
+      if (!orig) return;
+      var clone = orig.cloneNode(true);
+      clone.removeAttribute("draggable");
+      clone.classList.remove("dragging", "drag-over");
+      /* Remove the star icon from clone to avoid duplication confusion */
+      var cloneStar = clone.querySelector(".card-star");
+      if (cloneStar) cloneStar.remove();
+      sec.appendChild(clone);
+    });
+  }
+
+  /* Add star icons to all cards with data-card-id */
+  function addStarIcons() {
+    $$(".card[data-card-id]").forEach(function (card) {
+      if (card.querySelector(".card-star")) return;
+      var star = document.createElement("span");
+      star.className = "card-star";
+      star.title = "Star this card";
+      star.textContent = isStarred(card.dataset.cardId) ? "★" : "☆";
+      if (isStarred(card.dataset.cardId)) star.classList.add("starred");
+      star.addEventListener("click", function (e) {
+        e.stopPropagation();
+        toggleStar(card.dataset.cardId);
+      });
+      card.insertBefore(star, card.firstChild);
+    });
+  }
+
+  addStarIcons();
+  refreshStarIcons();
+  renderStarredSection();
+
+  /* ═══════════════════════════════════════════
+     ORI CONTROLS
+     ═══════════════════════════════════════════ */
+
+  /* Ori mode toggle */
+  var oriModeEl = $("#oriMode");
+  if (oriModeEl) {
+    oriModeEl.addEventListener("change", function () {
+      if (oriModeEl.checked) {
+        document.body.classList.add("ori-enabled");
+      } else {
+        document.body.classList.remove("ori-enabled");
+      }
+    });
+  }
+
+  /* Ori button handlers */
+  var oriButtons = {
+    btnOriSave: function () {
+      var name = ($("#oriName").value || "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/save"), name);
+    },
+    btnOriSaveAuto: function () {
+      sendCmd(addr("/annieData/{device}/ori/save"), null);
+    },
+    btnOriList: function () {
+      sendCmd(addr("/annieData/{device}/ori/list"), null);
+    },
+    btnOriActive: function () {
+      sendCmd(addr("/annieData/{device}/ori/active"), null);
+    },
+    btnOriDelete: function () {
+      var name = ($("#oriName").value || "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/delete"), name);
+    },
+    btnOriClear: function () {
+      if (!window.confirm("Clear all saved orientations?")) return;
+      sendCmd(addr("/annieData/{device}/ori/clear"), null);
+    },
+    btnOriThreshold: function () {
+      var val = ($("#oriThreshold").value || "").trim();
+      if (!val) { toast("Threshold value required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/threshold"), val);
+    }
+  };
+
+  Object.keys(oriButtons).forEach(function (id) {
+    var el = $("#" + id);
+    if (el) {
+      el.addEventListener("click", function () {
+        oriButtons[id]();
+      });
+    }
+  });
 
 })();
