@@ -614,6 +614,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
     if (norm_adr.startsWith("/ori/") || norm_adr == "/ori") {
         String ori_rest = (norm_adr == "/ori") ? String("") : norm_adr.substring(4);
+        Serial.println("  → ori command, sub=" + ori_rest);
         // Also extract original-case name from the address.
         String ori_rest_orig = "";
         if (address.length() > 4 && address.startsWith("/ori")) {
@@ -693,6 +694,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         // /ori/list
         if (ori_rest == "/list") {
             String listing = ot.list();
+            status_reporter().info("ori", "Saved oris: " + listing);
             osc_reply(sender_ip, sender_port, reply_adr + "/ori/list", listing);
             return;
         }
@@ -716,6 +718,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             String info = (ot.active_ori_index >= 0)
                 ? ot.active_ori_name
                 : String("(none)");
+            status_reporter().info("ori", "Active ori: " + info);
             osc_reply(sender_ip, sender_port, reply_adr + "/ori/active", info);
             return;
         }

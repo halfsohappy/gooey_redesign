@@ -151,9 +151,18 @@ void setup() {
 
     xTaskCreate([](void*) {
         OriTracker& ot = ori_tracker();
+        bool first_data = true;
+        unsigned long no_data_count = 0;
 
         for (;;) {
             if (bno_data_available()) {
+                no_data_count = 0;
+
+                if (first_data) {
+                    first_data = false;
+                    Serial.println(F("[BNO] First sensor data received."));
+                }
+
                 // ── Rotation vector (quaternion) ───────────────────────
                 float qi, qj, qk, qr;
                 bno_get_quat(qi, qj, qk, qr);
@@ -205,11 +214,17 @@ void setup() {
 
                 // ── Update orientation tracker ────────────────────────
                 ot.update(qi, qj, qk, qr, gyro_len);
+            } else {
+                no_data_count++;
+                // Warn once after ~5 seconds of no data (500 × 10ms).
+                if (no_data_count == 500) {
+                    Serial.println(F("[BNO] WARNING: No sensor data for 5 seconds — check SPI wiring."));
+                }
             }
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
         }
-    }, "sensor_task", 8192, nullptr, 1, nullptr);
+    }, "sensor_task", 16384, nullptr, 1, nullptr);  // 16 KB — SPI HAL + sh2 decode need ~6 KB
 
     Serial.println(F("[BOOT] Sensor task started (BNO-085 real data)."));
     Serial.println();

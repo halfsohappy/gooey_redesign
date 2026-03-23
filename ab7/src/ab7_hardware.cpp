@@ -35,8 +35,11 @@ void begin_pins() {
 // ---------------------------------------------------------------------------
 
 void begin_bno() {
-    // Use the default SPI bus but with our pin assignments.
-    SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI, BNO_CS);
+    // Initialise the SPI bus with our pin assignments.  Do NOT pass the CS
+    // pin here — on ESP32-S3 that calls spiAttachSS() which configures the
+    // pin for hardware-managed SS, conflicting with the Adafruit library's
+    // software CS control via digitalWrite().
+    SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI);
 
     // WAKE is active-low on BNO-085. Keep it deasserted (HIGH) for normal run.
     pinMode(BNO_WAKE, OUTPUT);
@@ -87,7 +90,9 @@ bool bno_data_available() {
     bool updated = false;
     sh2_SensorValue_t sensor_value;
 
-    while (bno.getSensorEvent(&sensor_value)) {
+    // Drain up to 10 pending events per call to avoid stalling the task
+    // if the sensor is producing faster than we consume.
+    for (int drain = 0; drain < 10 && bno.getSensorEvent(&sensor_value); drain++) {
         updated = true;
 
         switch (sensor_value.sensorId) {
