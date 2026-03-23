@@ -334,11 +334,22 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             reply_ip = status_reporter().dest_ip;
             reply_port = status_reporter().dest_port;
         }
-        String sub_label = (sub.length() == 0) ? String("(all)") : sub;
-        Serial.println("  → list sub='" + sub_label + "' verbose="
-                       + String(verbose ? "true" : "false")
-                       + " sender=" + sender_ip.toString() + ":" + String(sender_port)
-                       + " dest=" + reply_ip.toString() + ":" + String(reply_port));
+        String sub_label = (sub.length() == 0) ? "(all)" : sub;
+        String log;
+        log.reserve(160);
+        log += "  → list sub='";
+        log += sub_label;
+        log += "' verbose=";
+        log += verbose ? "true" : "false";
+        log += " sender=";
+        log += sender_ip.toString();
+        log += ":";
+        log += sender_port;
+        log += " dest=";
+        log += reply_ip.toString();
+        log += ":";
+        log += reply_port;
+        Serial.println(log);
         if (reply_port == 0) {
             status_reporter().warning("list", "No reply port available for list response");
             return;
