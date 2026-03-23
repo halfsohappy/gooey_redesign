@@ -214,7 +214,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         // Extract period from config string (from_config_str doesn't handle it).
-        unsigned int period_ms = 50;  // default 50 ms = 20 Hz
+        unsigned int period_ms = 20;  // default 20 ms = 50 Hz
         {
             String lower_cfg = cfg_str;
             lower_cfg.toLowerCase();
@@ -795,6 +795,23 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 if (csv.exist.adr)  { p->osc_address = csv.osc_address; p->exist.adr  = true; }
                 if (csv.exist.low)  { p->bounds[0] = csv.bounds[0];     p->exist.low  = true; }
                 if (csv.exist.high) { p->bounds[1] = csv.bounds[1];     p->exist.high = true; }
+
+                // Extract period from config string (from_config_str doesn't handle it).
+                {
+                    String cfg_lower = String(arg);
+                    cfg_lower.toLowerCase();
+                    int pi = cfg_lower.indexOf("period:");
+                    if (pi < 0) pi = cfg_lower.indexOf("period-");
+                    if (pi >= 0) {
+                        int vstart = pi + 7;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String pval = (vend < 0) ? String(arg).substring(vstart)
+                                                 : String(arg).substring(vstart, vend);
+                        pval.trim();
+                        int pms = pval.toInt();
+                        if (pms >= 1 && pms <= 60000) p->send_period_ms = (unsigned int)pms;
+                    }
+                }
             }
             status_reporter().info("patch", "Patch '" + name_mp + "' updated");
         }
