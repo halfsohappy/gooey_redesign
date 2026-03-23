@@ -339,10 +339,10 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             status_reporter().warning("list", "No reply port available for list response");
             return;
         }
-        String sub_label = (sub.length() == 0) ? "(all)" : sub;
+        const size_t LIST_LOG_RESERVE = 160;  // ~80 label chars + two IPs + two ports + sub name
+        String sub_label = sub.isEmpty() ? "(all)" : sub;
         String log;
-        // Reserve ~160 chars (~80 chars of labels + two IP strings + two ports + sub name).
-        log.reserve(160);
+        log.reserve(LIST_LOG_RESERVE);
         log += "  → list sub='";
         log += sub_label;
         log += "' verbose=";
