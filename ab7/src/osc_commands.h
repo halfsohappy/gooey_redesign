@@ -608,6 +608,122 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
+    // ── ORI COMMANDS (/annieData{dev}/ori/...) ─────────────────────────────
+    //
+    // Orientation save/recall/matching system.  See ori_tracker.h for details.
+
+    if (norm_adr.startsWith("/ori/") || norm_adr == "/ori") {
+        String ori_rest = (norm_adr == "/ori") ? String("") : norm_adr.substring(4);
+        // Also extract original-case name from the address.
+        String ori_rest_orig = "";
+        if (address.length() > 4 && address.startsWith("/ori")) {
+            ori_rest_orig = address.substring(4);
+        }
+
+        OriTracker& ot = ori_tracker();
+
+        // /ori/save  or  /ori/save/{name}
+        if (ori_rest.startsWith("/save")) {
+            String ori_name;
+            if (ori_rest.length() > 5 && ori_rest.charAt(5) == '/') {
+                // Extract name from original-case address.
+                int slash = ori_rest_orig.indexOf('/', 6);
+                ori_name = (slash < 0) ? ori_rest_orig.substring(6)
+                                       : ori_rest_orig.substring(6, slash);
+                ori_name.trim();
+            }
+            // If payload provides a name, use that instead.
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+
+            int idx;
+            if (ori_name.length() > 0) {
+                idx = ot.save(ori_name, cur_qi, cur_qj, cur_qk, cur_qr);
+            } else {
+                idx = ot.save_auto(cur_qi, cur_qj, cur_qk, cur_qr);
+                if (idx >= 0) ori_name = ot.oris[idx].name;
+            }
+
+            if (idx >= 0) {
+                status_reporter().info("ori", "Saved ori '" + ori_name + "' (idx " + String(idx) + ")");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "Saved: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Could not save ori (full?)");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "ERROR: ori slots full");
+            }
+            return;
+        }
+
+        // /ori/delete/{name}
+        if (ori_rest.startsWith("/delete")) {
+            String ori_name;
+            if (ori_rest.length() > 8 && ori_rest.charAt(7) == '/') {
+                ori_name = ori_rest_orig.substring(8);
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "delete: no name given");
+                return;
+            }
+            if (ot.remove(ori_name)) {
+                status_reporter().info("ori", "Deleted ori '" + ori_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/delete", "Deleted: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
+            }
+            return;
+        }
+
+        // /ori/clear
+        if (ori_rest == "/clear") {
+            ot.clear();
+            status_reporter().info("ori", "All oris cleared");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/clear", "All oris cleared");
+            return;
+        }
+
+        // /ori/list
+        if (ori_rest == "/list") {
+            String listing = ot.list();
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/list", listing);
+            return;
+        }
+
+        // /ori/threshold  (set motion gate threshold in rad/s)
+        if (ori_rest == "/threshold" || ori_rest.startsWith("/threshold")) {
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 'f') {
+                ot.motion_threshold = osc_msg.nextAsFloat();
+            } else if (typetags && typetags[0] == 's') {
+                ot.motion_threshold = String(osc_msg.nextAsString()).toFloat();
+            }
+            status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
+                      "threshold: " + String(ot.motion_threshold, 2));
+            return;
+        }
+
+        // /ori/active  — query the current active ori
+        if (ori_rest == "/active") {
+            String info = (ot.active_ori_index >= 0)
+                ? ot.active_ori_name
+                : String("(none)");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/active", info);
+            return;
+        }
+
+        status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
+        return;
+    }
+
     // ── CATEGORY DISPATCH: /msg or /patch ──────────────────────────────────
 
     bool is_msg   = norm_adr.startsWith("/msg");
@@ -1052,125 +1168,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         reg.unlock();
-        return;
-    }
-
-    // ── ORI COMMANDS (/annieData{dev}/ori/...) ─────────────────────────────
-    //
-    // Orientation save/recall/matching system.  See ori_tracker.h for details.
-
-    if (norm_adr.startsWith("/ori/") || norm_adr == "/ori") {
-        String ori_rest = (norm_adr == "/ori") ? String("") : norm_adr.substring(5);
-        // Also extract original-case name from the address.
-        String ori_rest_orig = "";
-        if (address.length() > 5 && address.startsWith("/ori/", 0)) {
-            // address was already stripped of /annieData{dev}
-            ori_rest_orig = address.substring(5);
-        } else if (address.length() > 4) {
-            ori_rest_orig = address.substring(4);
-        }
-
-        OriTracker& ot = ori_tracker();
-
-        // /ori/save  or  /ori/save/{name}
-        if (ori_rest.startsWith("/save")) {
-            String ori_name;
-            if (ori_rest.length() > 5 && ori_rest.charAt(5) == '/') {
-                // Extract name from original-case address.
-                int slash = ori_rest_orig.indexOf('/', 5);
-                ori_name = (slash < 0) ? ori_rest_orig.substring(6)
-                                       : ori_rest_orig.substring(6, slash);
-                ori_name.trim();
-            }
-            // If payload provides a name, use that instead.
-            const char* typetags = osc_msg.getTypeTags();
-            if (typetags && typetags[0] == 's') {
-                ori_name = String(osc_msg.nextAsString());
-                ori_name.trim();
-            }
-
-            int idx;
-            if (ori_name.length() > 0) {
-                idx = ot.save(ori_name, cur_qi, cur_qj, cur_qk, cur_qr);
-            } else {
-                idx = ot.save_auto(cur_qi, cur_qj, cur_qk, cur_qr);
-                if (idx >= 0) ori_name = ot.oris[idx].name;
-            }
-
-            if (idx >= 0) {
-                status_reporter().info("ori", "Saved ori '" + ori_name + "' (idx " + String(idx) + ")");
-                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "Saved: " + ori_name);
-            } else {
-                status_reporter().warning("ori", "Could not save ori (full?)");
-                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "ERROR: ori slots full");
-            }
-            return;
-        }
-
-        // /ori/delete/{name}
-        if (ori_rest.startsWith("/delete")) {
-            String ori_name;
-            if (ori_rest.length() > 8 && ori_rest.charAt(7) == '/') {
-                ori_name = ori_rest_orig.substring(8);
-                ori_name.trim();
-            }
-            const char* typetags = osc_msg.getTypeTags();
-            if (typetags && typetags[0] == 's') {
-                ori_name = String(osc_msg.nextAsString());
-                ori_name.trim();
-            }
-            if (ori_name.length() == 0) {
-                status_reporter().warning("ori", "delete: no name given");
-                return;
-            }
-            if (ot.remove(ori_name)) {
-                status_reporter().info("ori", "Deleted ori '" + ori_name + "'");
-                osc_reply(sender_ip, sender_port, reply_adr + "/ori/delete", "Deleted: " + ori_name);
-            } else {
-                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
-            }
-            return;
-        }
-
-        // /ori/clear
-        if (ori_rest == "/clear") {
-            ot.clear();
-            status_reporter().info("ori", "All oris cleared");
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/clear", "All oris cleared");
-            return;
-        }
-
-        // /ori/list
-        if (ori_rest == "/list") {
-            String listing = ot.list();
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/list", listing);
-            return;
-        }
-
-        // /ori/threshold  (set motion gate threshold in rad/s)
-        if (ori_rest == "/threshold" || ori_rest.startsWith("/threshold")) {
-            const char* typetags = osc_msg.getTypeTags();
-            if (typetags && typetags[0] == 'f') {
-                ot.motion_threshold = osc_msg.nextAsFloat();
-            } else if (typetags && typetags[0] == 's') {
-                ot.motion_threshold = String(osc_msg.nextAsString()).toFloat();
-            }
-            status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
-                      "threshold: " + String(ot.motion_threshold, 2));
-            return;
-        }
-
-        // /ori/active  — query the current active ori
-        if (ori_rest == "/active") {
-            String info = (ot.active_ori_index >= 0)
-                ? ot.active_ori_name
-                : String("(none)");
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/active", info);
-            return;
-        }
-
-        status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
         return;
     }
 }

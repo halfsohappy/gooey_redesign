@@ -1322,6 +1322,14 @@
       /* Remove the star icon from clone to avoid duplication confusion */
       var cloneStar = clone.querySelector(".card-star");
       if (cloneStar) cloneStar.remove();
+      /* Strip all id attributes from the clone and its descendants to
+         prevent duplicate IDs in the DOM.  Without this, querySelector("#id")
+         finds the clone (which appears earlier in the DOM) instead of the
+         original, breaking handlers bound by ID. */
+      clone.removeAttribute("id");
+      clone.querySelectorAll("[id]").forEach(function (el) {
+        el.removeAttribute("id");
+      });
       sec.appendChild(clone);
     });
   }
