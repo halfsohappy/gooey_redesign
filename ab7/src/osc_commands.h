@@ -331,23 +331,43 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         reg.lock();
 
         if (sub == "/msgs" || sub == "/messages") {
-            String result = "Messages (" + String(reg.msg_count) + "):\n";
+            String result = "Messages (" + String(reg.msg_count) + "):";
+            if (reg.msg_count == 0) {
+                result += " none\n";
+            } else {
+                result += "\n";
+            }
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
             osc_reply(sender_ip, sender_port, reply_adr + "/list/msgs", result);
         } else if (sub == "/patches") {
-            String result = "Patches (" + String(reg.patch_count) + "):\n";
+            String result = "Patches (" + String(reg.patch_count) + "):";
+            if (reg.patch_count == 0) {
+                result += " none\n";
+            } else {
+                result += "\n";
+            }
             for (uint16_t i = 0; i < reg.patch_count; i++) {
                 result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
             }
             osc_reply(sender_ip, sender_port, reply_adr + "/list/patches", result);
         } else if (sub == "/all" || sub == "") {
-            String result = "Patches (" + String(reg.patch_count) + "):\n";
+            String result = "Patches (" + String(reg.patch_count) + "):";
+            if (reg.patch_count == 0) {
+                result += " none\n";
+            } else {
+                result += "\n";
+            }
             for (uint16_t i = 0; i < reg.patch_count; i++) {
                 result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
             }
-            result += "Messages (" + String(reg.msg_count) + "):\n";
+            result += "Messages (" + String(reg.msg_count) + "):";
+            if (reg.msg_count == 0) {
+                result += " none\n";
+            } else {
+                result += "\n";
+            }
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }

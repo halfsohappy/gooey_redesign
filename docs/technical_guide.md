@@ -521,6 +521,8 @@ Removes the message from its current patch and adds it to the named patch.
 `/annieData{dev}/list/all` — optional payload: `"verbose"` or `"v"`
 
 Replies with a text listing of all registered messages and/or patches.
+When a section has no entries, it is returned as `none` (for example:
+`Patches (0): none`).
 
 ### Global Commands
 
