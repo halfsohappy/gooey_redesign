@@ -10,7 +10,15 @@
 // ---------------------------------------------------------------------------
 
 Preferences preferences;
-BNO08x     bno;
+Adafruit_BNO08x bno(BNO_RST);
+
+struct BnoCache {
+    float qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;
+    float ax = 0.0f, ay = 0.0f, az = 0.0f;
+    float gx = 0.0f, gy = 0.0f, gz = 0.0f;
+};
+
+static BnoCache bno_cache;
 
 // ---------------------------------------------------------------------------
 // Pin initialisation
@@ -30,7 +38,11 @@ void begin_bno() {
     // Use the default SPI bus but with our pin assignments.
     SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI, BNO_CS);
 
-    if (!bno.beginSPI(BNO_CS, BNO_INT, BNO_RST, BNO_WAKE, 3000000, SPI)) {
+    // WAKE is active-low on BNO-085. Keep it deasserted (HIGH) for normal run.
+    pinMode(BNO_WAKE, OUTPUT);
+    digitalWrite(BNO_WAKE, HIGH);
+
+    if (!bno.begin_SPI(BNO_CS, BNO_INT, &SPI)) {
         Serial.println(F("[BNO] Failed to initialise BNO-085 over SPI!"));
         Serial.println(F("[BNO] Check wiring.  Halting."));
         while (1) { delay(100); }
@@ -50,11 +62,13 @@ void begin_bno() {
 //   - Calibrated Gyroscope — 50 Hz
 
 void enable_bno_reports() {
-    if (!bno.enableRotationVector(20))   // 20 ms → 50 Hz
+    static constexpr uint32_t REPORT_INTERVAL_US = 20000;  // 50 Hz
+
+    if (!bno.enableReport(SH2_ROTATION_VECTOR, REPORT_INTERVAL_US))
         Serial.println(F("[BNO] Could not enable rotation vector."));
-    if (!bno.enableLinearAccelerometer(20))
+    if (!bno.enableReport(SH2_LINEAR_ACCELERATION, REPORT_INTERVAL_US))
         Serial.println(F("[BNO] Could not enable linear accelerometer."));
-    if (!bno.enableGyro(20))
+    if (!bno.enableReport(SH2_GYROSCOPE_CALIBRATED, REPORT_INTERVAL_US))
         Serial.println(F("[BNO] Could not enable gyroscope."));
 
     Serial.println(F("[BNO] Reports enabled (rotation vector, linear accel, gyro @ 50 Hz)."));
@@ -65,26 +79,59 @@ void enable_bno_reports() {
 // ---------------------------------------------------------------------------
 
 bool bno_data_available() {
-    return bno.dataAvailable();
+    if (bno.wasReset()) {
+        Serial.println(F("[BNO] Sensor reset detected; re-enabling reports."));
+        enable_bno_reports();
+    }
+
+    bool updated = false;
+    sh2_SensorValue_t sensor_value;
+
+    while (bno.getSensorEvent(&sensor_value)) {
+        updated = true;
+
+        switch (sensor_value.sensorId) {
+            case SH2_ROTATION_VECTOR:
+                bno_cache.qi = sensor_value.un.rotationVector.i;
+                bno_cache.qj = sensor_value.un.rotationVector.j;
+                bno_cache.qk = sensor_value.un.rotationVector.k;
+                bno_cache.qr = sensor_value.un.rotationVector.real;
+                break;
+
+            case SH2_LINEAR_ACCELERATION:
+                bno_cache.ax = sensor_value.un.linearAcceleration.x;
+                bno_cache.ay = sensor_value.un.linearAcceleration.y;
+                bno_cache.az = sensor_value.un.linearAcceleration.z;
+                break;
+
+            case SH2_GYROSCOPE_CALIBRATED:
+                bno_cache.gx = sensor_value.un.gyroscope.x;
+                bno_cache.gy = sensor_value.un.gyroscope.y;
+                bno_cache.gz = sensor_value.un.gyroscope.z;
+                break;
+        }
+    }
+
+    return updated;
 }
 
 void bno_get_quat(float &qi, float &qj, float &qk, float &qr) {
-    qi = bno.getQuatI();
-    qj = bno.getQuatJ();
-    qk = bno.getQuatK();
-    qr = bno.getQuatReal();
+    qi = bno_cache.qi;
+    qj = bno_cache.qj;
+    qk = bno_cache.qk;
+    qr = bno_cache.qr;
 }
 
 void bno_get_accel(float &ax, float &ay, float &az) {
-    ax = bno.getLinAccelX();
-    ay = bno.getLinAccelY();
-    az = bno.getLinAccelZ();
+    ax = bno_cache.ax;
+    ay = bno_cache.ay;
+    az = bno_cache.az;
 }
 
 void bno_get_gyro(float &gx, float &gy, float &gz) {
-    gx = bno.getGyroX();
-    gy = bno.getGyroY();
-    gz = bno.getGyroZ();
+    gx = bno_cache.gx;
+    gy = bno_cache.gy;
+    gz = bno_cache.gz;
 }
 
 // ---------------------------------------------------------------------------

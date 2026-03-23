@@ -26,7 +26,7 @@
 
 #include <Arduino.h>
 #include <SPI.h>
-#include <SparkFun_BNO08x_Arduino_Library.h>
+#include <Adafruit_BNO08x.h>
 #include <FastLED.h>
 #include <Preferences.h>
 
@@ -55,7 +55,7 @@ static constexpr int BTN_B = 14;
 // ---------------------------------------------------------------------------
 
 extern Preferences preferences;
-extern BNO08x      bno;
+extern Adafruit_BNO08x bno;
 
 // ---------------------------------------------------------------------------
 // Public API

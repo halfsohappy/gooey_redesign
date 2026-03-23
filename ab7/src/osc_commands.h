@@ -1083,8 +1083,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 ori_name.trim();
             }
             // If payload provides a name, use that instead.
-            if (osc_msg.checkOscArgTypeIsString(0)) {
-                ori_name = String(osc_msg.getArgAsString(0));
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
                 ori_name.trim();
             }
 
@@ -1113,8 +1114,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 ori_name = ori_rest_orig.substring(8);
                 ori_name.trim();
             }
-            if (osc_msg.checkOscArgTypeIsString(0)) {
-                ori_name = String(osc_msg.getArgAsString(0));
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
                 ori_name.trim();
             }
             if (ori_name.length() == 0) {
@@ -1147,10 +1149,11 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         // /ori/threshold  (set motion gate threshold in rad/s)
         if (ori_rest == "/threshold" || ori_rest.startsWith("/threshold")) {
-            if (osc_msg.checkOscArgTypeIsFloat(0)) {
-                ot.motion_threshold = osc_msg.getArgAsFloat(0);
-            } else if (osc_msg.checkOscArgTypeIsString(0)) {
-                ot.motion_threshold = String(osc_msg.getArgAsString(0)).toFloat();
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 'f') {
+                ot.motion_threshold = osc_msg.nextAsFloat();
+            } else if (typetags && typetags[0] == 's') {
+                ot.motion_threshold = String(osc_msg.nextAsString()).toFloat();
             }
             status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
             osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
