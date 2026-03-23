@@ -328,6 +328,36 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             verbose = true;
         }
 
+        IPAddress reply_ip = sender_ip;
+        unsigned int reply_port = sender_port;
+        if (status_reporter().configured && status_reporter().dest_port != 0) {
+            reply_ip = status_reporter().dest_ip;
+            reply_port = status_reporter().dest_port;
+        }
+        // Defensive: drop replies if the sender port was missing/invalid or a bad status config left port at 0.
+        if (reply_port == 0) {
+            Serial.println("  → list: reply port is 0; not sending response");
+            status_reporter().warning("list", "No reply port available for list response");
+            return;
+        }
+        const size_t LIST_LOG_RESERVE_BYTES = 160;  // ~80 label chars + two IPs + two ports + sub name
+        String sub_label = sub.isEmpty() ? "(all)" : sub;
+        String log;
+        log.reserve(LIST_LOG_RESERVE_BYTES);
+        log += "  → list sub='";
+        log += sub_label;
+        log += "' verbose=";
+        log += verbose ? "true" : "false";
+        log += " sender=";
+        log += sender_ip.toString();
+        log += ":";
+        log += sender_port;
+        log += " dest=";
+        log += reply_ip.toString();
+        log += ":";
+        log += reply_port;
+        Serial.println(log);
+
         reg.lock();
 
         if (sub == "/msgs" || sub == "/messages") {
@@ -340,7 +370,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/msgs", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/msgs", result);
         } else if (sub == "/patches") {
             String result = "Patches (" + String(reg.patch_count) + "):";
             if (reg.patch_count == 0) {
@@ -351,7 +381,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.patch_count; i++) {
                 result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/patches", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/patches", result);
         } else if (sub == "/all" || sub == "") {
             String result = "Patches (" + String(reg.patch_count) + "):";
             if (reg.patch_count == 0) {
@@ -371,8 +401,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/all", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/all", result);
         } else {
+            Serial.println("  → list: unknown target '" + sub + "'");
             status_reporter().warning("cmd", "Unknown list target: " + sub);
         }
 
