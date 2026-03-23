@@ -334,6 +334,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             reply_ip = status_reporter().dest_ip;
             reply_port = status_reporter().dest_port;
         }
+        // Defensive: drop replies if the sender port was missing/invalid or a bad status config left port at 0.
         if (reply_port == 0) {
             Serial.println("  → list: reply port is 0; not sending response");
             status_reporter().warning("list", "No reply port available for list response");
