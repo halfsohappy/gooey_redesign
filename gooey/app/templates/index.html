@@ -308,6 +308,30 @@
                 </select>
               </div>
             </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="patchIP">IP</label>
+                <input type="text" id="patchIP" placeholder="e.g. 192.168.1.50">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="patchPort">Port</label>
+                <input type="number" id="patchPort" value="9000" min="1" max="65535">
+              </div>
+              <div class="form-group">
+                <label for="patchAdr">OSC Address</label>
+                <input type="text" id="patchAdr" placeholder="e.g. /sensor">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group fg-narrow">
+                <label for="patchLow">Low</label>
+                <input type="number" id="patchLow" step="any" placeholder="e.g. 0">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="patchHigh">High</label>
+                <input type="number" id="patchHigh" step="any" placeholder="e.g. 255">
+              </div>
+            </div>
             <div class="form-group">
               <label>Override Flags</label>
               <div class="cb-row">
@@ -368,6 +392,24 @@
             <div class="btn-row">
               <button class="btn btn-primary" id="btnPatchClone" title="Duplicate a patch with a new name">Clone</button>
               <button class="btn btn-secondary" id="btnPatchRename" title="Rename an existing patch">Rename</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Patch setAll</h2>
+            <p class="hint-text">Apply one config string to every message currently in a patch.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="patchSetAllPatch">Patch</label>
+                <input type="text" id="patchSetAllPatch" placeholder="patch name" list="patchNameList3">
+              </div>
+              <div class="form-group">
+                <label for="patchSetAllCfg">Config String</label>
+                <input type="text" id="patchSetAllCfg" placeholder="e.g. low:0, high:255">
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="btnPatchSetAll" title="Apply this config to all messages in the patch">Apply setAll</button>
             </div>
           </div>
         </section>

@@ -296,7 +296,7 @@
         dev.messages[vName] = Object.assign(dev.messages[vName] || {}, vParams);
         renderMsgTable();
         refreshAllDropdowns();
-      } else if (vRest.indexOf("period:") !== -1 || vRest.indexOf("adrMode:") !== -1 || vRest.indexOf("msgs:") !== -1) {
+      } else if (vRest.indexOf("period:") !== -1 || vRest.indexOf("adrMode:") !== -1 || vRest.indexOf("adr_mode:") !== -1 || vRest.indexOf("msgs:") !== -1) {
         var vpParams = parseConfigString(vRest);
         dev.patches[vName] = Object.assign(dev.patches[vName] || {}, vpParams);
         renderPatchTable();
@@ -308,13 +308,11 @@
   /** Parse a config string like "value:accelX ip:192.168.1.50 port:9000" into an object. */
   function parseConfigString(str) {
     var result = {};
-    var parts = str.split(/[\s,]+/);
-    parts.forEach(function (p) {
-      var idx = p.indexOf(":");
-      if (idx > 0) {
-        result[p.substring(0, idx).trim()] = p.substring(idx + 1).trim();
-      }
-    });
+    var re = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*?)(?=(?:\s*,?\s*[a-zA-Z_][a-zA-Z0-9_]*\s*:)|$)/g;
+    var match;
+    while ((match = re.exec(str)) !== null) {
+      result[match[1].trim()] = match[2].trim();
+    }
     return result;
   }
 
@@ -416,7 +414,7 @@
       tr.innerHTML =
         '<td class="cell-name">' + esc(name) + '</td>' +
         '<td class="cell-mono">' + esc(p.period || "50") + ' ms</td>' +
-        '<td class="cell-mono">' + esc(p.adrMode || p.adrmode || "fallback") + '</td>' +
+        '<td class="cell-mono">' + esc(p.adrMode || p.adrmode || p.adr_mode || "fallback") + '</td>' +
         '<td class="cell-mono">' + esc(p.override || "—") + '</td>' +
         '<td class="cell-mono" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
         '<td class="cell-actions">' +
@@ -443,8 +441,13 @@
   function populatePatchForm(name, p) {
     $("#patchName").value = name;
     $("#patchPeriod").value = p.period || "50";
-    $("#patchAdrMode").value = p.adrMode || p.adrmode || "fallback";
-    var ov = (p.override || "").split("+");
+    $("#patchAdrMode").value = p.adrMode || p.adrmode || p.adr_mode || "fallback";
+    $("#patchIP").value = p.ip || "";
+    $("#patchPort").value = p.port || "9000";
+    $("#patchAdr").value = p.adr || "";
+    $("#patchLow").value = p.low || "";
+    $("#patchHigh").value = p.high || "";
+    var ov = (p.override || "").split(/[+,]/).map(function (s) { return s.trim(); }).filter(Boolean);
     $("#ovIP").checked = ov.indexOf("ip") !== -1;
     $("#ovPort").checked = ov.indexOf("port") !== -1;
     $("#ovAdr").checked = ov.indexOf("adr") !== -1;
@@ -744,6 +747,11 @@
     if (!name) { toast("Patch name required", "error"); return; }
     var period = ($("#patchPeriod").value || "").trim();
     var mode = ($("#patchAdrMode").value || "").trim();
+    var ip = ($("#patchIP").value || "").trim();
+    var port = ($("#patchPort").value || "").trim();
+    var patchAdr = ($("#patchAdr").value || "").trim();
+    var low = ($("#patchLow").value || "").trim();
+    var high = ($("#patchHigh").value || "").trim();
 
     /* Build override string from checkboxes */
     var ovParts = [];
@@ -753,35 +761,34 @@
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
 
-    /* Send individual commands for each setting */
+    /* Build assign config and send primary patch config command */
+    var cfgParts = [];
+    if (ip) cfgParts.push("ip:" + ip);
+    if (port) cfgParts.push("port:" + port);
+    if (patchAdr) cfgParts.push("adr:" + patchAdr);
+    if (low) cfgParts.push("low:" + low);
+    if (high) cfgParts.push("high:" + high);
+    var cfg = cfgParts.join(", ");
+
+    /* Send commands for patch settings */
     var promises = [];
-    if (period) {
-      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), period));
-    }
-    if (mode) {
-      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
-    }
-    if (ovParts.length > 0) {
-      promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.join("+")));
-    }
-    if (promises.length === 0) {
-      /* Just create the patch */
-      sendCmd(addr("/annieData/{device}/patch/{name}", name), null).then(function (res) {
-        if (res.status === "ok") toast("Created patch: " + name, "success");
-      });
-    } else {
-      Promise.all(promises).then(function () {
-        toast("Patch config applied: " + name, "success");
-        var dev = getActiveDev();
-        if (dev) {
-          dev.patches[name] = Object.assign(dev.patches[name] || {}, {
-            period: period, adrMode: mode, override: ovParts.join("+")
-          });
-          renderPatchTable();
-          refreshAllDropdowns();
-        }
-      });
-    }
+    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}", name), cfg || null));
+    if (period) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), period));
+    if (mode) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
+    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.length ? ovParts.join("+") : "none"));
+
+    Promise.all(promises).then(function () {
+      toast("Patch config applied: " + name, "success");
+      var dev = getActiveDev();
+      if (dev) {
+        dev.patches[name] = Object.assign(dev.patches[name] || {}, {
+          ip: ip, port: port, adr: patchAdr, low: low, high: high,
+          period: period, adrMode: mode, override: ovParts.join("+")
+        });
+        renderPatchTable();
+        refreshAllDropdowns();
+      }
+    });
   });
 
   /* Start/Stop */
@@ -835,6 +842,15 @@
     if (!pname || !mname) { toast("Message and patch name required", "error"); return; }
     sendCmd(addr("/annieData/{device}/move"), mname + ", " + pname).then(function (res) {
       if (res.status === "ok") toast("Moved: " + mname + " → " + pname, "success");
+    });
+  });
+
+  $("#btnPatchSetAll").addEventListener("click", function () {
+    var pname = ($("#patchSetAllPatch").value || "").trim();
+    var cfg = ($("#patchSetAllCfg").value || "").trim();
+    if (!pname || !cfg) { toast("Patch and config string required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/patch/{name}/setAll", pname), cfg).then(function (res) {
+      if (res.status === "ok") toast("setAll applied: " + pname, "success");
     });
   });
 
@@ -1202,6 +1218,11 @@
     var cfgEl = $("#patchPreviewCfg");
     if (adrEl) adrEl.textContent = name ? "patch: " + name : "(no patch name)";
     var parts = [];
+    var ip = ($("#patchIP").value || "").trim(); if (ip) parts.push("ip:" + ip);
+    var port = ($("#patchPort").value || "").trim(); if (port) parts.push("port:" + port);
+    var patchAdr = ($("#patchAdr").value || "").trim(); if (patchAdr) parts.push("adr:" + patchAdr);
+    var low = ($("#patchLow").value || "").trim(); if (low) parts.push("low:" + low);
+    var high = ($("#patchHigh").value || "").trim(); if (high) parts.push("high:" + high);
     var period = ($("#patchPeriod").value || "").trim(); if (period) parts.push("period:" + period);
     var mode = ($("#patchAdrMode").value || "").trim(); if (mode) parts.push("adrMode:" + mode);
     var ovParts = [];
@@ -1214,7 +1235,7 @@
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["patchName", "patchPeriod", "patchAdrMode"].forEach(function (id) {
+  ["patchName", "patchIP", "patchPort", "patchAdr", "patchLow", "patchHigh", "patchPeriod", "patchAdrMode"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updatePatchPreview);
     if (el) el.addEventListener("change", updatePatchPreview);
