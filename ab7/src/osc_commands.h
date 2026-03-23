@@ -227,7 +227,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                          : cfg_str.substring(vstart, vend);
                 pval.trim();
                 int pms = pval.toInt();
-                if (pms >= 1 && pms <= 60000) period_ms = (unsigned int)pms;
+                if (pms > 0) period_ms = clamp_patch_period_ms(pms);
             }
         }
 
@@ -418,7 +418,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->osc_address    = src->osc_address;
             dest->bounds[0]      = src->bounds[0];
             dest->bounds[1]      = src->bounds[1];
-            dest->send_period_ms = src->send_period_ms;
+            dest->send_period_ms = clamp_patch_period_ms(src->send_period_ms);
             dest->address_mode   = src->address_mode;
             dest->overrides      = src->overrides;
             dest->exist          = src->exist;
@@ -809,7 +809,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                                  : String(arg).substring(vstart, vend);
                         pval.trim();
                         int pms = pval.toInt();
-                        if (pms >= 1 && pms <= 60000) p->send_period_ms = (unsigned int)pms;
+                        if (pms > 0) p->send_period_ms = clamp_patch_period_ms(pms);
                     }
                 }
             }
@@ -911,14 +911,34 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             if (!p) {
                 status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
             } else {
-                // Accept either a string like "50" or an integer argument.
-                String period_str = osc_msg.nextAsString();
-                int ms = period_str.toInt();
-                if (ms < 1) ms = 1;
-                if (ms > 60000) ms = 60000;
-                p->send_period_ms = (unsigned int)ms;
-                status_reporter().info("patch", "Period for '" + name_mp
-                                       + "' set to " + String(ms) + " ms");
+                // Accept either a numeric argument or a string like "50".
+                int ms = 0;
+                bool have_period = false;
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == ',' && (typetags[1] == 'i' || typetags[1] == 'f')) {
+                    ms = (int)osc_msg.nextAsFloat();
+                    have_period = true;
+                }
+                if (!have_period) {
+                    const char* raw = osc_msg.nextAsString();
+                    if (raw) {
+                        String period_str = String(raw);
+                        period_str.trim();
+                        if (period_str.length() > 0) {
+                            ms = period_str.toInt();
+                            have_period = true;
+                        }
+                    }
+                }
+
+                if (!have_period || ms <= 0) {
+                    status_reporter().warning("patch", "Period for '" + name_mp
+                                              + "' ignored (missing/invalid payload)");
+                } else {
+                    p->send_period_ms = clamp_patch_period_ms(ms);
+                    status_reporter().info("patch", "Period for '" + name_mp
+                                           + "' set to " + String(p->send_period_ms) + " ms");
+                }
             }
         }
 

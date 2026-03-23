@@ -194,7 +194,7 @@ void patch_send_task(void* param) {
 
     for (;;) {
         // Sleep for the polling period.
-        vTaskDelay(pdMS_TO_TICKS(patch->send_period_ms));
+        vTaskDelay(pdMS_TO_TICKS(clamp_patch_period_ms((long)patch->send_period_ms)));
 
         if (!patch->enabled) continue;
 

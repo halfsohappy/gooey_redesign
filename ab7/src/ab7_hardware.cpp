@@ -93,26 +93,27 @@ bool bno_data_available() {
     // Drain up to 10 pending events per call to avoid stalling the task
     // if the sensor is producing faster than we consume.
     for (int drain = 0; drain < 10 && bno.getSensorEvent(&sensor_value); drain++) {
-        updated = true;
-
         switch (sensor_value.sensorId) {
             case SH2_ROTATION_VECTOR:
                 bno_cache.qi = sensor_value.un.rotationVector.i;
                 bno_cache.qj = sensor_value.un.rotationVector.j;
                 bno_cache.qk = sensor_value.un.rotationVector.k;
                 bno_cache.qr = sensor_value.un.rotationVector.real;
+                updated = true;
                 break;
 
             case SH2_LINEAR_ACCELERATION:
                 bno_cache.ax = sensor_value.un.linearAcceleration.x;
                 bno_cache.ay = sensor_value.un.linearAcceleration.y;
                 bno_cache.az = sensor_value.un.linearAcceleration.z;
+                updated = true;
                 break;
 
             case SH2_GYROSCOPE_CALIBRATED:
                 bno_cache.gx = sensor_value.un.gyroscope.x;
                 bno_cache.gy = sensor_value.un.gyroscope.y;
                 bno_cache.gz = sensor_value.un.gyroscope.z;
+                updated = true;
                 break;
         }
     }

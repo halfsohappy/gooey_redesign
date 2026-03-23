@@ -224,7 +224,7 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
 
         if (key == "period") {
             int ms = value.toInt();
-            if (ms >= 1 && ms <= 60000) p->send_period_ms = (unsigned int)ms;
+            if (ms > 0) p->send_period_ms = clamp_patch_period_ms(ms);
         } else if (key == "adrmode") {
             p->address_mode = address_mode_from_string(value);
         } else if (key == "override") {
