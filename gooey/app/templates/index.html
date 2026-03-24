@@ -22,6 +22,9 @@
       <button class="btn-listen" id="btnReplyListen" title="Start/stop listening for device replies">
         <span class="listen-dot" id="listenDot"></span> Listen
       </button>
+      <div class="header-sep"></div>
+      <button class="qbtn qbtn-danger btn-header-action" data-cmd="blackout" title="Immediately stop all outputs">Blackout</button>
+      <button class="qbtn qbtn-success btn-header-action" data-cmd="restore" title="Restore previous output state">Restore</button>
     </div>
     <div class="top-bar-right">
       <span class="ws-dot" id="wsDot"></span>
@@ -79,8 +82,6 @@
           <div class="card" data-card-id="device-control">
             <h2>Device Control</h2>
             <div class="quick-grid">
-              <button class="qbtn qbtn-danger" data-cmd="blackout" title="Immediately stop all outputs">Blackout</button>
-              <button class="qbtn qbtn-success" data-cmd="restore" title="Restore previous output state">Restore</button>
               <button class="qbtn" data-cmd="save" title="Save all messages, patches, and settings to NVS flash">Save All</button>
               <button class="qbtn" data-cmd="load" title="Load messages, patches, and settings from NVS flash">Load All</button>
               <button class="qbtn qbtn-warn" data-cmd="nvs_clear" data-confirm="Are you sure? This will erase all saved settings from flash memory." title="Erase all saved data from NVS flash">NVS Clear</button>

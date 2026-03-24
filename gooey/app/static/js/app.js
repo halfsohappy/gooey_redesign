@@ -686,18 +686,20 @@
      DASHBOARD
      ═══════════════════════════════════════════ */
 
-  $$(".qbtn[data-cmd]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      var confirmMsg = btn.dataset.confirm;
-      if (confirmMsg && !window.confirm(confirmMsg)) return;
-      var cmd = btn.dataset.cmd;
-      var template = CMD_ADDRESSES[cmd];
-      if (!template) return;
-      var address = addr(template);
-      var payload = btn.dataset.payload || null;
-      sendCmd(address, payload).then(function (res) {
-        if (res.status === "ok") toast("Sent: " + cmd, "success");
-      });
+  /* Use event delegation so .qbtn[data-cmd] buttons work in the starred
+     section too (cloneNode doesn't copy event listeners). */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest(".qbtn[data-cmd]");
+    if (!btn) return;
+    var confirmMsg = btn.dataset.confirm;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    var cmd = btn.dataset.cmd;
+    var template = CMD_ADDRESSES[cmd];
+    if (!template) return;
+    var address = addr(template);
+    var payload = btn.dataset.payload || null;
+    sendCmd(address, payload).then(function (res) {
+      if (res.status === "ok") toast("Sent: " + cmd, "success");
     });
   });
 
