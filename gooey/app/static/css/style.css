@@ -245,6 +245,112 @@ body {
 
 #btnAddDevice:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Device strip right-side controls ── */
+.device-strip-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.device-strip-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+}
+
+.device-strip-actions button,
+.device-strip-actions label {
+  font-size: 15px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  color: var(--text-medium);
+}
+
+.device-strip-actions button:hover,
+.device-strip-actions label:hover { border-color: var(--accent); color: var(--accent); }
+
+.auto-query-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-medium);
+  border-left: 1px solid var(--border);
+}
+
+.auto-query-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.auto-query-controls input[type="number"] {
+  width: 46px;
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-input);
+}
+
+.auto-query-unit { color: var(--text-light); }
+
+.device-strip-reload {
+  font-size: 18px;
+  width: 36px; height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text-medium);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0;
+}
+
+.device-strip-reload:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Dev tab edit button ── */
+.device-tab .dev-edit {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-light);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.device-tab:hover .dev-edit { opacity: 1; }
+.device-tab .dev-edit:hover { color: var(--accent); }
+
+/* ── Feed toggle ── */
+.btn-feed-toggle {
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  cursor: pointer;
+  color: var(--text-medium);
+  white-space: nowrap;
+}
+
+.btn-feed-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Feed hidden state ── */
+.panel-right.feed-hidden { display: none; }
+
 /* ── Main Layout ── */
 .app-layout {
   display: flex;
@@ -489,17 +595,17 @@ select {
 
 .btn-listen {
   font-family: var(--font);
-  font-size: 10px;
-  font-weight: 500;
-  padding: 4px 10px;
-  border: 1px solid rgba(0,0,0,0.12);
-  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border: 2px solid rgba(0,0,0,0.18);
+  border-radius: 6px;
   background: rgba(255,255,255,0.5);
   color: var(--text-medium);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   white-space: nowrap;
   align-self: flex-end;
   margin-bottom: 2px;
