@@ -205,7 +205,7 @@ public:
     // --- Main update — call every sensor cycle ------------------------------
     //
     // Arguments:
-    //   qi..qr  — current rotation quaternion from BNO-085
+    //   qi..qr  — current rotation quaternion from the IMU
     //   gyro_mag — magnitude of gyroscope vector (rad/s)
 
     void update(float qi, float qj, float qk, float qr, float gyro_mag) {
