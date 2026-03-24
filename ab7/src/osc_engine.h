@@ -56,6 +56,15 @@ static inline SemaphoreHandle_t& osc_send_mutex() {
 }
 
 // ---------------------------------------------------------------------------
+// Optional serial logging of every outbound message
+// ---------------------------------------------------------------------------
+
+static bool _send_logging_enabled = false;
+
+static inline void set_send_logging_enabled(bool enabled) { _send_logging_enabled = enabled; }
+static inline bool get_send_logging_enabled() { return _send_logging_enabled; }
+
+// ---------------------------------------------------------------------------
 // StatusReporter::send() implementation
 // ---------------------------------------------------------------------------
 //
@@ -239,10 +248,22 @@ void patch_send_task(void* param) {
             }
 
             // Send the float value over OSC.
+            char log_buf[160];
+            bool should_log = get_send_logging_enabled();
+            if (should_log) {
+                snprintf(log_buf, sizeof(log_buf), "[SEND] %s:%u %s = %.6f",
+                         eff_ip.toString().c_str(), eff_port,
+                         eff_adr.c_str(), static_cast<double>(val));
+            }
+
             xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
             xSemaphoreGive(osc_send_mutex());
+
+            if (should_log) {
+                Serial.println(log_buf);
+            }
         }
 
         reg.unlock();

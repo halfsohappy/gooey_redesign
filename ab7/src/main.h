@@ -9,7 +9,7 @@
 #ifndef _MAIN_H_
 #define _MAIN_H_
 
-// --- Hardware and sensor layer (ab7: BNO-085 + SK6812 + buttons) ------------
+// --- Hardware and sensor layer (ab7: LSM9DS1 + SK6812 + buttons) ------------
 #include "ab7_hardware.h"
 
 // --- Sensor data stream definitions -----------------------------------------

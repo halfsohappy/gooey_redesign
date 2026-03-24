@@ -3,15 +3,15 @@
 ## Overview
 
 The **ab7** is a PlatformIO project targeting a custom PCB built around the
-ESP32-S3 and a **BNO-085** smart IMU.  It runs the full TheaterGWD firmware
-(OSC messaging, patches, provisioning, status reporting) while reading
-**real sensor data** from the BNO-085 instead of simulated sine waves.
+ESP32-S3 and an **LSM9DS1** IMU (Adafruit breakout over I2C).  It runs the
+full TheaterGWD firmware (OSC messaging, patches, provisioning, status
+reporting) while reading **real sensor data** instead of simulated sine waves.
 
 ### Hardware
 
 | Component | Chip / Part | Interface | GPIO Pins |
 |-----------|-------------|-----------|-----------|
-| IMU | BNO-085 | SPI | CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6 |
+| IMU | LSM9DS1 (Adafruit breakout) | I2C | SDA=1, SCL=2 |
 | Status LED | SK6812 | Single-wire | 7 |
 | Button A | Momentary (GND) | Digital | 0 (active-low, internal pull-up) |
 | Button B | Momentary (GND) | Digital | 14 (active-low, internal pull-up) |
@@ -25,18 +25,18 @@ All data streams are normalised to `[0, 1]` as on the Bart board:
 
 | Index | Name | Source | Raw Range → [0, 1] |
 |-------|------|--------|---------------------|
-| 0 | `accelX` | BNO-085 linear accel X | ±4 m/s² → [0, 1] |
-| 1 | `accelY` | BNO-085 linear accel Y | ±4 m/s² → [0, 1] |
-| 2 | `accelZ` | BNO-085 linear accel Z | ±4 m/s² → [0, 1] |
+| 0 | `accelX` | LSM9DS1 linear accel X (gravity removed) | ±4 m/s² → [0, 1] |
+| 1 | `accelY` | LSM9DS1 linear accel Y (gravity removed) | ±4 m/s² → [0, 1] |
+| 2 | `accelZ` | LSM9DS1 linear accel Z (gravity removed) | ±4 m/s² → [0, 1] |
 | 3 | `accelLength` | magnitude(X,Y,Z) | 0–4 m/s² → [0, 1] |
-| 4 | `gyroX` | BNO-085 gyroscope X | ±4 rad/s → [0, 1] |
-| 5 | `gyroY` | BNO-085 gyroscope Y | ±4 rad/s → [0, 1] |
-| 6 | `gyroZ` | BNO-085 gyroscope Z | ±4 rad/s → [0, 1] |
+| 4 | `gyroX` | LSM9DS1 gyroscope X | ±4 rad/s → [0, 1] |
+| 5 | `gyroY` | LSM9DS1 gyroscope Y | ±4 rad/s → [0, 1] |
+| 6 | `gyroZ` | LSM9DS1 gyroscope Z | ±4 rad/s → [0, 1] |
 | 7 | `gyroLength` | magnitude(X,Y,Z) | 0–4 rad/s → [0, 1] |
 | 8 | `baro` | (not present) | always 0 |
-| 9 | `eulerX` | roll (from rotation vector) | [-180°, 180°] → [0, 1] |
-| 10 | `eulerY` | pitch (from rotation vector) | [-90°, 90°] → [0, 1] |
-| 11 | `eulerZ` | yaw (from rotation vector) | [-180°, 180°] → [0, 1] |
+| 9 | `eulerX` | roll (Madgwick fused) | [-180°, 180°] → [0, 1] |
+| 10 | `eulerY` | pitch (Madgwick fused) | [-90°, 90°] → [0, 1] |
+| 11 | `eulerZ` | yaw (Madgwick fused) | [-180°, 180°] → [0, 1] |
 
 ### Building
 
@@ -60,7 +60,7 @@ point a handheld ab7 device at different stage lights and automatically send
 ### Concepts
 
 - **Ori**: A saved orientation, stored as a unit quaternion captured from the
-  BNO-085's rotation vector.  Each ori has a unique name (e.g. `light1`,
+  IMU's fused rotation (Madgwick).  Each ori has a unique name (e.g. `light1`,
   `spot_center`, `ori_0`).
 
 - **Active ori**: At any moment, exactly one ori is the "active" match — the
@@ -176,7 +176,7 @@ is always the active match.
 ### Serial Debug
 
 Type `streams` in the serial monitor to see live data stream values,
-including Euler angles derived from the BNO-085.  Press Button B to see the
+including Euler angles derived from the IMU fusion.  Press Button B to see the
 current active ori.
 
 ### Storage

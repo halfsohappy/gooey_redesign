@@ -3,9 +3,9 @@
 // =============================================================================
 //
 // Identical stream layout to the Bart board so all OSC message / patch code
-// works unchanged.  The BNO-085 provides accelerometer, gyroscope, and
-// rotation vector (Euler angles) data.  Barometer is absent on ab7 — the
-// BARO stream is always zero.
+// works unchanged.  The LSM9DS1 (fused with a Madgwick filter) provides
+// accelerometer, gyroscope, and rotation vector (Euler angles) data.
+// Barometer is absent on ab7 — the BARO stream is always zero.
 // =============================================================================
 
 #ifndef DATA_STREAMS_H
@@ -34,9 +34,9 @@
 #define EULERZ     11
 
 // The global data array.  Every element is continuously updated by the
-// sensor task reading the BNO-085.  Declared volatile because the sensor
-// task (writer) and patch send tasks (readers) run concurrently without a
-// mutex protecting individual element access.
+// sensor task reading the IMU.  Declared volatile because the sensor task
+// (writer) and patch send tasks (readers) run concurrently without a mutex
+// protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
 
 // ---------------------------------------------------------------------------

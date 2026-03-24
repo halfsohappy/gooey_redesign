@@ -3,20 +3,23 @@
 // =============================================================================
 //
 // BOOT SEQUENCE:
-//   1. Initialise serial, GPIO pins, SPI bus, BNO-085.
+//   1. Initialise serial, GPIO pins, IMU (LSM9DS1 by default; BNO085 when the
+//      AB7_IMU_BNO085 build flag is set).
 //   2. Initialise SK6812 status LED.
 //   3. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
 //      - No  → launch the captive-portal provisioner and wait.
-//   4. Create a FreeRTOS task that continuously reads the BNO-085 and
+//   4. Create a FreeRTOS task that continuously reads the IMU and
 //      updates data_streams[] with real sensor data.
 //   5. Enter the main loop, which polls for incoming OSC messages and
 //      dispatches them through osc_handle_message().
 //
 // The ab7 board:
 //   - ESP32-S3
-//   - BNO-085 smart IMU (SPI) — provides accelerometer, gyroscope,
-//     rotation vector (quaternion / Euler angles)
+//   - IMU selectable at build time:
+//       * LSM9DS1 (I2C, Adafruit breakout) — accelerometer, gyroscope,
+//         magnetometer; fused with Madgwick filter to quaternion/Euler
+//       * BNO085 (SPI) — rotation vector, linear acceleration, calibrated gyro
 //   - No barometer — data_streams[BARO] is always 0.
 //   - SK6812 addressable LED on GPIO 7
 //   - Two buttons: GPIO 0 (A), GPIO 14 (B), active-low
@@ -28,6 +31,14 @@
 // =============================================================================
 
 #include "main.h"
+
+#if defined(AB7_IMU_BNO085)
+static constexpr const char* AB7_IMU_NAME = "BNO085 (SPI)";
+static constexpr const char* AB7_IMU_WIRING_HINT = "Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).";
+#else
+static constexpr const char* AB7_IMU_NAME = "LSM9DS1 (I2C)";
+static constexpr const char* AB7_IMU_WIRING_HINT = "Check I2C wiring (SDA=1, SCL=2).";
+#endif
 
 // ---------------------------------------------------------------------------
 // Current quaternion — shared with osc_commands.h for ori save commands
@@ -80,9 +91,10 @@ void setup() {
     leds[0] = CRGB(40, 0, 40);  // dim purple = booting
     FastLED.show();
 
-    Serial.println(F("[BOOT] Initialising BNO-085 (SPI)..."));
-    begin_bno();
-    enable_bno_reports();
+    Serial.print(F("[BOOT] Initialising "));
+    Serial.print(AB7_IMU_NAME);
+    Serial.println(F("..."));
+    begin_imu();
 
     Serial.println(F("[BOOT] Hardware initialised."));
     Serial.println();
@@ -146,14 +158,8 @@ void setup() {
 
     // --- Sensor reading task ------------------------------------------------
     //
-    // This task runs on core 1 (the same core where SPI.begin() and
-    // bno.begin_SPI() were called) and continuously reads the BNO-085
-    // sensor data, updating the global data_streams[] array with real values.
-    //
-    // IMPORTANT: Must be pinned to core 1 because the ESP-IDF SPI driver
-    // registers its interrupt handler on the core that called SPI.begin().
-    // Running the sensor task on a different core can cause getSensorEvent()
-    // to fail silently, returning no data and leaving data_streams[] at zero.
+    // This task runs on core 1 and continuously reads the IMU data,
+    // updating the global data_streams[] array with real values.
 
     xTaskCreatePinnedToCore([](void*) {
         OriTracker& ot = ori_tracker();
@@ -164,18 +170,18 @@ void setup() {
         static constexpr unsigned long HEARTBEAT_INTERVAL_MS = 10000;
 
         for (;;) {
-            if (bno_data_available()) {
+            if (imu_data_available()) {
                 no_data_count = 0;
                 total_reads++;
 
                 if (first_data) {
                     first_data = false;
-                    Serial.println(F("[BNO] First sensor data received."));
+                    Serial.println(F("[IMU] First sensor data received."));
                 }
 
                 // ── Rotation vector (quaternion) ───────────────────────
                 float qi, qj, qk, qr;
-                bno_get_quat(qi, qj, qk, qr);
+                imu_get_quat(qi, qj, qk, qr);
 
                 // Store globally for ori save commands.
                 cur_qi = qi;
@@ -196,10 +202,11 @@ void setup() {
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
                 float ax, ay, az;
-                bno_get_accel(ax, ay, az);
+                imu_get_accel(ax, ay, az);
 
-                // Normalise to [0, 1] range.  BNO-085 linear accel
-                // typically within ±8 m/s²; we use ±4 m/s² full scale.
+                // Normalise to [0, 1] range.  LSM9DS1 accel is set to ±4 g;
+                // after gravity removal we map ±4 m/s² for compatibility with
+                // the previous BNO linear-accel scaling.
                 const float ACCEL_SCALE = 4.0f;
                 data_streams[ACCELX]      = constrain((ax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 data_streams[ACCELY]      = constrain((ay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
@@ -209,7 +216,7 @@ void setup() {
 
                 // ── Gyroscope (rad/s) ─────────────────────────────────
                 float gx, gy, gz;
-                bno_get_gyro(gx, gy, gz);
+                imu_get_gyro(gx, gy, gz);
 
                 // Normalise to [0, 1] range.  ±4 rad/s ≈ ±229 °/s.
                 const float GYRO_SCALE = 4.0f;
@@ -228,7 +235,8 @@ void setup() {
                 no_data_count++;
                 // Warn once after ~5 seconds of no data (500 × 10ms).
                 if (no_data_count == 500) {
-                    Serial.println(F("[BNO] WARNING: No sensor data for 5 seconds — check SPI wiring."));
+                    Serial.print(F("[IMU] WARNING: No sensor data for 5 seconds — "));
+                    Serial.println(AB7_IMU_WIRING_HINT);
                 }
             }
 
@@ -236,7 +244,7 @@ void setup() {
             unsigned long now = millis();
             if (now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS) {
                 last_heartbeat_ms = now;
-                Serial.print(F("[BNO] Heartbeat — reads: "));
+                Serial.print(F("[IMU] Heartbeat — reads: "));
                 Serial.print(total_reads);
                 Serial.print(F("  aX:"));
                 Serial.print((float)data_streams[ACCELX], 3);
@@ -248,9 +256,11 @@ void setup() {
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
         }
-    }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — SPI HAL + sh2 decode need ~6 KB  |  pinned to core 1
+    }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — IMU driver + Madgwick filter  |  pinned to core 1
 
-    Serial.println(F("[BOOT] Sensor task started (BNO-085 real data)."));
+    Serial.print(F("[BOOT] Sensor task started ("));
+    Serial.print(AB7_IMU_NAME);
+    Serial.println(F(" real data)."));
     Serial.println();
     Serial.println(F("════════════════════════════════════════════════"));
     if (network_ready) {
