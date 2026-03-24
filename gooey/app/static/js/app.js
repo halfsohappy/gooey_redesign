@@ -114,7 +114,8 @@
   /* ── Device tab rendering ── */
   function renderDeviceTabs() {
     var strip = $("#deviceStrip");
-    var addBtn = $("#btnAddDevice");
+    /* Insert tabs before the right-side controls block (direct child of strip) */
+    var addBtn = $(".device-strip-right");
     /* remove existing tabs */
     $$(".device-tab").forEach(function (t) { t.remove(); });
     Object.keys(devices).forEach(function (id) {
