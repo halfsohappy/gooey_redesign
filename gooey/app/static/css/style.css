@@ -26,7 +26,7 @@
   --accent-dim: rgba(144, 132, 156, 0.12);
 
   --header-bg: #DAC7FF;
-  --header-height: 80px;
+  --header-height: 128px;
   --header-text: #2A2F36;
 
   --success: #4CAF50;
@@ -1091,17 +1091,16 @@ select {
   .app-layout { flex-direction: column; }
   .panel-left { width: 100%; max-width: none; min-width: auto; border-right: none; border-bottom: 1px solid var(--border); max-height: 55vh; }
   .panel-right { min-width: auto; max-height: 45vh; }
-  .top-bar { flex-wrap: wrap; gap: 8px; }
-  .top-bar-center { flex-wrap: wrap; order: 3; width: 100%; justify-content: flex-start; }
-  .conn-sep { display: none; }
-  .main-header { height: auto; flex-wrap: wrap; }
+  .main-header { height: auto; flex-wrap: wrap; margin-top: 3vh; }
   .hdr-devices { width: 100%; border-top: 1px solid rgba(0,0,0,0.1); }
+  .hdr-box-seamless { flex-direction: row; }
 }
 
 @media (max-width: 500px) {
   .nav-btn { padding: 8px 8px; font-size: 9px; }
   .form-row { flex-direction: column; gap: 0; }
   .fg-narrow { flex: 1; }
+  .main-header { margin-top: 0; }
 }
 
 /* ═══════════════════════════════════════════
@@ -1118,6 +1117,7 @@ select {
   position: relative;
   z-index: 20;
   overflow: visible;
+  margin-top: 8vh;
 }
 
 /* Generic header box */
@@ -1125,7 +1125,7 @@ select {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 5px 12px;
+  padding: 10px 18px;
   border-right: 1px solid rgba(0,0,0,0.12);
   flex: 1;
   min-width: 0;
@@ -1134,21 +1134,39 @@ select {
 
 .hdr-box-wide { flex: 2; }
 
-/* Logo + WS status box */
+/* Compact identity / logo box */
 .hdr-logo-box {
   flex: none;
-  padding: 6px 16px;
+  padding: 10px 18px;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   border-right: 1px solid rgba(0,0,0,0.12);
+}
+
+.hdr-logo-text {
+  font-family: var(--font-header); /* Playwrite IE */
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--header-text);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.hdr-logo-sub {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 400;
+  color: rgba(0,0,0,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .hdr-ws-status {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 /* Device tabs area (rightmost 40%) */
@@ -1157,31 +1175,77 @@ select {
   width: 40%;
   flex-direction: row;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 8px;
   border-right: none;
   gap: 0;
   overflow-x: auto;
   overflow-y: visible;
 }
 
+/* ── Seamless button box (the box IS the buttons) ── */
+.hdr-box-seamless {
+  padding: 0;
+  flex-direction: row;
+  gap: 0;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* Full-height button that fills its half of the seamless box */
+.hdr-seamless-btn {
+  flex: 1;
+  height: 100%;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  border: none;
+  border-right: 1px solid rgba(0,0,0,0.12);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--header-text);
+  white-space: nowrap;
+  text-decoration: none;
+  padding: 0 14px;
+  transition: background 0.12s;
+}
+
+.hdr-seamless-btn:last-child { border-right: none; }
+.hdr-seamless-btn:hover { background: rgba(255,255,255,0.35); }
+.hdr-seamless-btn:visited { color: var(--header-text); }
+
+/* Blackout variant: dark fill */
+.hdr-seamless-danger {
+  background: rgba(15,15,15,0.88);
+  color: #fff;
+}
+.hdr-seamless-danger:hover { background: #000; }
+
+/* Restore variant: success tint */
+.hdr-seamless-success { color: #1a7a1a; }
+.hdr-seamless-success:hover { background: rgba(76,175,80,0.12); }
+
 /* Small label above controls in each box */
 .hdr-label-sm {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: rgba(0,0,0,0.35);
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
   font-family: var(--font);
 }
 
 /* Small action button used in header boxes */
 .hdr-btn {
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 4px 9px;
+  padding: 6px 13px;
   border: 1px solid rgba(0,0,0,0.18);
   border-radius: 4px;
   background: rgba(255,255,255,0.55);
@@ -1191,12 +1255,20 @@ select {
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   transition: background 0.12s, border-color 0.12s;
 }
 
 .hdr-btn:hover { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.3); }
 .hdr-btn:visited { color: var(--text-dark); }
+
+/* Large `+` add-device button */
+.hdr-btn-add {
+  font-size: 22px;
+  font-weight: 300;
+  padding: 2px 10px;
+  line-height: 1;
+}
 
 .hdr-btn-danger { background: #1a1a1a; color: #fff !important; border-color: #1a1a1a; }
 .hdr-btn-danger:hover { background: #000; border-color: #000; }
@@ -1207,16 +1279,16 @@ select {
 /* Row of buttons in a header box */
 .hdr-btn-row {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
-/* Small input in header boxes */
+/* Inputs in header boxes */
 .hdr-input-sm {
   font-family: var(--font);
-  font-size: 11px;
-  width: 60px;
-  padding: 3px 6px;
+  font-size: 14px;
+  width: 72px;
+  padding: 5px 8px;
   border: 1px solid rgba(0,0,0,0.15);
   border-radius: 3px;
   background: rgba(255,255,255,0.7);
@@ -1226,17 +1298,20 @@ select {
 
 .hdr-input-sm:focus { border-color: var(--accent); background: #fff; }
 
-/* Small select in header boxes */
+/* Narrow number input (e.g. auto-query period) */
+.hdr-input-narrow { width: 54px; }
+
+/* Select in header boxes */
 .hdr-select-sm {
   font-family: var(--font);
-  font-size: 11px;
-  padding: 3px 4px;
+  font-size: 14px;
+  padding: 5px 6px;
   border: 1px solid rgba(0,0,0,0.15);
   border-radius: 3px;
   background: rgba(255,255,255,0.7);
   color: var(--text-dark);
   outline: none;
-  max-width: 100px;
+  max-width: 130px;
   cursor: pointer;
 }
 
@@ -1244,29 +1319,35 @@ select {
 .hdr-listen-status {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-bottom: 3px;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.hdr-listen-label {
+  font-family: var(--font);
+  font-size: 13px;
+  color: rgba(0,0,0,0.55);
 }
 
 .hdr-listen-change {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* Query row */
 .hdr-query-row {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
 .hdr-query-list {
   font-family: var(--font);
-  font-size: 8px;
+  font-size: 10px;
   color: rgba(0,0,0,0.4);
-  margin-top: 3px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1275,9 +1356,9 @@ select {
 /* Device tab button inside header */
 .hdr-dev-tab {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
-  padding: 6px 14px;
+  padding: 8px 18px;
   border: none;
   background: none;
   color: rgba(0,0,0,0.45);
@@ -1287,7 +1368,7 @@ select {
   height: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
   transition: background 0.12s, color 0.12s;
   position: relative;
@@ -1313,9 +1394,9 @@ select {
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
-  padding-left: 6px;
+  padding-left: 8px;
   border-left: 1px solid rgba(0,0,0,0.1);
 }
 
@@ -1464,19 +1545,19 @@ select {
 
 /* Auto-query checkbox label */
 .hdr-auto-label {
-  font-size: 9px;
+  font-size: 13px;
   color: rgba(0,0,0,0.5);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   white-space: nowrap;
   font-family: var(--font);
 }
 
 /* Unit label after period/port inputs (e.g. "s") */
 .hdr-unit-label {
-  font-size: 9px;
+  font-size: 13px;
   opacity: 0.5;
   font-family: var(--font);
 }

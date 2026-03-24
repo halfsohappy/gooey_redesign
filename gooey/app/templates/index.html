@@ -12,38 +12,33 @@
   <!-- ===== Main Header (unified) ===== -->
   <header class="main-header">
 
-    <!-- ① Logo + WS status -->
+    <!-- ① Identity + WS status (compact) -->
     <div class="hdr-box hdr-logo-box">
-      <h1 class="logo">Gooey<span class="logo-sub">annieData Control Center</span></h1>
+      <div class="hdr-logo-text">Gooey</div>
+      <div class="hdr-logo-sub">annieData Control Center</div>
       <div class="hdr-ws-status">
         <span class="ws-dot" id="wsDot"></span>
         <span class="ws-label" id="wsLabel">Connecting…</span>
       </div>
     </div>
 
-    <!-- ② Docs: Reference + User Guide -->
-    <div class="hdr-box">
-      <span class="hdr-label-sm">Docs</span>
-      <div class="hdr-btn-row">
-        <button class="hdr-btn" id="btnRefToggle" title="Toggle command reference panel">📖 Ref</button>
-        <a class="hdr-btn" href="https://github.com/halfsohappy/TheaterGWD/blob/main/docs/user_guide.md" target="_blank" rel="noopener" title="Open user guide on GitHub">📚 Guide</a>
-      </div>
+    <!-- ② Docs — each half IS the button (seamless) -->
+    <div class="hdr-box hdr-box-seamless">
+      <button class="hdr-seamless-btn" id="btnRefToggle" title="Toggle command reference panel">📖 Reference</button>
+      <a class="hdr-seamless-btn" href="https://github.com/halfsohappy/TheaterGWD/blob/main/docs/user_guide.md" target="_blank" rel="noopener" title="Open user guide on GitHub">📚 User Guide</a>
     </div>
 
-    <!-- ③ All-device Blackout / Restore -->
-    <div class="hdr-box">
-      <span class="hdr-label-sm">All Devices</span>
-      <div class="hdr-btn-row">
-        <button class="hdr-btn hdr-btn-danger" id="btnBlackoutAll" title="Immediately stop all outputs on every device">⚫ Blackout</button>
-        <button class="hdr-btn hdr-btn-success" id="btnRestoreAll" title="Restore previous output state on every device">🟢 Restore</button>
-      </div>
+    <!-- ③ All Devices — each half IS the button (seamless) -->
+    <div class="hdr-box hdr-box-seamless">
+      <button class="hdr-seamless-btn hdr-seamless-danger" id="btnBlackoutAll" title="Immediately stop all outputs on every device">⚫ Blackout</button>
+      <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device">🟢 Restore</button>
     </div>
 
     <!-- ④ Listen port (auto-starts on load) -->
     <div class="hdr-box">
       <div class="hdr-listen-status">
         <span class="listen-dot" id="listenDot"></span>
-        <span class="hdr-label-sm hdr-label-inline">Listening: <strong id="listenPortDisplay">9000</strong></span>
+        <span class="hdr-listen-label">Listening: <strong id="listenPortDisplay">9000</strong></span>
       </div>
       <div class="hdr-listen-change">
         <input type="number" class="hdr-input-sm" id="replyPort" value="9000" min="1" max="65535" title="Listen port for device replies">
@@ -53,7 +48,6 @@
 
     <!-- ⑤ Query / Auto-query (wider box) -->
     <div class="hdr-box hdr-box-wide">
-      <span class="hdr-label-sm">Query</span>
       <div class="hdr-query-row">
         <select class="hdr-select-sm" id="queryDeviceSelect" title="Device to query (leave blank for all)">
           <option value="">all devices</option>
@@ -62,7 +56,7 @@
         <label class="hdr-auto-label">
           <input type="checkbox" id="autoQueryEnabled"> Auto
         </label>
-        <input type="number" class="hdr-input-sm" id="autoQueryPeriod" value="5" min="0.1" step="0.1" title="Auto-query period in seconds (decimals ok, e.g. 0.5)">
+        <input type="number" class="hdr-input-sm hdr-input-narrow" id="autoQueryPeriod" value="5" min="0.1" step="0.1" title="Auto-query period in seconds (decimals ok, e.g. 0.5)">
         <span class="hdr-unit-label">s</span>
       </div>
       <div class="hdr-query-list" id="autoQueryList" title="Active auto-query targets"></div>
@@ -72,9 +66,9 @@
     <div class="hdr-box hdr-devices" id="hdrDevices">
       <!-- Device tab buttons inserted here by JS (before hdrDevActions) -->
       <div class="hdr-dev-actions" id="hdrDevActions">
-        <button id="btnAddDevice" class="hdr-btn" title="Add device">+ Add</button>
+        <button id="btnAddDevice" class="hdr-btn hdr-btn-add" title="Add device">+</button>
         <button id="btnSaveDevices" class="hdr-btn" title="Save devices to file">💾</button>
-        <label id="btnLoadDevices" class="hdr-btn" title="Load devices from file" style="cursor:pointer;display:flex;align-items:center;gap:2px;">
+        <label id="btnLoadDevices" class="hdr-btn" title="Load devices from file" style="cursor:pointer;display:flex;align-items:center;">
           📂<input type="file" id="deviceFileInput" accept=".json" style="display:none">
         </label>
         <button id="btnFeedToggle" class="hdr-btn" title="Show/hide live feed">Feed</button>
