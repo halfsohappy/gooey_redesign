@@ -32,9 +32,9 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <SPI.h>
 #include <Preferences.h>
 #if defined(AB7_IMU_BNO085)
+#include <SPI.h>
 #include <Adafruit_BNO08x.h>
 #else
 #include <Adafruit_LSM9DS1.h>

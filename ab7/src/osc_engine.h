@@ -59,10 +59,10 @@ static inline SemaphoreHandle_t& osc_send_mutex() {
 // Optional serial logging of every outbound message
 // ---------------------------------------------------------------------------
 
-static bool _log_sent_messages = false;
+static bool _send_logging_enabled = false;
 
-static inline void set_send_logging(bool enabled) { _log_sent_messages = enabled; }
-static inline bool send_logging_enabled() { return _log_sent_messages; }
+static inline void set_send_logging(bool enabled) { _send_logging_enabled = enabled; }
+static inline bool send_logging_enabled() { return _send_logging_enabled; }
 
 // ---------------------------------------------------------------------------
 // StatusReporter::send() implementation
