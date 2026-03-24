@@ -786,14 +786,21 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         // ── period ─────────────────────────────────────────────────────────
         //    Payload: a string or integer with the period in milliseconds.
+        //    Note: Gooey sends this via python-osc which coerces numeric strings
+        //    to OSC int type 'i', so we must handle both 'i' and 's'.
         else if (command == "period" || command == "rate") {
             OscPatch* p = reg.find_patch(name_mp);
             if (!p) {
                 status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
             } else {
-                // Accept either a string like "50" or an integer argument.
-                String period_str = osc_msg.nextAsString();
-                int ms = period_str.toInt();
+                // Read as int if the arg is an OSC integer, otherwise as string.
+                int ms = 0;
+                if (osc_msg.fullMatch("i")) {
+                    ms = (int)osc_msg.nextAsInt();
+                } else {
+                    String period_str = osc_msg.nextAsString();
+                    ms = period_str.toInt();
+                }
                 if (ms < 1) ms = 1;
                 if (ms > 60000) ms = 60000;
                 p->send_period_ms = (unsigned int)ms;

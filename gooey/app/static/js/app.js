@@ -853,7 +853,11 @@
     /* Send commands for patch settings */
     var promises = [];
     promises.push(sendCmd(addr("/annieData/{device}/patch/{name}", name), cfg || null));
-    if (period) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), period));
+    // Wrap period in quotes so python-osc sends it as OSC string type 's'.
+    // Without quotes, _coerce_arg converts "50" → int 50 → type 'i', and the
+    // firmware's nextAsString() returns "" on an integer arg → period gets
+    // clamped to 1ms regardless of the value sent.
+    if (period) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), '"' + period + '"'));
     if (mode) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
     promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
 
