@@ -2,16 +2,10 @@
 // ab7_hardware.h — Hardware abstraction layer for the ab7 PCB
 // =============================================================================
 //
-// The ab7 board carries an ESP32-S3 and an IMU.  Default build targets the
-// LSM9DS1 over I2C (Adafruit breakout).  A selectable BNO085 (SPI) build is
-// available via the AB7_IMU_BNO085 build flag / environment.  There is no
+// The ab7 board carries an ESP32-S3 and a BNO085 IMU over SPI.  There is no
 // barometer on this board — the baro data stream returns zero.  A single
 // SK6812 addressable LED is used for status indication, and two buttons
 // (active-low, shorted to GND) provide user input.
-//
-// LSM9DS1 I2C wiring (GPIO numbers):
-//   SDA = 1
-//   SCL = 2
 //
 // BNO085 SPI wiring (GPIO numbers):
 //   CS   = 10
@@ -31,22 +25,15 @@
 #define AB7_HARDWARE_H
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Preferences.h>
-#if defined(AB7_IMU_BNO085)
 #include <SPI.h>
+#include <Preferences.h>
 #include <Adafruit_BNO08x.h>
-#else
-#include <Adafruit_LSM9DS1.h>
-#include <Adafruit_AHRS_Madgwick.h>
-#endif
 #include <FastLED.h>
 
 // ---------------------------------------------------------------------------
 // Pin definitions
 // ---------------------------------------------------------------------------
 
-#if defined(AB7_IMU_BNO085)
 // BNO085 SPI bus
 static constexpr int BNO_CS   = 10;
 static constexpr int BNO_MOSI = 11;
@@ -55,11 +42,6 @@ static constexpr int BNO_MISO = 13;
 static constexpr int BNO_INT  = 4;
 static constexpr int BNO_RST  = 5;
 static constexpr int BNO_WAKE = 6;
-#else
-// LSM9DS1 I2C bus
-static constexpr int IMU_SDA = 1;
-static constexpr int IMU_SCL = 2;
-#endif
 
 // SK6812 addressable LED
 static constexpr int LED_PIN = 7;
@@ -73,12 +55,7 @@ static constexpr int BTN_B = 14;
 // ---------------------------------------------------------------------------
 
 extern Preferences preferences;
-#if defined(AB7_IMU_BNO085)
 extern Adafruit_BNO08x imu;
-#else
-extern Adafruit_LSM9DS1 imu;
-extern Adafruit_Madgwick imu_filter;
-#endif
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -87,7 +64,7 @@ extern Adafruit_Madgwick imu_filter;
 /// Initialise GPIO pins (buttons with internal pull-ups).
 void begin_pins();
 
-/// Initialise the LSM9DS1 over I2C.  Blocks on failure.
+/// Initialise the BNO085 over SPI.  Blocks on failure.
 void begin_imu();
 
 /// Poll the IMU; returns true if fresh data was read and cached.

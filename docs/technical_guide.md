@@ -45,11 +45,8 @@ project supports two board variants, selected at compile time:
 
 ### ab7 board (`-DAB7_BUILD`)
 
-- **IMU** — selectable at build time:
-  - *LSM9DS1* (I2C, Adafruit breakout) — accelerometer, gyroscope,
-    magnetometer; fused with Madgwick filter to quaternion/Euler
-  - *BNO085* (SPI, `-DAB7_IMU_BNO085`) — rotation vector, linear
-    acceleration, calibrated gyro
+- **IMU** — BNO085 (SPI) — rotation vector, linear acceleration, calibrated
+  gyro
 - **SK6812 addressable LED** on GPIO 7 — status indicator
 - **Two buttons** — GPIO 0 (A) and GPIO 14 (B), active-low
 - **No barometer** — `data_streams[BARO]` is always 0
@@ -88,8 +85,7 @@ The project uses **PlatformIO** with the **Arduino framework** for
 | Environment | Board | Build flags | Libraries |
 |-------------|-------|-------------|-----------|
 | `bart` *(default)* | Bart PCB | — | BMP5xx, ISM330DHCX, MMC5983MA, SensorFusion |
-| `ab7-lsm9ds1` | ab7 PCB | `-DAB7_BUILD` | Adafruit LSM9DS1, Adafruit AHRS |
-| `ab7-bno085` | ab7 PCB | `-DAB7_BUILD -DAB7_IMU_BNO085` | Adafruit BNO08x |
+| `ab7` | ab7 PCB | `-DAB7_BUILD` | Adafruit BNO08x |
 
 All environments share common settings and use the
 [halfsohappy/MicroOsc](https://github.com/halfsohappy/MicroOsc) fork,
@@ -117,14 +113,8 @@ lib_deps = ${env.lib_deps}
     sparkfun/SparkFun 6DoF ISM330DHCX@^1.0.6
     ...
 
-[env:ab7-lsm9ds1]
+[env:ab7]
 build_flags = ${env.build_flags}  -DAB7_BUILD
-lib_deps = ${env.lib_deps}
-    adafruit/Adafruit LSM9DS1 Library@^2.1.2
-    adafruit/Adafruit AHRS@^2.4.0
-
-[env:ab7-bno085]
-build_flags = ${env.build_flags}  -DAB7_BUILD  -DAB7_IMU_BNO085
 lib_deps = ${env.lib_deps}
     adafruit/Adafruit BNO08x@^1.2.5
 ```
@@ -133,8 +123,7 @@ lib_deps = ${env.lib_deps}
 
 ```bash
 pio run                    # build default environment (bart)
-pio run -e ab7-bno085      # build for ab7 with BNO085 IMU
-pio run -e ab7-lsm9ds1     # build for ab7 with LSM9DS1 IMU
+pio run -e ab7             # build for ab7 with BNO085 IMU
 pio run -t upload          # compile and flash
 ```
 
@@ -165,17 +154,13 @@ All Bart sensor drivers communicate over a shared SPI bus.
 
 ### ab7 — `ab7_hardware.h` / `ab7_hardware.cpp`
 
-The ab7 board supports two IMU options, selected at compile time:
-
-- **LSM9DS1** (I2C) — default.  Uses `Wire` (SDA=1, SCL=2) with Adafruit
-  AHRS Madgwick filter for quaternion/Euler output.
-- **BNO085** (SPI) — selected with `-DAB7_IMU_BNO085`.  Uses the Adafruit
-  BNO08x driver (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).
+The ab7 board uses a BNO085 IMU over SPI (CS=10, MOSI=11, SCK=12, MISO=13,
+INT=4, RST=5, WAKE=6).
 
 | Function              | Purpose |
 |-----------------------|---------|
 | `begin_pins()`        | Configure buttons (GPIO 0, 14) with internal pull-ups. |
-| `begin_imu()`         | Initialise the selected IMU.  Blocks on failure. |
+| `begin_imu()`         | Initialise the BNO085.  Blocks on failure. |
 | `imu_data_available()` | Poll the IMU; returns true if fresh data was cached. |
 | `imu_get_quat(qi,qj,qk,qr)` | Read cached rotation quaternion. |
 | `imu_get_accel(ax,ay,az)` | Read cached linear acceleration (m/s²). |
@@ -735,7 +720,7 @@ Type these commands into the serial monitor (115200 baud):
                     │   Bart: Sensors      │  (ISM330DHCX, MMC5983MA, BMP5xx)
                     │     or Simulation    │  update_simulated_data()
                     ├──────────────────────┤
-                    │   ab7: IMU           │  (LSM9DS1 or BNO085)
+                    │   ab7: BNO085 IMU   │  (SPI)
                     │     + OriTracker     │  quaternion geodesic matching
                     └──────────┬───────────┘
                                │ writes
@@ -792,8 +777,8 @@ src/
 ├── main.h              Include orchestrator; conditional hardware/ori includes.
 ├── bart_hardware.h     Bart pin constants, sensor externs, struct norm_imu_data.
 ├── bart_hardware.cpp   Bart sensor init (SPI, ISM330DHCX, MMC5983MA, BMP5xx).
-├── ab7_hardware.h      ab7 pin constants, IMU API (LSM9DS1 or BNO085).
-├── ab7_hardware.cpp    ab7 IMU driver, quaternion-to-Euler, Madgwick filter.
+├── ab7_hardware.h      ab7 pin constants, BNO085 IMU API.
+├── ab7_hardware.cpp    ab7 BNO085 IMU driver, quaternion-to-Euler.
 ├── ori_tracker.h       Orientation save/recall/matching (ab7 only).
 ├── network_setup.h     WiFi captive-portal provisioning (uses net_pass).
 ├── data_streams.h      data_streams[12] array, index constants, simulated data.

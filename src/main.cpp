@@ -5,7 +5,7 @@
 // BOOT SEQUENCE:
 //   1. Initialise serial, GPIO pins, sensors.
 //      - Bart: barometer (BMP5xx), IMU (ISM330DHCX), magnetometer (MMC5983MA)
-//      - ab7:  IMU (LSM9DS1 or BNO085), SK6812 status LED, two buttons
+//      - ab7:  BNO085 IMU (SPI), SK6812 status LED, two buttons
 //   2. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
 //      - No  → launch the captive-portal provisioner and wait.
@@ -21,13 +21,6 @@
 #include "main.h"
 
 #ifdef AB7_BUILD
-#if defined(AB7_IMU_BNO085)
-static constexpr const char* AB7_IMU_NAME = "BNO085 (SPI)";
-static constexpr const char* AB7_IMU_WIRING_HINT = "Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).";
-#else
-static constexpr const char* AB7_IMU_NAME = "LSM9DS1 (I2C)";
-static constexpr const char* AB7_IMU_WIRING_HINT = "Check I2C wiring (SDA=1, SCL=2).";
-#endif
 
 // Current quaternion — shared with osc_commands.h for ori save commands
 float cur_qi = 0.0f, cur_qj = 0.0f, cur_qk = 0.0f, cur_qr = 1.0f;
@@ -76,9 +69,7 @@ void setup() {
     leds[0] = CRGB(40, 0, 40);  // dim purple = booting
     FastLED.show();
 
-    Serial.print(F("[BOOT] Initialising "));
-    Serial.print(AB7_IMU_NAME);
-    Serial.println(F("..."));
+    Serial.println(F("[BOOT] Initialising BNO085 (SPI)..."));
     begin_imu();
 #else
     Serial.println(F("[BOOT] Initialising GPIO pins..."));
@@ -235,7 +226,7 @@ void setup() {
                 // Warn once after ~5 seconds of no data (500 × 10ms).
                 if (no_data_count == 500) {
                     Serial.print(F("[IMU] WARNING: No sensor data for 5 seconds — "));
-                    Serial.println(AB7_IMU_WIRING_HINT);
+                    Serial.println(F("Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6)."));
                 }
             }
 
@@ -255,11 +246,9 @@ void setup() {
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
         }
-    }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — IMU driver + Madgwick filter  |  pinned to core 1
+    }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — BNO085 driver  |  pinned to core 1
 
-    Serial.print(F("[BOOT] Sensor task started ("));
-    Serial.print(AB7_IMU_NAME);
-    Serial.println(F(" real data)."));
+    Serial.println(F("[BOOT] Sensor task started (BNO085 real data)."));
 #else
     // Bart: simulated sensor data for development/testing.
     xTaskCreate([](void*) {
