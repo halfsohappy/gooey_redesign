@@ -252,14 +252,11 @@ void patch_send_task(void* param) {
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
             if (get_send_logging_enabled()) {
-                Serial.print(F("[SEND] "));
-                Serial.print(eff_ip);
-                Serial.print(F(":"));
-                Serial.print(eff_port);
-                Serial.print(F(" "));
-                Serial.print(eff_adr);
-                Serial.print(F(" = "));
-                Serial.println(val, 6);
+                char buf[96];
+                snprintf(buf, sizeof(buf), "[SEND] %s:%u %s = %.6f",
+                         eff_ip.toString().c_str(), eff_port,
+                         eff_adr.c_str(), static_cast<double>(val));
+                Serial.println(buf);
             }
             xSemaphoreGive(osc_send_mutex());
         }
