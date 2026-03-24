@@ -123,6 +123,8 @@ public:
         if (src.exist.val)   { m->value_ptr = src.value_ptr;     m->exist.val   = true; }
         if (src.exist.low)   { m->bounds[0] = src.bounds[0];     m->exist.low   = true; }
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
+        if (src.ori_only.length() > 0) { m->ori_only = src.ori_only; }
+        if (src.ori_not.length() > 0)  { m->ori_not  = src.ori_not;  }
         return m;
     }
 
@@ -241,7 +243,8 @@ inline bool OscMessage::sendable() const {
 ///
 /// Format: "key:value, key:value, ..."
 ///   Direct keys:  name, ip, port, adr/addr/address, patch, value, low/min/lo,
-///                 high/max/hi, period, enabled
+///                 high/max/hi, enabled
+///                 period — accepted but ignored (patch-level field, handled by caller)
 ///   Reference keys (use '-' separator):  ip-refName, port-refName, etc.
 ///   Special:  default-refName / all-refName  copies all set fields from a
 ///             registered patch or message as fallback values.
@@ -257,6 +260,8 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     value_ptr  = nullptr;
     bounds[0]  = 0.0f;
     bounds[1]  = 1.0f;
+    ori_only   = "";
+    ori_not    = "";
 
     String input = config;
     input.trim();
@@ -398,6 +403,12 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
         } else if (key == "enabled") {
             String v = osc_lower_copy(value);
             enabled = (v == "true" || v == "1" || v == "yes" || v == "on");
+        } else if (key == "orionly" || key == "ori_only") {
+            ori_only = value;
+        } else if (key == "orinot" || key == "ori_not") {
+            ori_not = value;
+        } else if (key == "period") {
+            // Recognised but handled outside from_config_str (patch-level field).
         } else {
             if (error) *error = "Unknown key: " + key;
             return false;
@@ -426,6 +437,8 @@ inline String OscMessage::to_info_string(bool verbose) const {
     if (exist.low)  { s += " low:" + String(bounds[0], 2); }
     if (exist.high) { s += " high:" + String(bounds[1], 2); }
     if (exist.patch && patch) { s += " patch:" + patch->name; }
+    if (ori_only.length() > 0) { s += " ori_only:" + ori_only; }
+    if (ori_not.length() > 0)  { s += " ori_not:" + ori_not; }
 
     return s;
 }

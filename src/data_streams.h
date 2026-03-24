@@ -1,18 +1,19 @@
 // =============================================================================
-// data_streams.h — Sensor data stream definitions and simulated values
+// data_streams.h — Sensor data stream definitions
 // =============================================================================
 //
 // This file defines the global array of sensor data streams that the device
-// reads from its hardware sensors (accelerometer, gyroscope, magnetometer,
-// barometer) and makes available for OSC messages to reference.
+// reads from its hardware sensors (accelerometer, gyroscope, barometer,
+// Euler angles) and makes available for OSC messages to reference.
 //
 // Each stream is identified by a compile-time index constant (e.g. ACCELX,
 // GYROY, BARO). OscMessage objects hold a pointer into this array so their
 // send tasks always transmit the latest reading.
 //
-// For development and testing without physical hardware, the function
+// For Bart development/testing without physical hardware, the function
 // update_simulated_data() fills the array with deterministic sine waves at
 // distinct frequencies, so each stream produces a unique, recognisable signal.
+// This function is not available when building for ab7 (AB7_BUILD defined).
 // =============================================================================
 
 #ifndef DATA_STREAMS_H
@@ -40,10 +41,10 @@
 #define EULERY     10
 #define EULERZ     11
 
-// The global data array.  Every element is continuously updated either by the
-// real sensor task or by update_simulated_data().  Declared volatile because
-// the sensor task (writer) and patch send tasks (readers) run concurrently
-// without a mutex protecting individual element access.
+// The global data array.  Every element is continuously updated by the
+// sensor task reading the IMU.  Declared volatile because the sensor task
+// (writer) and patch send tasks (readers) run concurrently without a mutex
+// protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
 
 // ---------------------------------------------------------------------------
@@ -100,17 +101,9 @@ static inline int data_stream_index_from_ptr(const volatile float* ptr) {
 }
 
 // ---------------------------------------------------------------------------
-// Simulated sensor data (for testing without real hardware)
+// Simulated sensor data (Bart only — for testing without real hardware)
 // ---------------------------------------------------------------------------
-//
-// All sensor values are normalised to [0, 1] before being placed in the
-// data_streams array.  Each stream uses a sine wave at a distinct frequency
-// so that the signals are visually distinguishable on a monitoring tool.
-// The frequencies are chosen as coprime values to avoid collisions.
-//
-// Call this once per sensor-task iteration (e.g. every 10 ms) instead of
-// reading the real IMU/barometer/magnetometer.
-// ---------------------------------------------------------------------------
+#ifndef AB7_BUILD
 
 static inline void update_simulated_data() {
     float t = millis() * 0.001f;  // time in seconds
@@ -137,5 +130,7 @@ static inline void update_simulated_data() {
     data_streams[EULERY]      = sinf(2.0f * PI * 0.6f * t) * 0.5f + 0.5f;  // 0.6 Hz
     data_streams[EULERZ]      = sinf(2.0f * PI * 0.8f * t) * 0.5f + 0.5f;  // 0.8 Hz
 }
+
+#endif // !AB7_BUILD
 
 #endif // DATA_STREAMS_H

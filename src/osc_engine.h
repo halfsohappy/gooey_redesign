@@ -36,7 +36,12 @@
 #include <WiFiUdp.h>
 #include "osc_registry.h"
 #include "osc_status.h"
+#ifdef AB7_BUILD
+#include "ab7_hardware.h"
+#include "ori_tracker.h"
+#else
 #include "bart_hardware.h"
+#endif
 
 // ---------------------------------------------------------------------------
 // Global transport objects
@@ -53,6 +58,15 @@ static inline SemaphoreHandle_t& osc_send_mutex() {
     static SemaphoreHandle_t mtx = xSemaphoreCreateMutex();
     return mtx;
 }
+
+// ---------------------------------------------------------------------------
+// Optional serial logging of every outbound message
+// ---------------------------------------------------------------------------
+
+static bool _send_logging_enabled = false;
+
+static inline void set_send_logging_enabled(bool enabled) { _send_logging_enabled = enabled; }
+static inline bool get_send_logging_enabled() { return _send_logging_enabled; }
 
 // ---------------------------------------------------------------------------
 // StatusReporter::send() implementation
@@ -193,7 +207,7 @@ void patch_send_task(void* param) {
 
     for (;;) {
         // Sleep for the polling period.
-        vTaskDelay(pdMS_TO_TICKS(patch->send_period_ms));
+        vTaskDelay(pdMS_TO_TICKS(clamp_patch_period_ms((long)patch->send_period_ms)));
 
         if (!patch->enabled) continue;
 
@@ -206,6 +220,15 @@ void patch_send_task(void* param) {
             OscMessage& msg = reg.messages[mi];
             if (!msg.enabled)    continue;
             if (!msg.value_ptr)  continue;
+
+            // --- Ori-conditional check (ab7 only) ---
+#ifdef AB7_BUILD
+            {
+                OriTracker& ot = ori_tracker();
+                if (msg.ori_only.length() > 0 && !ot.is_active(msg.ori_only)) continue;
+                if (msg.ori_not.length() > 0  &&  ot.is_active(msg.ori_not))  continue;
+            }
+#endif
 
             // Resolve effective destination.
             IPAddress    eff_ip   = resolve_ip(msg, *patch);
@@ -230,10 +253,22 @@ void patch_send_task(void* param) {
             }
 
             // Send the float value over OSC.
+            char log_buf[160];
+            bool should_log = get_send_logging_enabled();
+            if (should_log) {
+                snprintf(log_buf, sizeof(log_buf), "[SEND] %s:%u %s = %.6f",
+                         eff_ip.toString().c_str(), eff_port,
+                         eff_adr.c_str(), static_cast<double>(val));
+            }
+
             xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
             xSemaphoreGive(osc_send_mutex());
+
+            if (should_log) {
+                Serial.println(log_buf);
+            }
         }
 
         reg.unlock();
@@ -318,7 +353,7 @@ static inline void begin_udp(const String& start_ip, const String& start_ssid,
 
     WiFi.begin(start_ssid.c_str(), start_pass.c_str());
     Serial.print("Connecting to WiFi");
-    const unsigned long WIFI_CONNECT_TIMEOUT_MS = 8000UL;
+    const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
     unsigned long startTime = millis();
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);

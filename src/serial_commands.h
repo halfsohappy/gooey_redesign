@@ -17,6 +17,7 @@
 //   nvs                  — show NVS storage summary
 //   registry             — show OSC registry (patches + messages)
 //   serial [level]       — get/set serial debug level (error/warn/info/debug)
+//   sends [on|off]       — show or toggle per-message send logging to serial
 //   hardware             — show hardware diagnostics (voltages, sensor init)
 //   restart              — reboot the device
 //   provision            — erase provisioning and reboot into captive portal
@@ -29,8 +30,13 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Preferences.h>
+#ifdef AB7_BUILD
+#include "ab7_hardware.h"
+#else
 #include "bart_hardware.h"
+#endif
 #include "data_streams.h"
+#include "osc_engine.h"
 #include "osc_registry.h"
 #include "osc_status.h"
 
@@ -57,6 +63,7 @@ static inline void _serial_cmd_help() {
     Serial.println(F("  registry     — OSC registry (patches + messages)"));
     Serial.println(F("  serial [lvl] — get/set serial debug level"));
     Serial.println(F("               — levels: error, warn, info, debug"));
+    Serial.println(F("  sends [on|off] — show or set per-message send logging"));
     Serial.println(F("  hardware     — hardware diagnostics"));
     Serial.println(F("  restart      — reboot the device"));
     Serial.println(F("  provision    — erase config & reboot into portal"));
@@ -140,7 +147,7 @@ static inline void _serial_cmd_config() {
         Serial.print(F("  SSID        : "));
         Serial.println(prefs.getString("ssid", "(empty)"));
         Serial.print(F("  Password    : "));
-        String pw = prefs.getString("network_password", "");
+        String pw = prefs.getString("net_pass", "");
         Serial.println(pw.length() > 0 ? "(set)" : "(empty)");
         bool use_dhcp = prefs.getBool("use_dhcp", true);
         Serial.print(F("  DHCP        : "));
@@ -267,26 +274,32 @@ static inline void _serial_cmd_serial(const String& arg) {
     }
 }
 
+static inline void _serial_cmd_sends(const String& arg) {
+    if (arg.length() == 0) {
+        Serial.print(F("  Send logging: "));
+        Serial.println(get_send_logging_enabled() ? F("ON") : F("OFF"));
+        return;
+    }
+
+    String a = arg;
+    a.toLowerCase();
+    if (a == "on" || a == "1" || a == "true") {
+        set_send_logging_enabled(true);
+        Serial.println(F("  Send logging enabled."));
+    } else if (a == "off" || a == "0" || a == "false") {
+        set_send_logging_enabled(false);
+        Serial.println(F("  Send logging disabled."));
+    } else {
+        Serial.println(F("  Usage: sends [on|off]"));
+    }
+}
+
 static inline void _serial_cmd_hardware() {
-    Serial.println(F("──────────── Hardware Diagnostics ────────────"));
-
-    // USB and battery voltage monitors
-    int umon_raw = analogRead(UMON);
-    int bmon_raw = analogRead(BMON);
-    float umon_v = umon_raw * (3.3f / 4095.0f) * 2.0f;  // voltage divider
-    float bmon_v = bmon_raw * (3.3f / 4095.0f) * 2.0f;
-
-    Serial.print(F("  USB voltage  (UMON) : "));
-    Serial.print(umon_v, 2);
-    Serial.print(F(" V  (raw: "));
-    Serial.print(umon_raw);
-    Serial.println(F(")"));
-
-    Serial.print(F("  Batt voltage (BMON) : "));
-    Serial.print(bmon_v, 2);
-    Serial.print(F(" V  (raw: "));
-    Serial.print(bmon_raw);
-    Serial.println(F(")"));
+#ifdef AB7_BUILD
+    Serial.println(F("──────────── Hardware Diagnostics (ab7) ────────────"));
+#else
+    Serial.println(F("──────────── Hardware Diagnostics (bart) ────────────"));
+#endif
 
     // ESP32 info
     Serial.print(F("  Chip model   : "));
@@ -304,17 +317,25 @@ static inline void _serial_cmd_hardware() {
     Serial.print(ESP.getMinFreeHeap());
     Serial.println(F(" bytes"));
 
-    // Mux and CC pin states
-    Serial.print(F("  SEL13        : "));
+#ifdef AB7_BUILD
+    // Button states (active-low)
+    Serial.print(F("  BTN_A (GPIO0)  : "));
+    Serial.println(digitalRead(BTN_A) == LOW ? "PRESSED" : "released");
+    Serial.print(F("  BTN_B (GPIO14) : "));
+    Serial.println(digitalRead(BTN_B) == LOW ? "PRESSED" : "released");
+#else
+    // Bart-specific pin states
+    Serial.print(F("  SEL13 (GPIO11) : "));
     Serial.println(digitalRead(SEL13));
-    Serial.print(F("  SEL46        : "));
+    Serial.print(F("  SEL46 (GPIO12) : "));
     Serial.println(digitalRead(SEL46));
-    Serial.print(F("  CC_EN1       : "));
+    Serial.print(F("  CC_EN1 (GPIO13): "));
     Serial.println(digitalRead(CC_EN1));
-    Serial.print(F("  CC_EN2       : "));
+    Serial.print(F("  CC_EN2 (GPIO14): "));
     Serial.println(digitalRead(CC_EN2));
+#endif
 
-    Serial.println(F("──────────────────────────────────────────────"));
+    Serial.println(F("──────────────────────────────────────────────────"));
 }
 
 static inline void _serial_cmd_uptime() {
@@ -371,6 +392,8 @@ static inline void serial_process() {
                     _serial_cmd_registry();
                 } else if (cmd == "serial") {
                     _serial_cmd_serial(arg);
+                } else if (cmd == "sends") {
+                    _serial_cmd_sends(arg);
                 } else if (cmd == "hardware" || cmd == "hw") {
                     _serial_cmd_hardware();
                 } else if (cmd == "restart" || cmd == "reboot") {

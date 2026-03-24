@@ -96,6 +96,14 @@ public:
     // send task even though they remain in the registry.
     bool          enabled = true;
 
+    // --- Orientation-conditional sending (ab7 only) -------------------------
+    //
+    // ori_only: if non-empty, this message sends ONLY when this ori is active.
+    // ori_not:  if non-empty, this message sends ONLY when this ori is NOT active.
+    // If both are empty, the message sends unconditionally (normal behaviour).
+    String        ori_only;    // e.g. "light1" — send only when ori "light1" is active
+    String        ori_not;     // e.g. "light2" — send only when ori "light2" is NOT active
+
     // --- Constructors -------------------------------------------------------
 
     OscMessage()
@@ -119,6 +127,8 @@ public:
         bounds[0]  = o.bounds[0];
         bounds[1]  = o.bounds[1];
         enabled    = o.enabled;
+        ori_only   = o.ori_only;
+        ori_not    = o.ori_not;
     }
 
     OscMessage& operator=(const OscMessage& o) {
@@ -133,6 +143,8 @@ public:
             bounds[0]  = o.bounds[0];
             bounds[1]  = o.bounds[1];
             enabled    = o.enabled;
+            ori_only   = o.ori_only;
+            ori_not    = o.ori_not;
         }
         return *this;
     }
@@ -170,6 +182,11 @@ public:
         r.bounds[1]   = exist.high  ? bounds[1] : o.bounds[1];
 
         r.enabled     = enabled && o.enabled;
+
+        // Ori-conditional fields: new config takes priority; fall back to other.
+        r.ori_only = ori_only.length() > 0 ? ori_only : o.ori_only;
+        r.ori_not  = ori_not.length() > 0  ? ori_not  : o.ori_not;
+
         return r;
     }
 
