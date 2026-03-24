@@ -42,6 +42,7 @@ void begin_pins() {
 
 void begin_imu() {
 #if defined(AB7_IMU_BNO085)
+    // ESP32 SPI signature: begin(SCK, MISO, MOSI) — CS is handled by the driver.
     SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI);
 
     pinMode(BNO_WAKE, OUTPUT);

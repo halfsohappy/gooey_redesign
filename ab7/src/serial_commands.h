@@ -59,7 +59,7 @@ static inline void _serial_cmd_help() {
     Serial.println(F("  registry     — OSC registry (patches + messages)"));
     Serial.println(F("  serial [lvl] — get/set serial debug level"));
     Serial.println(F("               — levels: error, warn, info, debug"));
-    Serial.println(F("  sends [on|off]— toggle per-message send logging"));
+    Serial.println(F("  sends [on|off] — toggle per-message send logging"));
     Serial.println(F("  hardware     — hardware diagnostics"));
     Serial.println(F("  restart      — reboot the device"));
     Serial.println(F("  provision    — erase config & reboot into portal"));
