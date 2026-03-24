@@ -372,7 +372,7 @@ static inline void serial_process() {
                     _serial_cmd_registry();
                 } else if (cmd == "serial") {
                     _serial_cmd_serial(arg);
-    } else if (cmd == "sends") {
+                } else if (cmd == "sends") {
                     _serial_cmd_sends(arg);
                 } else if (cmd == "hardware" || cmd == "hw") {
                     _serial_cmd_hardware();
