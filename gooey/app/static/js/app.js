@@ -347,11 +347,14 @@
     var tbody = $("#msgTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.messages).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>';
       return;
     }
     Object.keys(dev.messages).forEach(function (name) {
       var m = dev.messages[name];
+      var oriStr = "";
+      if (m.ori_only || m.orionly) oriStr = "only:" + (m.ori_only || m.orionly);
+      else if (m.ori_not || m.orinot) oriStr = "not:" + (m.ori_not || m.orinot);
       var tr = document.createElement("tr");
       tr.dataset.msgName = name;
       tr.innerHTML =
@@ -363,6 +366,7 @@
         '<td class="cell-mono">' + esc(m.low || m.min || "") + '</td>' +
         '<td class="cell-mono">' + esc(m.high || m.max || "") + '</td>' +
         '<td class="cell-mono">' + esc(m.patch || "") + '</td>' +
+        '<td class="cell-mono ori-section">' + esc(oriStr || "—") + '</td>' +
         '<td>' + (m.enabled === "false" ? "❌" : "✅") + '</td>' +
         '<td class="cell-actions">' +
           '<button class="tbl-btn" data-act="info">ℹ️</button>' +
@@ -394,6 +398,8 @@
     $("#msgLow").value = m.low || m.min || "";
     $("#msgHigh").value = m.high || m.max || "";
     $("#msgPatch").value = m.patch || "";
+    $("#msgOriOnly").value = m.ori_only || m.orionly || "";
+    $("#msgOriNot").value = m.ori_not || m.orinot || "";
     updateMsgPreview();
     /* scroll to form */
     $$(".nav-btn")[1].click(); // switch to messages tab
@@ -685,10 +691,12 @@
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
+    var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch"].forEach(function (id) {
+  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -706,6 +714,8 @@
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
+    var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
     var cfg = parts.join(", ");
     var address = addr("/annieData/{device}/msg/{name}", name);
     sendCmd(address, cfg || null).then(function (res) {
@@ -724,7 +734,7 @@
 
   /* Clear form */
   $("#btnMsgClear").addEventListener("click", function () {
-    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch"].forEach(function (id) {
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot"].forEach(function (id) {
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";

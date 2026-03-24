@@ -182,6 +182,11 @@ public:
         r.bounds[1]   = exist.high  ? bounds[1] : o.bounds[1];
 
         r.enabled     = enabled && o.enabled;
+
+        // Ori-conditional fields: new config takes priority; fall back to other.
+        r.ori_only = ori_only.length() > 0 ? ori_only : o.ori_only;
+        r.ori_not  = ori_not.length() > 0  ? ori_not  : o.ori_not;
+
         return r;
     }
 
