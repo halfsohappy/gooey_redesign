@@ -104,6 +104,10 @@ public:
     String        ori_only;    // e.g. "light1" — send only when ori "light1" is active
     String        ori_not;     // e.g. "light2" — send only when ori "light2" is NOT active
 
+    // --- Duplicate suppression cache (ephemeral, never saved to NVS) ---------
+    float         _last_sent_val = 0.0f;
+    bool          _has_last_sent = false;
+
     // --- Constructors -------------------------------------------------------
 
     OscMessage()
@@ -202,6 +206,9 @@ public:
 
     /// Build a human-readable summary of this message (for list/info replies).
     String to_info_string(bool verbose = false) const;
+
+    /// Clear the dedup cache so the next send always transmits.
+    void clear_dedup_cache() { _has_last_sent = false; _last_sent_val = 0.0f; }
 };
 
 #endif // OSC_MESSAGE_H

@@ -72,6 +72,7 @@
 // ── GLOBAL COMMANDS (/annieData{dev}/...) ──────────────────────────────────
 //   blackout               — stop ALL patch tasks immediately
 //   restore                — restart all patches that have messages
+//   dedup                  — toggle duplicate value suppression (payload: on/off/1/0)
 //
 // ── DIRECT COMMAND (/annieData{dev}/direct/{name}) ────────────────────────
 //   (config string payload) — one-step: create msg + patch, add, and start
@@ -178,6 +179,24 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     if (norm_adr == "/restore") {
         restore_all();
         osc_reply(sender_ip, sender_port, reply_adr, "RESTORE");
+        return;
+    }
+
+    if (norm_adr == "/dedup") {
+        String arg = osc_msg.nextAsString();
+        String a = osc_lower_copy(osc_trim_copy(String(arg)));
+        if (a == "on" || a == "1" || a == "true") {
+            set_dedup_enabled(true);
+            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP ON");
+            status_reporter().info("engine", "Duplicate suppression enabled");
+        } else if (a == "off" || a == "0" || a == "false") {
+            set_dedup_enabled(false);
+            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP OFF");
+            status_reporter().info("engine", "Duplicate suppression disabled");
+        } else {
+            String state = get_dedup_enabled() ? "ON" : "OFF";
+            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP " + state);
+        }
         return;
     }
 

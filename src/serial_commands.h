@@ -18,6 +18,7 @@
 //   registry             — show OSC registry (patches + messages)
 //   serial [level]       — get/set serial debug level (error/warn/info/debug)
 //   sends [on|off]       — show or toggle per-message send logging to serial
+//   dedup [on|off]       — show or toggle duplicate value suppression
 //   hardware             — show hardware diagnostics (voltages, sensor init)
 //   restart              — reboot the device
 //   provision            — erase provisioning and reboot into captive portal
@@ -64,6 +65,7 @@ static inline void _serial_cmd_help() {
     Serial.println(F("  serial [lvl] — get/set serial debug level"));
     Serial.println(F("               — levels: error, warn, info, debug"));
     Serial.println(F("  sends [on|off] — show or set per-message send logging"));
+    Serial.println(F("  dedup [on|off] — show or set duplicate suppression"));
     Serial.println(F("  hardware     — hardware diagnostics"));
     Serial.println(F("  restart      — reboot the device"));
     Serial.println(F("  provision    — erase config & reboot into portal"));
@@ -294,6 +296,26 @@ static inline void _serial_cmd_sends(const String& arg) {
     }
 }
 
+static inline void _serial_cmd_dedup(const String& arg) {
+    if (arg.length() == 0) {
+        Serial.print(F("  Duplicate suppression: "));
+        Serial.println(get_dedup_enabled() ? F("ON") : F("OFF"));
+        return;
+    }
+
+    String a = arg;
+    a.toLowerCase();
+    if (a == "on" || a == "1" || a == "true") {
+        set_dedup_enabled(true);
+        Serial.println(F("  Duplicate suppression enabled."));
+    } else if (a == "off" || a == "0" || a == "false") {
+        set_dedup_enabled(false);
+        Serial.println(F("  Duplicate suppression disabled."));
+    } else {
+        Serial.println(F("  Usage: dedup [on|off]"));
+    }
+}
+
 static inline void _serial_cmd_hardware() {
 #ifdef AB7_BUILD
     Serial.println(F("──────────── Hardware Diagnostics (ab7) ────────────"));
@@ -394,6 +416,8 @@ static inline void serial_process() {
                     _serial_cmd_serial(arg);
                 } else if (cmd == "sends") {
                     _serial_cmd_sends(arg);
+                } else if (cmd == "dedup") {
+                    _serial_cmd_dedup(arg);
                 } else if (cmd == "hardware" || cmd == "hw") {
                     _serial_cmd_hardware();
                 } else if (cmd == "restart" || cmd == "reboot") {

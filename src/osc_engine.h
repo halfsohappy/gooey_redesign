@@ -69,6 +69,27 @@ static inline void set_send_logging_enabled(bool enabled) { _send_logging_enable
 static inline bool get_send_logging_enabled() { return _send_logging_enabled; }
 
 // ---------------------------------------------------------------------------
+// Optional duplicate suppression — skip sends when value hasn't changed
+// ---------------------------------------------------------------------------
+
+static bool _dedup_enabled = false;
+
+static inline bool get_dedup_enabled() { return _dedup_enabled; }
+
+/// Clear the dedup cache on every message in the registry.
+static inline void clear_all_dedup_caches() {
+    OscRegistry& reg = osc_registry();
+    for (uint16_t i = 0; i < reg.msg_count; i++) {
+        reg.messages[i].clear_dedup_cache();
+    }
+}
+
+static inline void set_dedup_enabled(bool enabled) {
+    _dedup_enabled = enabled;
+    clear_all_dedup_caches();
+}
+
+// ---------------------------------------------------------------------------
 // StatusReporter::send() implementation
 // ---------------------------------------------------------------------------
 //
@@ -252,6 +273,11 @@ void patch_send_task(void* param) {
                 val = eff_low + val * (eff_high - eff_low);
             }
 
+            // Duplicate suppression: skip if value hasn't changed.
+            if (_dedup_enabled && msg._has_last_sent && msg._last_sent_val == val) {
+                continue;
+            }
+
             // Send the float value over OSC.
             char log_buf[160];
             bool should_log = get_send_logging_enabled();
@@ -265,6 +291,9 @@ void patch_send_task(void* param) {
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
             xSemaphoreGive(osc_send_mutex());
+
+            msg._last_sent_val = val;
+            msg._has_last_sent = true;
 
             if (should_log) {
                 Serial.println(log_buf);
