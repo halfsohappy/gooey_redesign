@@ -95,9 +95,17 @@
 #define OSC_COMMANDS_H
 
 #include "osc_engine.h"
+#ifdef AB7_BUILD
+#include "ori_tracker.h"
+#endif
 
 // Forward-declare the device address (defined in main.h / main.cpp).
 extern String device_adr;
+
+// Forward-declare the current quaternion globals (defined in main.cpp, ab7 only).
+#ifdef AB7_BUILD
+extern float cur_qi, cur_qj, cur_qk, cur_qr;
+#endif
 
 // ---------------------------------------------------------------------------
 // Command normaliser — accepts camelCase, snake_case, and lowercase
@@ -223,7 +231,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                          : cfg_str.substring(vstart, vend);
                 pval.trim();
                 int pms = pval.toInt();
-                if (pms >= 1 && pms <= 60000) period_ms = (unsigned int)pms;
+                if (pms > 0) period_ms = clamp_patch_period_ms(pms);
             }
         }
 
@@ -324,6 +332,36 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             verbose = true;
         }
 
+        IPAddress reply_ip = sender_ip;
+        unsigned int reply_port = sender_port;
+        if (status_reporter().configured && status_reporter().dest_port != 0) {
+            reply_ip = status_reporter().dest_ip;
+            reply_port = status_reporter().dest_port;
+        }
+        // Defensive: drop replies if the sender port was missing/invalid or a bad status config left port at 0.
+        if (reply_port == 0) {
+            Serial.println("  → list: reply port is 0; not sending response");
+            status_reporter().warning("list", "No reply port available for list response");
+            return;
+        }
+        const size_t LIST_LOG_RESERVE_BYTES = 160;  // ~80 label chars + two IPs + two ports + sub name
+        String sub_label = sub.isEmpty() ? "(all)" : sub;
+        String log;
+        log.reserve(LIST_LOG_RESERVE_BYTES);
+        log += "  → list sub='";
+        log += sub_label;
+        log += "' verbose=";
+        log += verbose ? "true" : "false";
+        log += " sender=";
+        log += sender_ip.toString();
+        log += ":";
+        log += sender_port;
+        log += " dest=";
+        log += reply_ip.toString();
+        log += ":";
+        log += reply_port;
+        Serial.println(log);
+
         reg.lock();
 
         if (sub == "/msgs" || sub == "/messages") {
@@ -336,7 +374,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/msgs", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/msgs", result);
         } else if (sub == "/patches") {
             String result = "Patches (" + String(reg.patch_count) + "):";
             if (reg.patch_count == 0) {
@@ -347,7 +385,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.patch_count; i++) {
                 result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/patches", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/patches", result);
         } else if (sub == "/all" || sub == "") {
             String result = "Patches (" + String(reg.patch_count) + "):";
             if (reg.patch_count == 0) {
@@ -367,8 +405,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             for (uint16_t i = 0; i < reg.msg_count; i++) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(sender_ip, sender_port, reply_adr + "/list/all", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/all", result);
         } else {
+            Serial.println("  → list: unknown target '" + sub + "'");
             status_reporter().warning("cmd", "Unknown list target: " + sub);
         }
 
@@ -434,7 +473,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->osc_address    = src->osc_address;
             dest->bounds[0]      = src->bounds[0];
             dest->bounds[1]      = src->bounds[1];
-            dest->send_period_ms = src->send_period_ms;
+            dest->send_period_ms = clamp_patch_period_ms(src->send_period_ms);
             dest->address_mode   = src->address_mode;
             dest->overrides      = src->overrides;
             dest->exist          = src->exist;
@@ -624,6 +663,124 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
+    // ── ORI COMMANDS (/annieData{dev}/ori/...) — ab7 only ───────────────────
+#ifdef AB7_BUILD
+    if (norm_adr.startsWith("/ori/") || norm_adr == "/ori") {
+        String ori_rest = (norm_adr == "/ori") ? String("") : norm_adr.substring(4);
+        Serial.println("  → ori command, sub=" + ori_rest);
+        // Also extract original-case name from the address.
+        String ori_rest_orig = "";
+        if (address.length() > 4 && address.startsWith("/ori")) {
+            ori_rest_orig = address.substring(4);
+        }
+
+        OriTracker& ot = ori_tracker();
+
+        // /ori/save  or  /ori/save/{name}
+        if (ori_rest.startsWith("/save")) {
+            String ori_name;
+            if (ori_rest.length() > 5 && ori_rest.charAt(5) == '/') {
+                // Extract name from original-case address.
+                int slash = ori_rest_orig.indexOf('/', 6);
+                ori_name = (slash < 0) ? ori_rest_orig.substring(6)
+                                       : ori_rest_orig.substring(6, slash);
+                ori_name.trim();
+            }
+            // If payload provides a name, use that instead.
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+
+            int idx;
+            if (ori_name.length() > 0) {
+                idx = ot.save(ori_name, cur_qi, cur_qj, cur_qk, cur_qr);
+            } else {
+                idx = ot.save_auto(cur_qi, cur_qj, cur_qk, cur_qr);
+                if (idx >= 0) ori_name = ot.oris[idx].name;
+            }
+
+            if (idx >= 0) {
+                status_reporter().info("ori", "Saved ori '" + ori_name + "' (idx " + String(idx) + ")");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "Saved: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Could not save ori (full?)");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/save", "ERROR: ori slots full");
+            }
+            return;
+        }
+
+        // /ori/delete/{name}
+        if (ori_rest.startsWith("/delete")) {
+            String ori_name;
+            if (ori_rest.length() > 8 && ori_rest.charAt(7) == '/') {
+                ori_name = ori_rest_orig.substring(8);
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "delete: no name given");
+                return;
+            }
+            if (ot.remove(ori_name)) {
+                status_reporter().info("ori", "Deleted ori '" + ori_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/delete", "Deleted: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
+            }
+            return;
+        }
+
+        // /ori/clear
+        if (ori_rest == "/clear") {
+            ot.clear();
+            status_reporter().info("ori", "All oris cleared");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/clear", "All oris cleared");
+            return;
+        }
+
+        // /ori/list
+        if (ori_rest == "/list") {
+            String listing = ot.list();
+            status_reporter().info("ori", "Saved oris: " + listing);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/list", listing);
+            return;
+        }
+
+        // /ori/threshold  (set motion gate threshold in rad/s)
+        if (ori_rest == "/threshold" || ori_rest.startsWith("/threshold")) {
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 'f') {
+                ot.motion_threshold = osc_msg.nextAsFloat();
+            } else if (typetags && typetags[0] == 's') {
+                ot.motion_threshold = String(osc_msg.nextAsString()).toFloat();
+            }
+            status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
+                      "threshold: " + String(ot.motion_threshold, 2));
+            return;
+        }
+
+        // /ori/active  — query the current active ori
+        if (ori_rest == "/active") {
+            String info = (ot.active_ori_index >= 0)
+                ? ot.active_ori_name
+                : String("(none)");
+            status_reporter().info("ori", "Active ori: " + info);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/active", info);
+            return;
+        }
+
+        status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
+        return;
+    }
+#endif // AB7_BUILD
+
     // ── CATEGORY DISPATCH: /msg or /patch ──────────────────────────────────
 
     bool is_msg   = norm_adr.startsWith("/msg");
@@ -692,6 +849,23 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 if (csv.exist.adr)  { p->osc_address = csv.osc_address; p->exist.adr  = true; }
                 if (csv.exist.low)  { p->bounds[0] = csv.bounds[0];     p->exist.low  = true; }
                 if (csv.exist.high) { p->bounds[1] = csv.bounds[1];     p->exist.high = true; }
+
+                // Extract period from config string (from_config_str doesn't handle it).
+                {
+                    String cfg_lower = String(arg);
+                    cfg_lower.toLowerCase();
+                    int pi = cfg_lower.indexOf("period:");
+                    if (pi < 0) pi = cfg_lower.indexOf("period-");
+                    if (pi >= 0) {
+                        int vstart = pi + 7;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String pval = (vend < 0) ? String(arg).substring(vstart)
+                                                 : String(arg).substring(vstart, vend);
+                        pval.trim();
+                        int pms = pval.toInt();
+                        if (pms > 0) p->send_period_ms = clamp_patch_period_ms(pms);
+                    }
+                }
             }
             status_reporter().info("patch", "Patch '" + name_mp + "' updated");
         }
@@ -786,26 +960,39 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         // ── period ─────────────────────────────────────────────────────────
         //    Payload: a string or integer with the period in milliseconds.
-        //    Note: Gooey sends this via python-osc which coerces numeric strings
-        //    to OSC int type 'i', so we must handle both 'i' and 's'.
         else if (command == "period" || command == "rate") {
             OscPatch* p = reg.find_patch(name_mp);
             if (!p) {
                 status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
             } else {
-                // Read as int if the arg is an OSC integer, otherwise as string.
+                // Accept either a numeric argument or a string like "50".
                 int ms = 0;
-                if (osc_msg.fullMatch("i")) {
-                    ms = (int)osc_msg.nextAsInt();
-                } else {
-                    String period_str = osc_msg.nextAsString();
-                    ms = period_str.toInt();
+                bool have_period = false;
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == ',' && (typetags[1] == 'i' || typetags[1] == 'f')) {
+                    ms = (int)osc_msg.nextAsFloat();
+                    have_period = true;
                 }
-                if (ms < 1) ms = 1;
-                if (ms > 60000) ms = 60000;
-                p->send_period_ms = (unsigned int)ms;
-                status_reporter().info("patch", "Period for '" + name_mp
-                                       + "' set to " + String(ms) + " ms");
+                if (!have_period) {
+                    const char* raw = osc_msg.nextAsString();
+                    if (raw) {
+                        String period_str = String(raw);
+                        period_str.trim();
+                        if (period_str.length() > 0) {
+                            ms = period_str.toInt();
+                            have_period = true;
+                        }
+                    }
+                }
+
+                if (!have_period || ms <= 0) {
+                    status_reporter().warning("patch", "Period for '" + name_mp
+                                              + "' ignored (missing/invalid payload)");
+                } else {
+                    p->send_period_ms = clamp_patch_period_ms(ms);
+                    status_reporter().info("patch", "Period for '" + name_mp
+                                           + "' set to " + String(p->send_period_ms) + " ms");
+                }
             }
         }
 

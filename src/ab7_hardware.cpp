@@ -10,13 +10,8 @@
 // ---------------------------------------------------------------------------
 
 Preferences preferences;
-#if defined(AB7_IMU_BNO085)
 Adafruit_BNO08x imu(BNO_RST);
 static sh2_SensorValue_t imu_value;
-#else
-Adafruit_LSM9DS1 imu;
-Adafruit_Madgwick imu_filter;
-#endif
 
 struct ImuCache {
     float qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;
@@ -41,7 +36,6 @@ void begin_pins() {
 // ---------------------------------------------------------------------------
 
 void begin_imu() {
-#if defined(AB7_IMU_BNO085)
     // ESP32 SPI signature: begin(int8_t sck, int8_t miso, int8_t mosi, int8_t ss=-1);
     // here we intentionally omit the optional SS parameter. Chip select is handled by the
     // Adafruit driver via begin_SPI() below (args: CS, INT, SPI*).
@@ -61,25 +55,6 @@ void begin_imu() {
     imu.enableReport(SH2_GYROSCOPE_CALIBRATED);
 
     Serial.println(F("[IMU] BNO085 initialised (SPI)."));
-#else
-    Wire.begin(IMU_SDA, IMU_SCL);
-    Wire.setClock(400000);  // 400 kHz fast mode
-
-    if (!imu.begin()) {
-        Serial.println(F("[IMU] Failed to initialise LSM9DS1 over I2C!"));
-        Serial.println(F("[IMU] Check SDA=1, SCL=2 wiring.  Halting."));
-        while (1) { delay(100); }
-    }
-
-    imu.setupAccel(imu.LSM9DS1_ACCELRANGE_4G);
-    imu.setupGyro(imu.LSM9DS1_GYROSCALE_500DPS);
-    imu.setupMag(imu.LSM9DS1_MAGGAIN_4GAUSS);
-
-    // We poll the sensor task at ~100 Hz.
-    imu_filter.begin(100.0f);
-
-    Serial.println(F("[IMU] LSM9DS1 initialised (I2C, SDA=1, SCL=2)."));
-#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +62,6 @@ void begin_imu() {
 // ---------------------------------------------------------------------------
 
 bool imu_data_available() {
-#if defined(AB7_IMU_BNO085)
     if (!imu.getSensorEvent(&imu_value)) {
         return false;
     }
@@ -117,37 +91,6 @@ bool imu_data_available() {
     }
 
     return true;
-#else
-    sensors_event_t accel, gyro, mag, temp;
-    imu.getEvent(&accel, &mag, &gyro, &temp);
-
-    imu_filter.update(gyro.gyro.x, gyro.gyro.y, gyro.gyro.z,
-                      accel.acceleration.x, accel.acceleration.y, accel.acceleration.z,
-                      mag.magnetic.x, mag.magnetic.y, mag.magnetic.z);
-
-    float qw, qx, qy, qz;
-    imu_filter.getQuaternion(&qw, &qx, &qy, &qz);
-
-    imu_cache.qi = qx;
-    imu_cache.qj = qy;
-    imu_cache.qk = qz;
-    imu_cache.qr = qw;
-
-    float grav_x, grav_y, grav_z;
-    imu_filter.getGravityVector(&grav_x, &grav_y, &grav_z);
-
-    // getGravityVector() returns a unit vector; scale by 9.80665 m/s² to
-    // subtract gravity and yield gravity-free linear acceleration.
-    imu_cache.ax = accel.acceleration.x - grav_x * 9.80665f;
-    imu_cache.ay = accel.acceleration.y - grav_y * 9.80665f;
-    imu_cache.az = accel.acceleration.z - grav_z * 9.80665f;
-
-    imu_cache.gx = gyro.gyro.x;
-    imu_cache.gy = gyro.gyro.y;
-    imu_cache.gz = gyro.gyro.z;
-
-    return true;
-#endif
 }
 
 void imu_get_quat(float &qi, float &qj, float &qk, float &qr) {

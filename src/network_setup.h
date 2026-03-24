@@ -3,7 +3,11 @@
 
 #include <WiFiProvisioner.h>
 #include <cstring>
+#ifdef AB7_BUILD
+#include "ab7_hardware.h"
+#else
 #include "bart_hardware.h"
+#endif
 
 void network_config(){
   preferences.end(); // end read-only preferences to switch to read-write
@@ -75,7 +79,7 @@ void network_config(){
         preferences.putString("ssid", ssid);
         if (password) {
           Serial.printf("Password: %s\n", password);
-          preferences.putString("network_password", password);
+          preferences.putString("net_pass", password);
         }
         if (input1) {
           Serial.printf("IP: %s\n", input1);
