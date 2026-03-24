@@ -61,8 +61,8 @@ static inline SemaphoreHandle_t& osc_send_mutex() {
 
 static bool _send_logging_enabled = false;
 
-static inline void set_send_logging(bool enabled) { _send_logging_enabled = enabled; }
-static inline bool send_logging_enabled() { return _send_logging_enabled; }
+static inline void set_send_logging_enabled(bool enabled) { _send_logging_enabled = enabled; }
+static inline bool get_send_logging_enabled() { return _send_logging_enabled; }
 
 // ---------------------------------------------------------------------------
 // StatusReporter::send() implementation
@@ -253,7 +253,7 @@ void patch_send_task(void* param) {
             osc.sendFloat(eff_adr.c_str(), val);
             xSemaphoreGive(osc_send_mutex());
 
-            if (send_logging_enabled()) {
+            if (get_send_logging_enabled()) {
                 Serial.print(F("[SEND] "));
                 Serial.print(eff_ip);
                 Serial.print(F(":"));

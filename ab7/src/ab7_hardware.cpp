@@ -42,7 +42,8 @@ void begin_pins() {
 
 void begin_imu() {
 #if defined(AB7_IMU_BNO085)
-    // ESP32 SPI signature: begin(SCK, MISO, MOSI) — CS is handled by the driver.
+    // ESP32 SPI signature: begin(SCK, MISO, MOSI); the Adafruit driver handles
+    // chip select via begin_SPI() below using BNO_CS.
     SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI);
 
     pinMode(BNO_WAKE, OUTPUT);
