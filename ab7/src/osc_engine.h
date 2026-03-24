@@ -251,8 +251,6 @@ void patch_send_task(void* param) {
             xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
-            xSemaphoreGive(osc_send_mutex());
-
             if (get_send_logging_enabled()) {
                 Serial.print(F("[SEND] "));
                 Serial.print(eff_ip);
@@ -263,6 +261,7 @@ void patch_send_task(void* param) {
                 Serial.print(F(" = "));
                 Serial.println(val, 6);
             }
+            xSemaphoreGive(osc_send_mutex());
         }
 
         reg.unlock();
