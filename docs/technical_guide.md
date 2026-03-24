@@ -32,7 +32,10 @@ OSC-capable software.
 
 ## 1. System Overview
 
-TheaterGWD is firmware for an ESP32-S3 microcontroller equipped with:
+TheaterGWD is firmware for an ESP32-S3 microcontroller.  A single PlatformIO
+project supports two board variants, selected at compile time:
+
+### Bart board (default)
 
 - **IMU** (SparkFun ISM330DHCX) — 3-axis accelerometer + 3-axis gyroscope
 - **Magnetometer** (SparkFun MMC5983MA) — 3-axis magnetic field
@@ -40,8 +43,21 @@ TheaterGWD is firmware for an ESP32-S3 microcontroller equipped with:
 - **NeoPixel LED** — status indicator
 - **USB-C / Serial** — for debugging and firmware upload
 
-The device connects to a WiFi network (configured through a captive portal on
-first boot), then continuously reads its sensors and makes the data available
+### ab7 board (`-DAB7_BUILD`)
+
+- **IMU** — selectable at build time:
+  - *LSM9DS1* (I2C, Adafruit breakout) — accelerometer, gyroscope,
+    magnetometer; fused with Madgwick filter to quaternion/Euler
+  - *BNO085* (SPI, `-DAB7_IMU_BNO085`) — rotation vector, linear
+    acceleration, calibrated gyro
+- **SK6812 addressable LED** on GPIO 7 — status indicator
+- **Two buttons** — GPIO 0 (A) and GPIO 14 (B), active-low
+- **No barometer** — `data_streams[BARO]` is always 0
+- **Orientation tracker** — save/recall named orientations ("oris") via
+  quaternion geodesic matching with a gyro-based motion gate
+
+Both boards connect to a WiFi network (configured through a captive portal on
+first boot), then continuously read their sensors and make the data available
 as normalised `[0, 1]` floating-point values.
 
 Users configure **OscMessages** and **OscPatches** remotely by sending OSC
@@ -58,55 +74,118 @@ the configured polling rates.
 | **Override**   | A patch can force its own IP / port / address / bounds on all its messages. |
 | **Address Mode** | Controls how patch and message OSC addresses are composed (fallback, override, prepend, append). |
 | **StatusReporter** | Sends status / error / progress strings to a monitoring device. |
+| **Ori** *(ab7 only)* | A saved orientation (quaternion).  Messages can be conditioned on which ori is active. |
 
 ---
 
 ## 2. Build System
 
 The project uses **PlatformIO** with the **Arduino framework** for
-**ESP32-S3**.
+**ESP32-S3**.  A single `platformio.ini` supports all board variants.
+
+### Environments
+
+| Environment | Board | Build flags | Libraries |
+|-------------|-------|-------------|-----------|
+| `bart` *(default)* | Bart PCB | — | BMP5xx, ISM330DHCX, MMC5983MA, SensorFusion |
+| `ab7-lsm9ds1` | ab7 PCB | `-DAB7_BUILD` | Adafruit LSM9DS1, Adafruit AHRS |
+| `ab7-bno085` | ab7 PCB | `-DAB7_BUILD -DAB7_IMU_BNO085` | Adafruit BNO08x |
+
+All environments share common settings and use the
+[halfsohappy/MicroOsc](https://github.com/halfsohappy/MicroOsc) fork,
+[FastLED](https://github.com/FastLED/FastLED), and the
+[WiFiProvisioner](https://github.com/halfsohappy/WiFiProvisioner.git) library.
 
 ### platformio.ini highlights
 
 ```ini
-[env:esp32-s3-devkitc-1]
+[platformio]
+default_envs = bart
+
+[env]
 platform  = espressif32
 board     = esp32-s3-devkitc-1
 framework = arduino
-
-lib_deps =
+lib_deps  =
     FastLED
-    MicroOSC=https://github.com/thomasfredericks/MicroOsc
-    WiFiProvisioner.git=https://github.com/halfsohappy/WiFiProvisioner.git
+    MicroOSC=https://github.com/halfsohappy/MicroOsc
+    WiFiProvisioner.git=https://github.com/halfsohappy/WiFiProvisioner.git#...
+
+[env:bart]
+lib_deps = ${env.lib_deps}
     adafruit/Adafruit BMP5xx Library@^1.0.2
     sparkfun/SparkFun 6DoF ISM330DHCX@^1.0.6
-    SparkFun MMC5983MA Magnetometer Arduino Library
-    martinbudden/SensorFusion@^0.2.14
-    martinbudden/VectorQuaternionMatrix@^0.4.10
-    martinbudden/Filters@^0.9.4
+    ...
+
+[env:ab7-lsm9ds1]
+build_flags = ${env.build_flags}  -DAB7_BUILD
+lib_deps = ${env.lib_deps}
+    adafruit/Adafruit LSM9DS1 Library@^2.1.2
+    adafruit/Adafruit AHRS@^2.4.0
+
+[env:ab7-bno085]
+build_flags = ${env.build_flags}  -DAB7_BUILD  -DAB7_IMU_BNO085
+lib_deps = ${env.lib_deps}
+    adafruit/Adafruit BNO08x@^1.2.5
 ```
 
-**Build command:** `pio run` (or use the PlatformIO IDE).
+### Build commands
 
-**Upload command:** `pio run -t upload` (via USB/esptool).
+```bash
+pio run                    # build default environment (bart)
+pio run -e ab7-bno085      # build for ab7 with BNO085 IMU
+pio run -e ab7-lsm9ds1     # build for ab7 with LSM9DS1 IMU
+pio run -t upload          # compile and flash
+```
+
+### Conditional compilation
+
+Source files use `#ifdef AB7_BUILD` to gate ab7-specific code (orientation
+tracker, buttons, LED, real IMU sensor task).  Bart-specific code (simulated
+data, barometer, ISM330DHCX/MMC5983MA sensors) is gated with
+`#ifndef AB7_BUILD`.  Shared OSC logic compiles identically for both boards.
 
 ---
 
 ## 3. Hardware Layer
 
-**Files:** `bart_hardware.h`, `bart_hardware.cpp`
+### Bart — `bart_hardware.h` / `bart_hardware.cpp`
 
-These files define pin mappings, sensor object declarations (`extern`), and
-initialisation routines:
+Pin mappings, sensor object declarations (`extern`), and initialisation
+routines for the Bart PCB:
 
 | Function              | Purpose |
 |-----------------------|---------|
-| `begin_pins()`        | Configure GPIO direction and mux selects. |
+| `begin_pins(b13, b46, cen1, cen2)` | Configure GPIO direction and mux selects. |
 | `begin_baro(CS_BAR)`  | Initialise the BMP5xx barometer over SPI. |
 | `begin_imu(ICS, MCS)` | Initialise the ISM330DHCX IMU and MMC5983MA magnetometer. |
 | `process_imu_data()`  | Normalise raw IMU readings. |
 
-All sensor drivers communicate over a shared SPI bus.
+All Bart sensor drivers communicate over a shared SPI bus.
+
+### ab7 — `ab7_hardware.h` / `ab7_hardware.cpp`
+
+The ab7 board supports two IMU options, selected at compile time:
+
+- **LSM9DS1** (I2C) — default.  Uses `Wire` (SDA=1, SCL=2) with Adafruit
+  AHRS Madgwick filter for quaternion/Euler output.
+- **BNO085** (SPI) — selected with `-DAB7_IMU_BNO085`.  Uses the Adafruit
+  BNO08x driver (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).
+
+| Function              | Purpose |
+|-----------------------|---------|
+| `begin_pins()`        | Configure buttons (GPIO 0, 14) with internal pull-ups. |
+| `begin_imu()`         | Initialise the selected IMU.  Blocks on failure. |
+| `imu_data_available()` | Poll the IMU; returns true if fresh data was cached. |
+| `imu_get_quat(qi,qj,qk,qr)` | Read cached rotation quaternion. |
+| `imu_get_accel(ax,ay,az)` | Read cached linear acceleration (m/s²). |
+| `imu_get_gyro(gx,gy,gz)` | Read cached gyroscope (rad/s). |
+| `quat_to_euler(qi,qj,qk,qr, roll,pitch,yaw)` | Convert quaternion to Euler angles (degrees). |
+
+> **SPI note:** On ESP32-S3 with Adafruit BNO08x, do **not** pass the CS pin
+> to `SPI.begin()`.  Use `SPI.begin(SCK, MISO, MOSI)` without SS.  Passing CS
+> calls `spiAttachSS()`, which conflicts with the Adafruit library's software
+> CS management and causes all-zero sensor reads.
 
 ---
 
@@ -126,8 +205,22 @@ It starts a **captive portal** using the WiFiProvisioner library:
 3. On success the credentials are written to `Preferences` (NVS flash) and the
    device reboots into normal mode.
 
+NVS keys used (namespace `device_config`):
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `provisioned` | bool | Whether the device has been provisioned. |
+| `ssid` | String | WiFi SSID. |
+| `net_pass` | String | WiFi password. |
+| `use_dhcp` | bool | Whether to use DHCP. |
+| `static_ip` | String | Static IP address (if not DHCP). |
+| `port` | int | UDP port number. |
+| `device_adr` | String | Device name (OSC address prefix). |
+
 After provisioning, `begin_udp()` (in `osc_engine.h`) connects to WiFi and
-opens a UDP listener on the configured port.
+opens a UDP listener on the configured port.  The WiFi connection timeout is
+20 seconds; if it fails, provisioning is cleared and the device reboots into
+portal mode.
 
 ---
 
@@ -153,11 +246,19 @@ values.  All values are in the range **[0, 1]**.
 | 10 | `EULERY` | Euler angle Y (pitch) |
 | 11 | `EULERZ` | Euler angle Z (yaw) |
 
-### Simulated data
+### Simulated data (Bart only)
 
 For development and testing, `update_simulated_data()` fills the array with
 sine waves at distinct frequencies (0.05 Hz – 2.3 Hz).  This is called from
-the sensor FreeRTOS task every 10 ms.
+the sensor FreeRTOS task every 10 ms.  This function is only available when
+building without `AB7_BUILD` (i.e. Bart).
+
+### Real IMU data (ab7 only)
+
+When `AB7_BUILD` is defined, the sensor task reads the selected IMU at ~100 Hz,
+converts quaternions to Euler angles, computes gravity-free linear acceleration,
+and writes all values to `data_streams[]`.  The barometer stream is always 0.
+The orientation tracker is also updated each cycle.
 
 ### Helper functions
 
@@ -187,6 +288,8 @@ An OscMessage binds a single sensor stream to an outbound OSC destination:
 │ value_ptr    : float*  → data_streams[] │
 │ bounds[2]    : float  (low, high)       │
 │ enabled      : bool                     │
+│ ori_only     : String  (ab7 only)       │
+│ ori_not      : String  (ab7 only)       │
 │ exist        : ExistFlags               │
 ├─────────────────────────────────────────┤
 │ sendable()   : bool                     │
@@ -215,6 +318,12 @@ It supports two separator modes:
 - `:` (colon) — the value is a literal.
 - `-` (dash) — the value is a name in the registry to look up (reference mode).
 
+**Ori-conditional fields** (ab7 only): `ori_only` and `ori_not` allow messages
+to send only when a specific orientation is (or is not) the active match.
+Config keys: `ori_only:{name}`, `ori_not:{name}`.  These are stored on the
+message and checked in the send task.  On Bart builds the fields exist but are
+never checked.
+
 ### OscPatch (`osc_patch.h`)
 
 An OscPatch groups messages and manages their transmission:
@@ -238,6 +347,12 @@ An OscPatch groups messages and manages their transmission:
 │ has_msg(idx)   to_info_string(verbose)       │
 └──────────────────────────────────────────────┘
 ```
+
+**Period clamping:** The send period is enforced to the range
+`MIN_PATCH_PERIOD_MS` (20 ms) to `MAX_PATCH_PERIOD_MS` (60 000 ms) via
+`clamp_patch_period_ms()`.  This prevents accidental runaway send rates and
+excessively long sleeps.  The clamping is applied in command parsing, NVS
+load, clone, and the task delay itself.
 
 #### OverrideFlags
 
@@ -325,20 +440,33 @@ Each running patch creates a FreeRTOS task (`patch_send_task`) that loops:
 
 ```
 loop:
-  vTaskDelay(send_period_ms)
+  vTaskDelay(send_period_ms)         // clamped to [20, 60000]
   if not enabled → continue
   lock registry
   for each message in patch:
     skip if disabled or no value_ptr
+    [ab7] skip if ori_only/ori_not condition fails
     resolve effective IP, port, address, bounds
     read sensor value from data_streams[]
     map [0,1] → [low, high]
+    if send logging → prepare log line
     lock send mutex
     osc.setDestination(ip, port)
     osc.sendFloat(address, value)
     unlock send mutex
+    if send logging → print log line
   unlock registry
 ```
+
+### Send logging
+
+The engine supports per-message send logging.  When enabled (via the
+`sends on` serial command), each outbound message is logged to serial:
+```
+[SEND] 192.168.1.100:9000 /mixer/fader1 = 0.654321
+```
+This is controlled by `set_send_logging_enabled()` /
+`get_send_logging_enabled()` in `osc_engine.h`.
 
 ### Resolution logic
 
@@ -448,6 +576,8 @@ Commands that need two values accept a single CSV string: `"name1, name2"`.
 | `high` / `max` / `hi` | float | Output bounds high (default 1). |
 | `patch` | patch name | Assign this message to a patch. |
 | `enabled` | `true`/`false` | Enable or disable the message. |
+| `ori_only` | ori name | *(ab7 only)* Send only when this ori is active. |
+| `ori_not` | ori name | *(ab7 only)* Send only when this ori is NOT active. |
 
 **Reference mode:** Use `-` instead of `:` to inherit a value from a named
 registry object:
@@ -474,7 +604,7 @@ config string).
 | `stop` / `disable` / `mute` | *(none)* | Stop the send task. |
 | `addMsg` / `add` | `"msg1, msg2, ..."` | Add messages to this patch (CSV names). |
 | `removeMsg` / `rmMsg` | `"msgName"` | Remove a message from this patch. |
-| `period` / `rate` | `"50"` (string or int) | Set the send period in milliseconds (1–60000). |
+| `period` / `rate` | `"50"` (string or int) | Set the send period in milliseconds (20–60000). |
 | `override` | `"field1, field2, ..."` | Set which fields the patch overrides on its messages. |
 | `adrMode` / `addressMode` | mode string | Set address composition mode. |
 | `setAll` | config string | Apply a config to every message in this patch. |
@@ -559,41 +689,81 @@ optional `period:N` key.  A message and patch are both created (or updated)
 with the name `{name}`, the message is added to the patch, and the patch
 task is started.  This is the fastest path to getting data flowing.
 
+### Ori Commands (ab7 only)
+
+These commands are only available when building with `-DAB7_BUILD`.  See
+`ori_tracker.h` for implementation details.
+
+| Address | Payload | Description |
+|---------|---------|-------------|
+| `/annieData{dev}/ori/save` | *(optional)* `"name"` | Save current orientation.  Auto-named (`ori_0`, `ori_1`, ...) if no name given. |
+| `/annieData{dev}/ori/save/{name}` | *(none)* | Save current orientation with the given name. |
+| `/annieData{dev}/ori/delete/{name}` | *(none)* | Delete a saved orientation. |
+| `/annieData{dev}/ori/clear` | *(none)* | Delete all saved orientations. |
+| `/annieData{dev}/ori/list` | *(none)* | List all saved orientations and which is active. |
+| `/annieData{dev}/ori/threshold` | float (rad/s) | Set the motion gate gyro threshold (default 1.5 rad/s). |
+| `/annieData{dev}/ori/active` | *(none)* | Query the currently active orientation. |
+
+Button A (GPIO 0) also saves an auto-named ori when pressed.
+Button B (GPIO 14) prints the active ori to serial.
+
+### Serial Debug Commands
+
+Type these commands into the serial monitor (115200 baud):
+
+| Command | Description |
+|---------|-------------|
+| `help` | List available commands. |
+| `status` | WiFi / network / device status. |
+| `streams` | Current sensor data stream values. |
+| `config` | Provisioned network configuration. |
+| `nvs` | NVS storage summary (osc_store). |
+| `registry` | OSC registry (patches + messages). |
+| `serial [level]` | Get/set serial debug level (`error`, `warn`, `info`, `debug`). |
+| `sends [on\|off]` | Show or toggle per-message send logging to serial. |
+| `hardware` | Hardware diagnostics (chip info, pin states). |
+| `restart` | Reboot the device. |
+| `provision` | Erase config & reboot into captive portal. |
+| `uptime` | Time since boot. |
+
 ---
 
 ## 11. Data Flow Diagram
 
 ```
-┌──────────────┐
-│   Sensors    │  (IMU, Baro, Mag)
-│   or Sim     │  update_simulated_data()
-└──────┬───────┘
-       │ writes
-       ▼
-┌──────────────┐
-│ data_streams │  float[12], all values in [0, 1]
-│    [0..11]   │
-└──────┬───────┘
-       │ read by
-       ▼
+                    ┌──────────────────────┐
+                    │   Bart: Sensors      │  (ISM330DHCX, MMC5983MA, BMP5xx)
+                    │     or Simulation    │  update_simulated_data()
+                    ├──────────────────────┤
+                    │   ab7: IMU           │  (LSM9DS1 or BNO085)
+                    │     + OriTracker     │  quaternion geodesic matching
+                    └──────────┬───────────┘
+                               │ writes
+                               ▼
+                    ┌──────────────────────┐
+                    │ data_streams[0..11]  │  volatile float[12], all in [0, 1]
+                    └──────────┬───────────┘
+                               │ read by
+                               ▼
 ┌──────────────────────────────────────────────────────┐
 │  Patch Send Task (FreeRTOS, one per patch)            │
 │                                                       │
 │  for each message:                                    │
 │    val = *msg.value_ptr                     [0, 1]    │
+│    [ab7] check ori_only / ori_not conditions          │
 │    low, high = resolve_bounds(msg, patch)              │
 │    output = low + val * (high - low)                  │
 │    ip, port, adr = resolve_destination(msg, patch)    │
 │    osc.setDestination(ip, port)                       │
 │    osc.sendFloat(adr, output)                         │
-└──────────────────────────────────────┬────────────────┘
-                                       │ UDP
-                                       ▼
-                              ┌─────────────────┐
-                              │  Network Target  │
-                              │  (mixer, QLab,   │
-                              │   console, etc.) │
-                              └─────────────────┘
+└──────────────────────────────────┬────────────────────┘
+                                   │ UDP
+                                   ▼
+                          ┌─────────────────┐
+                          │  Network Target  │
+                          │  (mixer, QLab,   │
+                          │   console, etc.) │
+                          └─────────────────┘
 
 ┌──────────────────┐
 │ Incoming OSC     │  from network (control laptop, etc.)
@@ -606,6 +776,7 @@ task is started.  This is the fastest path to getting data flowing.
 │                                                       │
 │  Parse address → category / name / command            │
 │  Dispatch to handler → modify registry                │
+│  [ab7] Ori commands: save/delete/list/threshold       │
 │  Send status reply                                    │
 └──────────────────────────────────────────────────────┘
 ```
@@ -615,20 +786,25 @@ task is started.  This is the fastest path to getting data flowing.
 ## 12. File Map
 
 ```
-Bart/src/
-├── main.cpp          Entry point: setup(), loop(), sensor task.
-├── main.h            Include orchestrator; defines device_adr.
-├── bart_hardware.h   Pin constants, sensor externs, struct norm_imu_data.
-├── bart_hardware.cpp Sensor init implementations (SPI, IMU, baro, mag).
-├── network_setup.h   WiFi captive-portal provisioning.
-├── data_streams.h    data_streams[12] array, index constants, simulated data.
-├── osc_message.h     OscMessage class, ExistFlags, from_config_str().
-├── osc_patch.h       OscPatch class, OverrideFlags, AddressMode enum.
-├── osc_registry.h    OscRegistry singleton, method implementations.
-├── osc_status.h      StatusReporter class, StatusLevel enum.
-├── osc_engine.h      WiFiUDP/MicroOscUdp globals, send task, lifecycle helpers.
-├── osc_storage.h     NVS persistence: save/load patches and messages.
-└── osc_commands.h    Incoming OSC command dispatcher (the big handler).
+src/
+├── main.cpp            Entry point: setup(), loop(), sensor task.
+│                       Uses #ifdef AB7_BUILD for board-specific boot.
+├── main.h              Include orchestrator; conditional hardware/ori includes.
+├── bart_hardware.h     Bart pin constants, sensor externs, struct norm_imu_data.
+├── bart_hardware.cpp   Bart sensor init (SPI, ISM330DHCX, MMC5983MA, BMP5xx).
+├── ab7_hardware.h      ab7 pin constants, IMU API (LSM9DS1 or BNO085).
+├── ab7_hardware.cpp    ab7 IMU driver, quaternion-to-Euler, Madgwick filter.
+├── ori_tracker.h       Orientation save/recall/matching (ab7 only).
+├── network_setup.h     WiFi captive-portal provisioning (uses net_pass).
+├── data_streams.h      data_streams[12] array, index constants, simulated data.
+├── osc_message.h       OscMessage class, ExistFlags, ori_only/ori_not fields.
+├── osc_patch.h         OscPatch class, OverrideFlags, AddressMode, period clamping.
+├── osc_registry.h      OscRegistry singleton, method implementations.
+├── osc_status.h        StatusReporter class, StatusLevel enum.
+├── osc_engine.h        WiFiUDP/MicroOscUdp globals, send task, send logging.
+├── osc_storage.h       NVS persistence: save/load patches and messages.
+├── osc_commands.h      Incoming OSC command dispatcher (including ori commands).
+└── serial_commands.h   Serial monitor debug interface (help, status, sends, etc.).
 ```
 
 ---
@@ -642,6 +818,12 @@ The firmware runs multiple FreeRTOS tasks:
 | `loop()` (Arduino main) | 1 | Receive and process incoming OSC commands. |
 | `sensor_task` | 1 | Read sensors (or generate simulated data) at ~100 Hz. |
 | `p_{patchName}` (one per started patch) | 1 | Send OSC messages at the patch's rate. |
+
+> **ab7 core pinning:** On the ab7 board, the sensor task is pinned to
+> **core 1** using `xTaskCreatePinnedToCore()`.  `SPI.begin()` registers the
+> SPI interrupt handler on the calling core; running `getSensorEvent()` from a
+> different core causes silent SPI failures and all-zero reads.  The Bart
+> build uses `xTaskCreate()` without core pinning.
 
 Two mutexes protect shared state:
 
