@@ -165,12 +165,13 @@
                     <th>Low</th>
                     <th>High</th>
                     <th>Patch</th>
+                    <th class="ori-section">Ori</th>
                     <th>Enabled</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="msgTableBody">
-                  <tr><td colspan="10" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>
+                  <tr><td colspan="11" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>
                 </tbody>
               </table>
             </div>
@@ -229,6 +230,16 @@
                 <label for="msgPatch">Patch</label>
                 <input type="text" id="msgPatch" placeholder="assign to patch" list="patchNameList">
                 <datalist id="patchNameList"></datalist>
+              </div>
+            </div>
+            <div class="form-row ori-section">
+              <div class="form-group">
+                <label for="msgOriOnly">Ori Only <span class="hint">(send only when this ori is active)</span></label>
+                <input type="text" id="msgOriOnly" placeholder="e.g. light1">
+              </div>
+              <div class="form-group">
+                <label for="msgOriNot">Ori Not <span class="hint">(send only when this ori is NOT active)</span></label>
+                <input type="text" id="msgOriNot" placeholder="e.g. light2">
               </div>
             </div>
             <div class="form-group">

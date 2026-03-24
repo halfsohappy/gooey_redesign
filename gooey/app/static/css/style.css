@@ -943,6 +943,9 @@ select {
 /* ── Ori Section ── */
 .ori-section { display: none; }
 .ori-enabled .ori-section { display: block; }
+.ori-enabled .ori-section.form-row { display: flex; }
+.ori-enabled th.ori-section,
+.ori-enabled td.ori-section { display: table-cell; }
 
 /* ── Responsive ── */
 @media (max-width: 900px) {

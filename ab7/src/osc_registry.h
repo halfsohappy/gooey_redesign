@@ -123,6 +123,8 @@ public:
         if (src.exist.val)   { m->value_ptr = src.value_ptr;     m->exist.val   = true; }
         if (src.exist.low)   { m->bounds[0] = src.bounds[0];     m->exist.low   = true; }
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
+        if (src.ori_only.length() > 0) { m->ori_only = src.ori_only; }
+        if (src.ori_not.length() > 0)  { m->ori_not  = src.ori_not;  }
         return m;
     }
 
@@ -258,6 +260,8 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     value_ptr  = nullptr;
     bounds[0]  = 0.0f;
     bounds[1]  = 1.0f;
+    ori_only   = "";
+    ori_not    = "";
 
     String input = config;
     input.trim();
