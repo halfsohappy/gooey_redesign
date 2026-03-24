@@ -224,6 +224,20 @@ def api_status():
     return jsonify({"status": "ok", **engine.get_status()})
 
 
+@app.route("/api/my-ip", methods=["GET"])
+def api_my_ip():
+    """Return the server machine's local IP address."""
+    import socket as _socket
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "127.0.0.1"
+    return jsonify({"status": "ok", "ip": ip})
+
+
 @app.route("/api/stop-all", methods=["POST"])
 def api_stop_all():
     return jsonify(engine.stop_all())

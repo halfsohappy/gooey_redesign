@@ -109,7 +109,7 @@
 
   function devHost() { var d = getActiveDev(); return d ? d.host : "127.0.0.1"; }
   function devPort() { var d = getActiveDev(); return d ? d.port : 8000; }
-  function devName() { var d = getActiveDev(); return d ? d.name : "bart"; }
+  function devName() { var d = getActiveDev(); return d ? d.name : ""; }
 
   /* ── Device tab rendering ── */
   function renderDeviceTabs() {
@@ -122,10 +122,14 @@
       var tab = document.createElement("button");
       tab.className = "device-tab" + (id === activeDeviceId ? " active" : "");
       tab.dataset.deviceId = id;
-      tab.innerHTML = '<span class="dev-dot"></span>' + d.name + " <span class='dev-remove' title='Remove'>✕</span>";
+      tab.innerHTML = '<span class="dev-dot"></span>' + d.name + " <span class='dev-edit' title='Edit'>✎</span><span class='dev-remove' title='Remove'>✕</span>";
       tab.addEventListener("click", function (e) {
         if (e.target.classList.contains("dev-remove")) {
           removeDevice(id);
+          return;
+        }
+        if (e.target.classList.contains("dev-edit")) {
+          editDevice(id);
           return;
         }
         activeDeviceId = id;
@@ -150,22 +154,65 @@
     sel.value = curVal;
   }
 
+  /* ── IP resolver: type "me" to use this computer's IP ── */
+  var _myIpCache = null;
+  function resolveIp(host, cb) {
+    if (host.trim().toLowerCase() !== "me") { cb(host.trim()); return; }
+    if (_myIpCache) { cb(_myIpCache); return; }
+    fetch("/api/my-ip")
+      .then(function (r) { return r.json(); })
+      .then(function (d) { _myIpCache = d.ip || "127.0.0.1"; cb(_myIpCache); })
+      .catch(function () { cb("127.0.0.1"); });
+  }
+
+  /* Auto-resolve "me" in any IP input field on blur */
+  ["statusIP", "msgIP", "directIP", "rawHost", "bridgeOutHost", "patchIP"].forEach(function (fieldId) {
+    var el = $("#" + fieldId);
+    if (!el) return;
+    el.addEventListener("blur", function () {
+      if (el.value.trim().toLowerCase() === "me") {
+        resolveIp("me", function (ip) { el.value = ip; });
+      }
+    });
+  });
+
+  /* ── Edit existing device ── */
+  function editDevice(id) {
+    var d = devices[id];
+    var host = prompt("Device IP (enter 'me' for this computer):", d.host);
+    if (host === null) return;
+    var port = prompt("Device port:", d.port);
+    if (port === null) return;
+    var name = prompt("Device name:", d.name);
+    if (name === null) return;
+    resolveIp(host, function (resolvedHost) {
+      var wasActive = (activeDeviceId === id);
+      delete devices[id];
+      if (wasActive) activeDeviceId = "";
+      addDevice(resolvedHost, parseInt(port, 10), name.trim());
+      renderMsgTable();
+      renderPatchTable();
+      toast("Device updated: " + name.trim(), "success");
+    });
+  }
+
   /* ── Add-device button ── */
   $("#btnAddDevice").addEventListener("click", function () {
-    var host = prompt("Device IP address:", "192.168.1.100");
+    var host = prompt("Device IP address (enter 'me' for this computer):", "192.168.1.100");
     if (!host) return;
     var port = prompt("Device port:", "8000");
     if (!port) return;
-    var name = prompt("Device name (unique identifier):", "bart");
+    var name = prompt("Device name (unique identifier):", "");
     if (!name) return;
-    addDevice(host.trim(), parseInt(port, 10), name.trim());
-    renderMsgTable();
-    renderPatchTable();
-    toast("Device added: " + name, "success");
+    resolveIp(host, function (resolvedHost) {
+      addDevice(resolvedHost, parseInt(port, 10), name.trim());
+      renderMsgTable();
+      renderPatchTable();
+      toast("Device added: " + name.trim(), "success");
+    });
   });
 
-  /* Initialize with one default device */
-  addDevice("127.0.0.1", 8000, "bart");
+  /* No default device — user adds devices manually */
 
   /* ═══════════════════════════════════════════
      SEND HELPERS
@@ -1045,6 +1092,29 @@
   }
 
   /* ═══════════════════════════════════════════
+     FEED PANEL TOGGLE
+     ═══════════════════════════════════════════ */
+
+  var feedVisible = false;
+
+  function setFeedVisible(show) {
+    feedVisible = show;
+    var panel = document.querySelector(".panel-right");
+    if (show) {
+      panel.classList.remove("feed-hidden");
+      $("#btnFeedToggle").textContent = "Feed ▶";
+    } else {
+      panel.classList.add("feed-hidden");
+      $("#btnFeedToggle").textContent = "◀ Feed";
+    }
+  }
+
+  $("#btnFeedToggle").addEventListener("click", function () { setFeedVisible(!feedVisible); });
+
+  /* Start hidden */
+  setFeedVisible(false);
+
+  /* ═══════════════════════════════════════════
      LISTEN (receive replies)
      ═══════════════════════════════════════════ */
 
@@ -1065,6 +1135,7 @@
           isListening = true;
           $("#btnReplyListen").classList.add("active");
           $("#listenDot").classList.add("on");
+          setFeedVisible(true);
           toast("Listening on port " + port, "success");
         }
       });
@@ -1080,6 +1151,78 @@
     msgCount = 0;
     rateCounter = 0;
     api("log/clear", {});
+  });
+
+  /* ═══════════════════════════════════════════
+     SAVE / LOAD DEVICES
+     ═══════════════════════════════════════════ */
+
+  $("#btnSaveDevices").addEventListener("click", function () {
+    var data = Object.keys(devices).map(function (id) {
+      var d = devices[id];
+      return { host: d.host, port: d.port, name: d.name };
+    });
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "gooey-devices.json";
+    a.click();
+  });
+
+  $("#deviceFileInput").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      try {
+        var list = JSON.parse(ev.target.result);
+        list.forEach(function (d) {
+          if (d.host && d.port && d.name) addDevice(d.host, parseInt(d.port, 10), d.name);
+        });
+        renderMsgTable();
+        renderPatchTable();
+        toast("Loaded " + list.length + " device(s)", "success");
+      } catch (_) { toast("Invalid device file", "error"); }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  /* ═══════════════════════════════════════════
+     AUTO QUERY
+     ═══════════════════════════════════════════ */
+
+  var _autoQueryTimer = null;
+
+  function startAutoQuery() {
+    stopAutoQuery();
+    var period = parseInt($("#autoQueryPeriod").value, 10) || 5;
+    _autoQueryTimer = setInterval(function () {
+      if (!activeDeviceId) return;
+      sendCmd(addr(CMD_ADDRESSES.list_all), "verbose");
+    }, period * 1000);
+  }
+
+  function stopAutoQuery() {
+    if (_autoQueryTimer) { clearInterval(_autoQueryTimer); _autoQueryTimer = null; }
+  }
+
+  $("#autoQueryEnabled").addEventListener("change", function () {
+    if (this.checked) startAutoQuery(); else stopAutoQuery();
+  });
+
+  $("#autoQueryPeriod").addEventListener("change", function () {
+    if ($("#autoQueryEnabled").checked) startAutoQuery();
+  });
+
+  /* ═══════════════════════════════════════════
+     QUERY VERBOSE (device strip reload button)
+     ═══════════════════════════════════════════ */
+
+  $("#btnQueryVerbose").addEventListener("click", function () {
+    if (!activeDeviceId) { toast("No device selected", "error"); return; }
+    sendCmd(addr(CMD_ADDRESSES.list_all), "verbose");
+    toast("Querying " + devName() + "...", "info");
   });
 
   /* ═══════════════════════════════════════════
