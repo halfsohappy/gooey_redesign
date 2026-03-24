@@ -161,15 +161,25 @@ body {
 
 .btn-header-action {
   font-family: var(--font);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 9px 16px;
+  padding: 10px 20px;
+  border: 2px solid rgba(0,0,0,0.18);
   border-radius: 6px;
-  border: 2px solid transparent;
+  background: rgba(255,255,255,0.5);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
   white-space: nowrap;
-  align-self: center;
+  align-self: flex-end;
+  margin-bottom: 2px;
 }
+
+.btn-header-action.qbtn-danger { background: #111; color: #fff; border-color: #111; }
+.btn-header-action.qbtn-danger:hover { background: #000; border-color: #000; }
+.btn-header-action.qbtn-success { color: var(--success); }
+.btn-header-action.qbtn-success:hover { border-color: var(--success); }
 
 .top-bar-right {
   display: flex;
