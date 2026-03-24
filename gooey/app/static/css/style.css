@@ -26,11 +26,13 @@
   --accent-dim: rgba(144, 132, 156, 0.12);
 
   --header-bg: #DAC7FF;
+  --header-height: 80px;
   --header-text: #2A2F36;
 
   --success: #4CAF50;
   --success-dim: rgba(76, 175, 80, 0.1);
   --warning: #E3BB7F;
+  --warning-text: #b8860b;
   --warning-dim: rgba(227, 187, 127, 0.12);
   --danger: #D64541;
   --danger-dim: rgba(214, 69, 65, 0.1);
@@ -685,7 +687,7 @@ select {
 .qbtn-danger { border-color: rgba(214,69,65,0.3); color: var(--danger); background: var(--danger-dim); }
 .qbtn-danger:hover { background: rgba(214,69,65,0.2); border-color: var(--danger); }
 
-.qbtn-warn { border-color: rgba(227,187,127,0.4); color: #b8860b; background: var(--warning-dim); }
+.qbtn-warn { border-color: rgba(227,187,127,0.4); color: var(--warning-text); background: var(--warning-dim); }
 .qbtn-warn:hover { background: rgba(227,187,127,0.25); border-color: var(--warning); }
 
 /* ── Tables ── */
@@ -992,7 +994,7 @@ select {
 
 .ref-payload {
   font-size: 9px;
-  color: #b8860b;
+  color: var(--warning-text);
   display: block;
   margin-top: 1px;
 }
@@ -1092,10 +1094,402 @@ select {
   .top-bar { flex-wrap: wrap; gap: 8px; }
   .top-bar-center { flex-wrap: wrap; order: 3; width: 100%; justify-content: flex-start; }
   .conn-sep { display: none; }
+  .main-header { height: auto; flex-wrap: wrap; }
+  .hdr-devices { width: 100%; border-top: 1px solid rgba(0,0,0,0.1); }
 }
 
 @media (max-width: 500px) {
   .nav-btn { padding: 8px 8px; font-size: 9px; }
   .form-row { flex-direction: column; gap: 0; }
   .fg-narrow { flex: 1; }
+}
+
+/* ═══════════════════════════════════════════
+   MAIN HEADER  (unified — replaces top-bar + device-strip)
+   ═══════════════════════════════════════════ */
+
+.main-header {
+  display: flex;
+  align-items: stretch;
+  background: var(--header-bg);
+  height: var(--header-height);
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 20;
+  overflow: visible;
+}
+
+/* Generic header box */
+.hdr-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5px 12px;
+  border-right: 1px solid rgba(0,0,0,0.12);
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.hdr-box-wide { flex: 2; }
+
+/* Logo + WS status box */
+.hdr-logo-box {
+  flex: none;
+  padding: 6px 16px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  border-right: 1px solid rgba(0,0,0,0.12);
+}
+
+.hdr-ws-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+/* Device tabs area (rightmost 40%) */
+.hdr-devices {
+  flex: none;
+  width: 40%;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 6px;
+  border-right: none;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+/* Small label above controls in each box */
+.hdr-label-sm {
+  font-size: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(0,0,0,0.35);
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--font);
+}
+
+/* Small action button used in header boxes */
+.hdr-btn {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 9px;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.55);
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--text-dark);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.hdr-btn:hover { background: rgba(255,255,255,0.85); border-color: rgba(0,0,0,0.3); }
+.hdr-btn:visited { color: var(--text-dark); }
+
+.hdr-btn-danger { background: #1a1a1a; color: #fff !important; border-color: #1a1a1a; }
+.hdr-btn-danger:hover { background: #000; border-color: #000; }
+
+.hdr-btn-success { color: var(--success) !important; border-color: rgba(76,175,80,0.4); }
+.hdr-btn-success:hover { background: rgba(76,175,80,0.1); border-color: var(--success); }
+
+/* Row of buttons in a header box */
+.hdr-btn-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Small input in header boxes */
+.hdr-input-sm {
+  font-family: var(--font);
+  font-size: 11px;
+  width: 60px;
+  padding: 3px 6px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.7);
+  color: var(--text-dark);
+  outline: none;
+}
+
+.hdr-input-sm:focus { border-color: var(--accent); background: #fff; }
+
+/* Small select in header boxes */
+.hdr-select-sm {
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 3px 4px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.7);
+  color: var(--text-dark);
+  outline: none;
+  max-width: 100px;
+  cursor: pointer;
+}
+
+/* Listen port status */
+.hdr-listen-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+
+.hdr-listen-change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Query row */
+.hdr-query-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.hdr-query-list {
+  font-family: var(--font);
+  font-size: 8px;
+  color: rgba(0,0,0,0.4);
+  margin-top: 3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Device tab button inside header */
+.hdr-dev-tab {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 400;
+  padding: 6px 14px;
+  border: none;
+  background: none;
+  color: rgba(0,0,0,0.45);
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  white-space: nowrap;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+  position: relative;
+}
+
+.hdr-dev-tab:hover {
+  color: var(--text-dark);
+  background: rgba(255,255,255,0.25);
+}
+
+.hdr-dev-tab.active {
+  color: var(--text-dark);
+  border-bottom-color: rgba(0,0,0,0.5);
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+}
+
+.hdr-dev-tab .dev-dot { background: rgba(0,0,0,0.25); }
+.hdr-dev-tab.active .dev-dot { background: var(--success); box-shadow: 0 0 4px rgba(76,175,80,0.5); }
+
+/* Actions row at the right of device area */
+.hdr-dev-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-left: 6px;
+  border-left: 1px solid rgba(0,0,0,0.1);
+}
+
+/* ── Per-device floating dropdown ── */
+.dev-dropdown {
+  position: fixed;
+  min-width: 190px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.15);
+  z-index: 600;
+  padding: 5px 0;
+  display: none;
+}
+
+.dev-dropdown-title {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dark);
+  padding: 4px 14px 2px;
+  letter-spacing: 0.03em;
+}
+
+.dev-dropdown-info {
+  font-family: var(--font);
+  font-size: 9px;
+  color: var(--text-light);
+  padding: 0 14px 4px;
+}
+
+.dev-dropdown-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}
+
+.dev-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 14px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-dark);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.dev-dropdown-item:hover { background: var(--bg-alt); }
+
+.dev-dropdown-item-danger { color: var(--danger) !important; }
+.dev-dropdown-item-danger:hover { background: var(--danger-dim) !important; }
+
+.dev-dropdown-item-warn { color: var(--warning-text) !important; }
+.dev-dropdown-item-warn:hover { background: var(--warning-dim) !important; }
+
+.dev-dropdown-item-success { color: var(--success) !important; }
+.dev-dropdown-item-success:hover { background: var(--success-dim) !important; }
+
+/* ═══════════════════════════════════════════
+   DUAL-VIEW RIGHT PANEL (Feed / Reference)
+   ═══════════════════════════════════════════ */
+
+/* Hide the panel entirely */
+.panel-right.panel-hidden { display: none !important; }
+
+/* Feed view: default visible, flex column fills panel */
+.view-feed {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Reference view: hidden by default, shown in ref-mode */
+.view-reference {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Switch to reference mode */
+.panel-right.ref-mode .view-feed { display: none; }
+.panel-right.ref-mode .view-reference { display: flex; }
+
+/* Reference panel header */
+.ref-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ref-panel-header h2 {
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-dark);
+}
+
+/* Scrollable content area in reference panel */
+.ref-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+
+/* Each reference section block */
+.ref-section-block {
+  margin-bottom: 16px;
+}
+
+.ref-section-title {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Remove max-height cap inside the panel so all items show */
+.view-reference .ref-list {
+  max-height: none;
+}
+
+/* Inline variant of hdr-label-sm (for listen status row) */
+.hdr-label-inline {
+  display: inline;
+  margin: 0;
+}
+
+/* Auto-query checkbox label */
+.hdr-auto-label {
+  font-size: 9px;
+  color: rgba(0,0,0,0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  font-family: var(--font);
+}
+
+/* Unit label after period/port inputs (e.g. "s") */
+.hdr-unit-label {
+  font-size: 9px;
+  opacity: 0.5;
+  font-family: var(--font);
+}
+
+/* Narrower feed-filter-input for reference panel search boxes */
+.feed-filter-input-narrow {
+  width: 120px !important;
+}
+
+/* Smaller hint text variant used inside panels */
+.hint-text-sm {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+  font-weight: 300;
 }
