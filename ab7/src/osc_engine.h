@@ -248,7 +248,7 @@ void patch_send_task(void* param) {
             }
 
             // Send the float value over OSC.
-            char log_buf[96];
+            char log_buf[160];
             bool should_log = get_send_logging_enabled();
             if (should_log) {
                 snprintf(log_buf, sizeof(log_buf), "[SEND] %s:%u %s = %.6f",
