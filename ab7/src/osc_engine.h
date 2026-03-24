@@ -248,17 +248,22 @@ void patch_send_task(void* param) {
             }
 
             // Send the float value over OSC.
+            char log_buf[96];
+            bool should_log = get_send_logging_enabled();
+            if (should_log) {
+                snprintf(log_buf, sizeof(log_buf), "[SEND] %s:%u %s = %.6f",
+                         eff_ip.toString().c_str(), eff_port,
+                         eff_adr.c_str(), static_cast<double>(val));
+            }
+
             xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
             osc.setDestination(eff_ip, eff_port);
             osc.sendFloat(eff_adr.c_str(), val);
-            if (get_send_logging_enabled()) {
-                char buf[96];
-                snprintf(buf, sizeof(buf), "[SEND] %s:%u %s = %.6f",
-                         eff_ip.toString().c_str(), eff_port,
-                         eff_adr.c_str(), static_cast<double>(val));
-                Serial.println(buf);
-            }
             xSemaphoreGive(osc_send_mutex());
+
+            if (should_log) {
+                Serial.println(log_buf);
+            }
         }
 
         reg.unlock();
