@@ -3,7 +3,8 @@
 // =============================================================================
 //
 // BOOT SEQUENCE:
-//   1. Initialise serial, GPIO pins, I2C bus, LSM9DS1.
+//   1. Initialise serial, GPIO pins, IMU (LSM9DS1 by default; BNO085 when the
+//      AB7_IMU_BNO085 build flag is set).
 //   2. Initialise SK6812 status LED.
 //   3. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
@@ -15,8 +16,10 @@
 //
 // The ab7 board:
 //   - ESP32-S3
-//   - LSM9DS1 IMU (I2C, Adafruit breakout) — provides accelerometer,
-//     gyroscope, magnetometer; fused with Madgwick filter to quaternion/Euler
+//   - IMU selectable at build time:
+//       * LSM9DS1 (I2C, Adafruit breakout) — accelerometer, gyroscope,
+//         magnetometer; fused with Madgwick filter to quaternion/Euler
+//       * BNO085 (SPI) — rotation vector, linear acceleration, calibrated gyro
 //   - No barometer — data_streams[BARO] is always 0.
 //   - SK6812 addressable LED on GPIO 7
 //   - Two buttons: GPIO 0 (A), GPIO 14 (B), active-low
@@ -28,6 +31,14 @@
 // =============================================================================
 
 #include "main.h"
+
+#if defined(AB7_IMU_BNO085)
+static constexpr const char* AB7_IMU_NAME = "BNO085 (SPI)";
+static constexpr const char* AB7_IMU_WIRING_HINT = "Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).";
+#else
+static constexpr const char* AB7_IMU_NAME = "LSM9DS1 (I2C)";
+static constexpr const char* AB7_IMU_WIRING_HINT = "Check I2C wiring (SDA=1, SCL=2).";
+#endif
 
 // ---------------------------------------------------------------------------
 // Current quaternion — shared with osc_commands.h for ori save commands
@@ -80,7 +91,9 @@ void setup() {
     leds[0] = CRGB(40, 0, 40);  // dim purple = booting
     FastLED.show();
 
-    Serial.println(F("[BOOT] Initialising LSM9DS1 (I2C)..."));
+    Serial.print(F("[BOOT] Initialising "));
+    Serial.print(AB7_IMU_NAME);
+    Serial.println(F("..."));
     begin_imu();
 
     Serial.println(F("[BOOT] Hardware initialised."));
@@ -145,8 +158,8 @@ void setup() {
 
     // --- Sensor reading task ------------------------------------------------
     //
-    // This task runs on core 1 and continuously reads the LSM9DS1 sensor
-    // data, updating the global data_streams[] array with real values.
+    // This task runs on core 1 and continuously reads the IMU data,
+    // updating the global data_streams[] array with real values.
 
     xTaskCreatePinnedToCore([](void*) {
         OriTracker& ot = ori_tracker();
@@ -222,7 +235,8 @@ void setup() {
                 no_data_count++;
                 // Warn once after ~5 seconds of no data (500 × 10ms).
                 if (no_data_count == 500) {
-                    Serial.println(F("[IMU] WARNING: No sensor data for 5 seconds — check I2C wiring (SDA=1, SCL=2)."));
+                    Serial.print(F("[IMU] WARNING: No sensor data for 5 seconds — "));
+                    Serial.println(AB7_IMU_WIRING_HINT);
                 }
             }
 
@@ -244,7 +258,9 @@ void setup() {
         }
     }, "sensor_task", 16384, nullptr, 1, nullptr, 1);  // 16 KB — IMU driver + Madgwick filter  |  pinned to core 1
 
-    Serial.println(F("[BOOT] Sensor task started (LSM9DS1 real data)."));
+    Serial.print(F("[BOOT] Sensor task started ("));
+    Serial.print(AB7_IMU_NAME);
+    Serial.println(F(" real data)."));
     Serial.println();
     Serial.println(F("════════════════════════════════════════════════"));
     if (network_ready) {

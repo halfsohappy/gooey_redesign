@@ -10,8 +10,13 @@
 // ---------------------------------------------------------------------------
 
 Preferences preferences;
+#if defined(AB7_IMU_BNO085)
+Adafruit_BNO08x imu(BNO_RST);
+static sh2_SensorValue_t imu_value;
+#else
 Adafruit_LSM9DS1 imu;
 Adafruit_Madgwick imu_filter;
+#endif
 
 struct ImuCache {
     float qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;
@@ -32,10 +37,28 @@ void begin_pins() {
 }
 
 // ---------------------------------------------------------------------------
-// LSM9DS1 initialisation (I2C)
+// IMU initialisation
 // ---------------------------------------------------------------------------
 
 void begin_imu() {
+#if defined(AB7_IMU_BNO085)
+    SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI);
+
+    pinMode(BNO_WAKE, OUTPUT);
+    digitalWrite(BNO_WAKE, HIGH);
+
+    if (!imu.begin_SPI(BNO_CS, BNO_INT, &SPI)) {
+        Serial.println(F("[IMU] Failed to initialise BNO085 over SPI!"));
+        Serial.println(F("[IMU] Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).  Halting."));
+        while (1) { delay(100); }
+    }
+
+    imu.enableReport(SH2_ROTATION_VECTOR);
+    imu.enableReport(SH2_LINEAR_ACCELERATION);
+    imu.enableReport(SH2_GYROSCOPE_CALIBRATED);
+
+    Serial.println(F("[IMU] BNO085 initialised (SPI)."));
+#else
     Wire.begin(IMU_SDA, IMU_SCL);
     Wire.setClock(400000);  // 400 kHz fast mode
 
@@ -53,6 +76,7 @@ void begin_imu() {
     imu_filter.begin(100.0f);
 
     Serial.println(F("[IMU] LSM9DS1 initialised (I2C, SDA=1, SCL=2)."));
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +84,37 @@ void begin_imu() {
 // ---------------------------------------------------------------------------
 
 bool imu_data_available() {
+#if defined(AB7_IMU_BNO085)
+    if (!imu.getSensorEvent(&imu_value)) {
+        return false;
+    }
+
+    switch (imu_value.sensorId) {
+        case SH2_ROTATION_VECTOR:
+            imu_cache.qi = imu_value.un.rotationVector.i;
+            imu_cache.qj = imu_value.un.rotationVector.j;
+            imu_cache.qk = imu_value.un.rotationVector.k;
+            imu_cache.qr = imu_value.un.rotationVector.real;
+            break;
+
+        case SH2_LINEAR_ACCELERATION:
+            imu_cache.ax = imu_value.un.linearAcceleration.x;
+            imu_cache.ay = imu_value.un.linearAcceleration.y;
+            imu_cache.az = imu_value.un.linearAcceleration.z;
+            break;
+
+        case SH2_GYROSCOPE_CALIBRATED:
+            imu_cache.gx = imu_value.un.gyroscope.x;
+            imu_cache.gy = imu_value.un.gyroscope.y;
+            imu_cache.gz = imu_value.un.gyroscope.z;
+            break;
+
+        default:
+            break;
+    }
+
+    return true;
+#else
     sensors_event_t accel, gyro, mag, temp;
     imu.getEvent(&accel, &mag, &gyro, &temp);
 
@@ -89,6 +144,7 @@ bool imu_data_available() {
     imu_cache.gz = gyro.gyro.z;
 
     return true;
+#endif
 }
 
 void imu_get_quat(float &qi, float &qj, float &qk, float &qr) {

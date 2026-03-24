@@ -17,6 +17,7 @@
 //   nvs                  — show NVS storage summary
 //   registry             — show OSC registry (patches + messages)
 //   serial [level]       — get/set serial debug level (error/warn/info/debug)
+//   sends [on|off]       — show or toggle per-message send logging to serial
 //   hardware             — show hardware diagnostics (voltages, sensor init)
 //   restart              — reboot the device
 //   provision            — erase provisioning and reboot into captive portal
@@ -31,6 +32,7 @@
 #include <Preferences.h>
 #include "ab7_hardware.h"
 #include "data_streams.h"
+#include "osc_engine.h"
 #include "osc_registry.h"
 #include "osc_status.h"
 
@@ -57,6 +59,7 @@ static inline void _serial_cmd_help() {
     Serial.println(F("  registry     — OSC registry (patches + messages)"));
     Serial.println(F("  serial [lvl] — get/set serial debug level"));
     Serial.println(F("               — levels: error, warn, info, debug"));
+    Serial.println(F("  sends [on|off]— toggle per-message send logging"));
     Serial.println(F("  hardware     — hardware diagnostics"));
     Serial.println(F("  restart      — reboot the device"));
     Serial.println(F("  provision    — erase config & reboot into portal"));
@@ -267,6 +270,26 @@ static inline void _serial_cmd_serial(const String& arg) {
     }
 }
 
+static inline void _serial_cmd_sends(const String& arg) {
+    if (arg.length() == 0) {
+        Serial.print(F("  Send logging: "));
+        Serial.println(send_logging_enabled() ? F("ON") : F("OFF"));
+        return;
+    }
+
+    String a = arg;
+    a.toLowerCase();
+    if (a == "on" || a == "1" || a == "true") {
+        set_send_logging(true);
+        Serial.println(F("  Send logging enabled."));
+    } else if (a == "off" || a == "0" || a == "false") {
+        set_send_logging(false);
+        Serial.println(F("  Send logging disabled."));
+    } else {
+        Serial.println(F("  Usage: sends [on|off]"));
+    }
+}
+
 static inline void _serial_cmd_hardware() {
     Serial.println(F("──────────── Hardware Diagnostics (ab7) ────────────"));
 
@@ -349,6 +372,8 @@ static inline void serial_process() {
                     _serial_cmd_registry();
                 } else if (cmd == "serial") {
                     _serial_cmd_serial(arg);
+                } else if (cmd == "sends") {
+                    _serial_cmd_sends(arg);
                 } else if (cmd == "hardware" || cmd == "hw") {
                     _serial_cmd_hardware();
                 } else if (cmd == "restart" || cmd == "reboot") {
