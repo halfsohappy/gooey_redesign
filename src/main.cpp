@@ -5,7 +5,8 @@
 // BOOT SEQUENCE:
 //   1. Initialise serial, GPIO pins, sensors.
 //      - Bart: barometer (BMP5xx), IMU (ISM330DHCX), magnetometer (MMC5983MA)
-//      - ab7:  BNO085 IMU (SPI), SK6812 status LED, two buttons
+//      - ab7:  BNO085 IMU (SPI), SK6812 status LED, two buttons;
+//              no physical barometer and BARO is forced to 1.0
 //   2. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
 //      - No  → launch the captive-portal provisioner and wait.
@@ -216,8 +217,8 @@ void setup() {
                 float gyro_len = sqrtf(gx * gx + gy * gy + gz * gz);
                 data_streams[GYROLENGTH]  = constrain(gyro_len / GYRO_SCALE, 0.0f, 1.0f);
 
-                // ── Barometer — not present on ab7 ────────────────────
-                data_streams[BARO] = 0.0f;
+                // ── Barometer — not present on ab7; fixed high sentinel ─
+                data_streams[BARO] = 1.0f;
 
                 // ── Update orientation tracker ────────────────────────
                 ot.update(qi, qj, qk, qr, gyro_len);

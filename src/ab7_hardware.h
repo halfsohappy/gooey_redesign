@@ -3,7 +3,7 @@
 // =============================================================================
 //
 // The ab7 board carries an ESP32-S3 and a BNO085 IMU over SPI.  There is no
-// barometer on this board — the baro data stream returns zero.  A single
+// barometer on this board — the baro data stream is forced to 1.0.  A single
 // SK6812 addressable LED is used for status indication, and two buttons
 // (active-low, shorted to GND) provide user input.
 //
