@@ -176,8 +176,8 @@ body {
   margin-bottom: 2px;
 }
 
-.btn-header-action.qbtn-danger { color: var(--danger); }
-.btn-header-action.qbtn-danger:hover { border-color: var(--danger); }
+.btn-header-action.qbtn-danger { background: #111; color: #fff; border-color: #111; }
+.btn-header-action.qbtn-danger:hover { background: #000; border-color: #000; }
 .btn-header-action.qbtn-success { color: var(--success); }
 .btn-header-action.qbtn-success:hover { border-color: var(--success); }
 
