@@ -39,6 +39,7 @@ static constexpr unsigned long BTN_DEBOUNCE_MS = 300;
 /// True once the device has connected to WiFi and UDP is ready for OSC.
 static bool network_ready = false;
 
+#ifndef PIO_UNIT_TESTING
 void setup() {
     Serial.begin(115200);
     delay(1000);  // brief pause for serial monitor to connect
@@ -406,4 +407,5 @@ void loop() {
     }
 #endif // AB7_BUILD
 }
+#endif // PIO_UNIT_TESTING
 

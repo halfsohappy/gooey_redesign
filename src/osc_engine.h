@@ -255,12 +255,21 @@ void patch_send_task(void* param) {
             if (mi < 0 || mi >= (int)reg.msg_count) continue;
 
             OscMessage& msg = reg.messages[mi];
-            if (!msg.enabled)    continue;
-            if (!msg.value_ptr)  continue;
+            if (!msg.enabled) continue;
+
+            // Determine if this is a ternori (binary ori switch) message.
+            bool is_ternori = false;
+#ifdef AB7_BUILD
+            is_ternori = (msg.ternori.length() > 0);
+#endif
+
+            // Normal messages need a sensor value pointer.
+            if (!is_ternori && !msg.value_ptr) continue;
 
             // --- Ori-conditional check (ab7 only) ---
+            // Ternori messages always send (the value changes, not the send decision).
 #ifdef AB7_BUILD
-            {
+            if (!is_ternori) {
                 OriTracker& ot = ori_tracker();
                 if (msg.ori_only.length() > 0 && !ot.is_active(msg.ori_only)) continue;
                 if (msg.ori_not.length() > 0  &&  ot.is_active(msg.ori_not))  continue;
@@ -276,8 +285,16 @@ void patch_send_task(void* param) {
                 continue;  // not enough info to send
             }
 
-            // Read the live sensor value (normalised to [0, 1]).
-            float val = *(msg.value_ptr);
+            // Read the value: ternori → binary from ori state, normal → sensor.
+            float val;
+#ifdef AB7_BUILD
+            if (is_ternori) {
+                val = ori_tracker().is_active(msg.ternori) ? 1.0f : 0.0f;
+            } else
+#endif
+            {
+                val = *(msg.value_ptr);
+            }
 
             // Resolve effective output bounds (patch may override message's).
             float eff_low  = resolve_low(msg, *patch);

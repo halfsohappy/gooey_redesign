@@ -125,6 +125,7 @@ public:
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
         if (src.ori_only.length() > 0) { m->ori_only = src.ori_only; }
         if (src.ori_not.length() > 0)  { m->ori_not  = src.ori_not;  }
+        if (src.ternori.length() > 0)  { m->ternori  = src.ternori;  }
         return m;
     }
 
@@ -232,7 +233,7 @@ static inline OscRegistry& osc_registry() {
 /// True if there is enough information to actually transmit an OSC packet:
 /// a value to send, and a resolvable destination (ip, port, address).
 inline bool OscMessage::sendable() const {
-    bool has_val = (value_ptr != nullptr);
+    bool has_val = (value_ptr != nullptr) || (ternori.length() > 0);
     bool has_ip  = exist.ip  || (patch && patch->exist.ip);
     bool has_port = exist.port || (patch && patch->exist.port);
     bool has_adr = exist.adr || (patch && patch->exist.adr);
@@ -262,6 +263,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     bounds[1]  = 1.0f;
     ori_only   = "";
     ori_not    = "";
+    ternori    = "";
 
     String input = config;
     input.trim();
@@ -407,6 +409,8 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             ori_only = value;
         } else if (key == "orinot" || key == "ori_not") {
             ori_not = value;
+        } else if (key == "ternori") {
+            ternori = value;
         } else if (key == "period") {
             // Recognised but handled outside from_config_str (patch-level field).
         } else {
@@ -439,6 +443,7 @@ inline String OscMessage::to_info_string(bool verbose) const {
     if (exist.patch && patch) { s += " patch:" + patch->name; }
     if (ori_only.length() > 0) { s += " ori_only:" + ori_only; }
     if (ori_not.length() > 0)  { s += " ori_not:" + ori_not; }
+    if (ternori.length() > 0)  { s += " ternori:" + ternori; }
 
     return s;
 }

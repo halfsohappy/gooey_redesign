@@ -104,6 +104,14 @@ public:
     String        ori_only;    // e.g. "light1" — send only when ori "light1" is active
     String        ori_not;     // e.g. "light2" — send only when ori "light2" is NOT active
 
+    // --- Ternori (orientation ternary) — binary switch based on ori state ---
+    //
+    // When ternori is set (e.g. "spotlight"), the message ignores value_ptr and
+    // sends bounds[1] (high) when the named ori is active, bounds[0] (low) when
+    // not.  Unlike ori_only/ori_not which suppress sending, a ternori message
+    // always sends — only the value changes.
+    String        ternori;     // e.g. "spotlight" — high when active, low when not
+
     // --- Duplicate suppression cache (ephemeral, never saved to NVS) ---------
     float         _last_sent_val = 0.0f;
     bool          _has_last_sent = false;
@@ -133,6 +141,7 @@ public:
         enabled    = o.enabled;
         ori_only   = o.ori_only;
         ori_not    = o.ori_not;
+        ternori    = o.ternori;
     }
 
     OscMessage& operator=(const OscMessage& o) {
@@ -149,6 +158,7 @@ public:
             enabled    = o.enabled;
             ori_only   = o.ori_only;
             ori_not    = o.ori_not;
+            ternori    = o.ternori;
         }
         return *this;
     }
@@ -190,6 +200,7 @@ public:
         // Ori-conditional fields: new config takes priority; fall back to other.
         r.ori_only = ori_only.length() > 0 ? ori_only : o.ori_only;
         r.ori_not  = ori_not.length() > 0  ? ori_not  : o.ori_not;
+        r.ternori  = ternori.length() > 0  ? ternori  : o.ternori;
 
         return r;
     }

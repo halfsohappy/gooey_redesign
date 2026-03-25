@@ -795,6 +795,87 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             return;
         }
 
+        // /ori/reset/{name}  — reset a range ori back to a fresh single point
+        if (ori_rest.startsWith("/reset")) {
+            String ori_name;
+            if (ori_rest.length() > 6 && ori_rest.charAt(6) == '/') {
+                ori_name = ori_rest_orig.length() > 7 ? ori_rest_orig.substring(7) : String("");
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "reset: no name given");
+                return;
+            }
+            int idx = ot.reset(ori_name, cur_qi, cur_qj, cur_qk, cur_qr);
+            if (idx >= 0) {
+                status_reporter().info("ori", "Reset ori '" + ori_name + "' to current point");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/reset", "Reset: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
+            }
+            return;
+        }
+
+        // /ori/info/{name}  — show ori details (center, half_width, samples)
+        if (ori_rest.startsWith("/info")) {
+            String ori_name;
+            if (ori_rest.length() > 5 && ori_rest.charAt(5) == '/') {
+                ori_name = ori_rest_orig.length() > 6 ? ori_rest_orig.substring(6) : String("");
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "info: no name given");
+                return;
+            }
+            String info_str = ot.info(ori_name);
+            status_reporter().info("ori", info_str);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/info", info_str);
+            return;
+        }
+
+        // /ori/tolerance  — set/query the angular match tolerance (degrees)
+        if (ori_rest == "/tolerance" || ori_rest.startsWith("/tolerance/")) {
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 'f') {
+                ot.ori_tolerance = osc_msg.nextAsFloat();
+            } else if (typetags && typetags[0] == 's') {
+                ot.ori_tolerance = String(osc_msg.nextAsString()).toFloat();
+            }
+            status_reporter().info("ori", "Match tolerance: " + String(ot.ori_tolerance, 1) + " deg");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/tolerance",
+                      "tolerance: " + String(ot.ori_tolerance, 1) + " deg");
+            return;
+        }
+
+        // /ori/strict  — toggle strict matching mode (on/off)
+        if (ori_rest == "/strict" || ori_rest.startsWith("/strict/")) {
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                String val = String(osc_msg.nextAsString());
+                val.trim(); val.toLowerCase();
+                ot.strict_matching = (val == "on" || val == "true" || val == "1" || val == "yes");
+            } else if (typetags && typetags[0] == 'f') {
+                ot.strict_matching = (osc_msg.nextAsFloat() > 0.5f);
+            } else {
+                // No payload — toggle.
+                ot.strict_matching = !ot.strict_matching;
+            }
+            String state = ot.strict_matching ? "ON" : "OFF";
+            status_reporter().info("ori", "Strict matching: " + state);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/strict", "strict: " + state);
+            return;
+        }
+
         status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
         return;
     }
