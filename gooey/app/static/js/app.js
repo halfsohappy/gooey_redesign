@@ -113,33 +113,32 @@
 
   /* ── Device tab rendering ── */
   function renderDeviceTabs() {
-    var strip = $("#deviceStrip");
-    /* Insert tabs before the right-side controls block (direct child of strip) */
-    var addBtn = $(".device-strip-right");
-    /* remove existing tabs */
-    $$(".device-tab").forEach(function (t) { t.remove(); });
+    var container = $("#hdrDevices");
+    var devActions = $("#hdrDevActions");
+    /* Remove existing tabs */
+    $$(".hdr-dev-tab").forEach(function (t) { t.remove(); });
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
-      var tab = document.createElement("button");
-      tab.className = "device-tab" + (id === activeDeviceId ? " active" : "");
-      tab.dataset.deviceId = id;
-      tab.innerHTML = '<span class="dev-dot"></span>' + d.name + " <span class='dev-edit' title='Edit'>✎</span><span class='dev-remove' title='Remove'>✕</span>";
-      tab.addEventListener("click", function (e) {
-        if (e.target.classList.contains("dev-remove")) {
-          removeDevice(id);
-          return;
-        }
-        if (e.target.classList.contains("dev-edit")) {
-          editDevice(id);
-          return;
-        }
+      var btn = document.createElement("button");
+      btn.className = "hdr-dev-tab" + (id === activeDeviceId ? " active" : "");
+      btn.dataset.deviceId = id;
+      /* Build button content: status dot + sanitised device name */
+      var dot = document.createElement("span");
+      dot.className = "dev-dot";
+      btn.appendChild(dot);
+      btn.appendChild(document.createTextNode(d.name));
+      btn.addEventListener("click", function (e) {
+        /* Select device as active */
         activeDeviceId = id;
         renderDeviceTabs();
         renderMsgTable();
         renderPatchTable();
         refreshAllDropdowns();
+        refreshQueryDeviceSelect();
+        /* Show per-device dropdown menu */
+        openDevDropdown(btn, id);
       });
-      strip.insertBefore(tab, addBtn);
+      container.insertBefore(btn, devActions);
     });
     /* Update feed device filter */
     var sel = $("#feedDeviceFilter");
@@ -153,6 +152,8 @@
       sel.appendChild(opt);
     });
     sel.value = curVal;
+    /* Sync the header query-device select */
+    refreshQueryDeviceSelect();
   }
 
   /* ── IP resolver: type "me" to use this computer's IP ── */
@@ -211,6 +212,128 @@
       renderPatchTable();
       toast("Device added: " + name.trim(), "success");
     });
+  });
+
+  /* ═══════════════════════════════════════════
+     PER-DEVICE DROPDOWN MENU
+     ═══════════════════════════════════════════ */
+
+  var _dropdownDeviceId = "";
+
+  function openDevDropdown(btn, deviceId) {
+    var d = devices[deviceId];
+    if (!d) return;
+    _dropdownDeviceId = deviceId;
+    var dd = $("#devDropdown");
+    var rect = btn.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 2) + "px";
+    dd.style.left = rect.left + "px";
+    dd.style.display = "block";
+    $("#devDdTitle").textContent = d.name;
+    $("#devDdInfo").textContent = d.host + ":" + d.port;
+  }
+
+  function closeDevDropdown() {
+    $("#devDropdown").style.display = "none";
+    _dropdownDeviceId = "";
+  }
+
+  /* Close when clicking outside the dropdown or a device tab */
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#devDropdown") && !e.target.closest(".hdr-dev-tab")) {
+      closeDevDropdown();
+    }
+  });
+
+  /** Send a command to an arbitrary device (not just the active one). */
+  function sendToDevice(deviceId, address, payload) {
+    var d = devices[deviceId];
+    if (!d) return Promise.resolve({ status: "error", message: "Device not found" });
+    var data = { host: d.host, port: d.port, address: address };
+    if (payload !== null && payload !== undefined) data.args = [payload];
+    return api("send", data);
+  }
+
+  /* Per-device dropdown action handlers */
+  $("#devDdQuery").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose").then(function (res) {
+      if (res.status === "ok") toast("Querying " + d.name + "…", "info");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdStatusConfig").addEventListener("click", function () {
+    closeDevDropdown();
+    /* Switch to dashboard tab and scroll to status config card */
+    $(".nav-btn[data-section='dashboard']").click();
+    var card = $('[data-card-id="status-config"]');
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  $("#devDdSave").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/save", null).then(function (res) {
+      if (res.status === "ok") toast("Saved: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdLoad").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/load", null).then(function (res) {
+      if (res.status === "ok") toast("Loaded: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdNvsClear").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    if (!window.confirm("Clear NVS for " + d.name + "? This erases all saved settings.")) { closeDevDropdown(); return; }
+    sendToDevice(id, "/annieData/" + d.name + "/nvs/clear", null).then(function (res) {
+      if (res.status === "ok") toast("NVS cleared: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdBlackout").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/blackout", null).then(function (res) {
+      if (res.status === "ok") toast("Blackout: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdRestore").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/restore", null).then(function (res) {
+      if (res.status === "ok") toast("Restore: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdEdit").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    closeDevDropdown();
+    if (id) editDevice(id);
+  });
+
+  $("#devDdRemove").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    closeDevDropdown();
+    if (id) removeDevice(id);
   });
 
   /* No default device — user adds devices manually */
@@ -449,8 +572,8 @@
     $("#msgOriOnly").value = m.ori_only || m.orionly || "";
     $("#msgOriNot").value = m.ori_not || m.orinot || "";
     updateMsgPreview();
-    /* scroll to form */
-    $$(".nav-btn")[1].click(); // switch to messages tab
+    /* scroll to form — switch to messages tab */
+    $(".nav-btn[data-section='messages']").click();
     $("#msgName").focus();
   }
 
@@ -530,7 +653,8 @@
     $("#ovAdr").checked = ov.indexOf("adr") !== -1;
     $("#ovLow").checked = ov.indexOf("low") !== -1;
     $("#ovHigh").checked = ov.indexOf("high") !== -1;
-    $$(".nav-btn")[2].click(); // patches tab
+    /* scroll to form — switch to patches tab */
+    $(".nav-btn[data-section='patches']").click();
     $("#patchName").focus();
   }
 
@@ -1099,55 +1223,85 @@
   }
 
   /* ═══════════════════════════════════════════
-     FEED PANEL TOGGLE
+     PANEL STATE MANAGEMENT  (hidden / feed / reference)
      ═══════════════════════════════════════════ */
 
-  var feedVisible = false;
+  var _panelState = "hidden"; // "hidden" | "feed" | "reference"
 
-  function setFeedVisible(show) {
-    feedVisible = show;
-    var panel = document.querySelector(".panel-right");
-    if (show) {
-      panel.classList.remove("feed-hidden");
-      $("#btnFeedToggle").textContent = "Feed ▶";
-    } else {
-      panel.classList.add("feed-hidden");
-      $("#btnFeedToggle").textContent = "◀ Feed";
+  function showPanel(view) {
+    _panelState = view;
+    var panel = $("#panelRight");
+    if (view === "hidden") {
+      panel.classList.add("panel-hidden");
+      panel.classList.remove("ref-mode");
+    } else if (view === "feed") {
+      panel.classList.remove("panel-hidden");
+      panel.classList.remove("ref-mode");
+    } else if (view === "reference") {
+      panel.classList.remove("panel-hidden");
+      panel.classList.add("ref-mode");
     }
   }
 
-  $("#btnFeedToggle").addEventListener("click", function () { setFeedVisible(!feedVisible); });
+  /* Feed toggle button */
+  $("#btnFeedToggle").addEventListener("click", function () {
+    if (_panelState === "feed") showPanel("hidden");
+    else showPanel("feed");
+  });
 
-  /* Start hidden */
-  setFeedVisible(false);
+  /* Reference toggle button */
+  $("#btnRefToggle").addEventListener("click", function () {
+    if (_panelState === "reference") showPanel("hidden");
+    else showPanel("reference");
+  });
 
   /* ═══════════════════════════════════════════
-     LISTEN (receive replies)
+     LISTEN  (auto-starts on page load; port is always active)
      ═══════════════════════════════════════════ */
 
   var isListening = false;
+  var _listenPort = 9000;
 
-  $("#btnReplyListen").addEventListener("click", function () {
-    var port = parseInt($("#replyPort").value, 10) || 9000;
-    if (isListening) {
-      api("recv/stop", { id: "reply-listener" }).then(function () {
-        isListening = false;
-        $("#btnReplyListen").classList.remove("active");
-        $("#listenDot").classList.remove("on");
-        toast("Stopped listening", "info");
-      });
-    } else {
+  function startListen(port) {
+    port = parseInt(port, 10) || 9000;
+    var doStart = function () {
       api("recv/start", { port: port, id: "reply-listener" }).then(function (res) {
         if (res.status === "ok") {
           isListening = true;
-          $("#btnReplyListen").classList.add("active");
+          _listenPort = port;
+          $("#listenPortDisplay").textContent = port;
+          $("#replyPort").value = port;
           $("#listenDot").classList.add("on");
-          setFeedVisible(true);
-          toast("Listening on port " + port, "success");
+        } else {
+          toast("Listen failed: " + (res.message || ""), "error");
         }
       });
+    };
+    if (isListening) {
+      /* Stop previous listener first, then restart on new port */
+      api("recv/stop", { id: "reply-listener" }).then(function () {
+        isListening = false;
+        doStart();
+      });
+    } else {
+      doStart();
     }
+  }
+
+  /* Apply port button: restart listener on the entered port */
+  $("#btnApplyPort").addEventListener("click", function () {
+    var port = parseInt($("#replyPort").value, 10) || 9000;
+    if (port === _listenPort && isListening) {
+      toast("Already listening on port " + port, "info");
+      return;
+    }
+    startListen(port);
+    toast("Listening on port " + port, "success");
   });
+
+  /* Auto-start listening on page load, show feed */
+  startListen(9000);
+  showPanel("feed");
 
   /* ═══════════════════════════════════════════
      FEED CONTROLS
@@ -1158,6 +1312,30 @@
     msgCount = 0;
     rateCounter = 0;
     api("log/clear", {});
+  });
+
+  /* ═══════════════════════════════════════════
+     ALL-DEVICE BLACKOUT / RESTORE  (header buttons)
+     ═══════════════════════════════════════════ */
+
+  $("#btnBlackoutAll").addEventListener("click", function () {
+    var ids = Object.keys(devices);
+    if (!ids.length) { toast("No devices configured", "error"); return; }
+    ids.forEach(function (id) {
+      var d = devices[id];
+      sendToDevice(id, "/annieData/" + d.name + "/blackout", null);
+    });
+    toast("Blackout sent to " + ids.length + " device(s)", "success");
+  });
+
+  $("#btnRestoreAll").addEventListener("click", function () {
+    var ids = Object.keys(devices);
+    if (!ids.length) { toast("No devices configured", "error"); return; }
+    ids.forEach(function (id) {
+      var d = devices[id];
+      sendToDevice(id, "/annieData/" + d.name + "/restore", null);
+    });
+    toast("Restore sent to " + ids.length + " device(s)", "success");
   });
 
   /* ═══════════════════════════════════════════
@@ -1196,40 +1374,108 @@
   });
 
   /* ═══════════════════════════════════════════
-     AUTO QUERY
+     QUERY DEVICE SELECT  (header dropdown)
+     ═══════════════════════════════════════════ */
+
+  /** Rebuild the header query-device <select> from current device list. */
+  function refreshQueryDeviceSelect() {
+    var sel = $("#queryDeviceSelect");
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">all devices</option>';
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      var opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    if (cur && devices[cur]) sel.value = cur;
+  }
+
+  /* ═══════════════════════════════════════════
+     QUERY BUTTON  (header — always verbose)
+     ═══════════════════════════════════════════ */
+
+  $("#btnQueryDevice").addEventListener("click", function () {
+    var selectedId = ($("#queryDeviceSelect").value || "").trim();
+    if (selectedId) {
+      /* Query one specific device */
+      var d = devices[selectedId];
+      if (!d) { toast("Device not found", "error"); return; }
+      sendToDevice(selectedId, "/annieData/" + d.name + "/list/all", "verbose").then(function (res) {
+        if (res.status === "ok") toast("Querying " + d.name + "…", "info");
+      });
+    } else {
+      /* Query all configured devices */
+      var ids = Object.keys(devices);
+      if (!ids.length) { toast("No devices configured", "error"); return; }
+      ids.forEach(function (id) {
+        var d = devices[id];
+        sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose");
+      });
+      toast("Querying " + ids.length + " device(s)…", "info");
+    }
+    showPanel("feed");
+  });
+
+  /* ═══════════════════════════════════════════
+     AUTO QUERY  (float period; tracks active query in header)
      ═══════════════════════════════════════════ */
 
   var _autoQueryTimer = null;
+  var _autoQueryDeviceId = ""; // "" = all devices
+
+  /** Show a compact summary of the active auto-query in the header. */
+  function updateAutoQueryList() {
+    var container = $("#autoQueryList");
+    if (!container) return;
+    if (!_autoQueryTimer) { container.textContent = ""; return; }
+    var period = parseFloat($("#autoQueryPeriod").value) || 5;
+    var label = _autoQueryDeviceId && devices[_autoQueryDeviceId]
+      ? devices[_autoQueryDeviceId].name
+      : "all devices";
+    container.textContent = "▶ " + label + " every " + period + "s (verbose)";
+  }
 
   function startAutoQuery() {
     stopAutoQuery();
-    var period = parseInt($("#autoQueryPeriod").value, 10) || 5;
+    var period = parseFloat($("#autoQueryPeriod").value) || 5;
+    /* Clamp to at least 100 ms — prevents hammering the device on very
+       small decimal inputs while still allowing sub-second periods. */
+    var intervalMs = Math.max(100, period * 1000);
+    _autoQueryDeviceId = ($("#queryDeviceSelect").value || "").trim();
+
     _autoQueryTimer = setInterval(function () {
-      if (!activeDeviceId) return;
-      sendCmd(addr(CMD_ADDRESSES.list_all), "verbose");
-    }, period * 1000);
+      if (_autoQueryDeviceId) {
+        var d = devices[_autoQueryDeviceId];
+        if (!d) return;
+        sendToDevice(_autoQueryDeviceId, "/annieData/" + d.name + "/list/all", "verbose");
+      } else {
+        Object.keys(devices).forEach(function (id) {
+          var d = devices[id];
+          if (!d) return;
+          sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose");
+        });
+      }
+    }, intervalMs);
+    updateAutoQueryList();
   }
 
   function stopAutoQuery() {
     if (_autoQueryTimer) { clearInterval(_autoQueryTimer); _autoQueryTimer = null; }
+    updateAutoQueryList();
   }
 
   $("#autoQueryEnabled").addEventListener("change", function () {
     if (this.checked) startAutoQuery(); else stopAutoQuery();
   });
 
-  $("#autoQueryPeriod").addEventListener("change", function () {
-    if ($("#autoQueryEnabled").checked) startAutoQuery();
-  });
-
-  /* ═══════════════════════════════════════════
-     QUERY VERBOSE (device strip reload button)
-     ═══════════════════════════════════════════ */
-
-  $("#btnQueryVerbose").addEventListener("click", function () {
-    if (!activeDeviceId) { toast("No device selected", "error"); return; }
-    sendCmd(addr(CMD_ADDRESSES.list_all), "verbose");
-    toast("Querying " + devName() + "...", "info");
+  /* Restart auto-query when period or device changes */
+  ["autoQueryPeriod", "queryDeviceSelect"].forEach(function (id) {
+    var el = $("#" + id);
+    if (el) el.addEventListener("change", function () {
+      if ($("#autoQueryEnabled").checked) startAutoQuery();
+    });
   });
 
   /* ═══════════════════════════════════════════

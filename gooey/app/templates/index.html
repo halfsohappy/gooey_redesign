@@ -9,50 +9,102 @@
 </head>
 <body>
 
-  <!-- ===== Top Bar ===== -->
-  <header class="top-bar">
-    <div class="top-bar-left">
-      <h1 class="logo">Gooey<span class="logo-sub">annieData Control Center</span></h1>
-    </div>
-    <div class="top-bar-center">
-      <div class="conn-group conn-narrow">
-        <label for="replyPort">Listen Port</label>
-        <input type="number" id="replyPort" value="9000" min="1" max="65535">
+  <!-- ===== Main Header (unified, two-row) ===== -->
+  <header class="main-header">
+
+    <!-- ── Row 1: Identity · Docs · All-Devices · Listen ── -->
+    <div class="hdr-row">
+
+      <!-- ① Identity + WS status -->
+      <div class="hdr-box hdr-logo-box">
+        <div class="hdr-logo-text">Gooey</div>
+        <div class="hdr-logo-sub">annieData<br>Control Center</div>
+        <div class="hdr-ws-status">
+          <span class="ws-dot" id="wsDot"></span>
+          <span class="ws-label" id="wsLabel">Connecting…</span>
+        </div>
       </div>
-      <button class="btn-listen" id="btnReplyListen" title="Start/stop listening for device replies">
-        <span class="listen-dot" id="listenDot"></span> Listen
-      </button>
-      <div class="header-sep"></div>
-      <button class="qbtn qbtn-danger btn-header-action" data-cmd="blackout" title="Immediately stop all outputs">Blackout</button>
-      <button class="qbtn qbtn-success btn-header-action" data-cmd="restore" title="Restore previous output state">Restore</button>
-    </div>
-    <div class="top-bar-right">
-      <span class="ws-dot" id="wsDot"></span>
-      <span class="ws-label" id="wsLabel">Connecting...</span>
-    </div>
+
+      <!-- ② Docs — seamless full-height buttons -->
+      <div class="hdr-box hdr-box-seamless">
+        <button class="hdr-seamless-btn" id="btnRefToggle" title="Toggle command reference panel">📖 Reference</button>
+        <a class="hdr-seamless-btn" href="https://github.com/halfsohappy/TheaterGWD/blob/main/docs/user_guide.md" target="_blank" rel="noopener" title="Open user guide on GitHub">📚 User Guide</a>
+      </div>
+
+      <!-- ③ All Devices — seamless full-height buttons -->
+      <div class="hdr-box hdr-box-seamless">
+        <button class="hdr-seamless-btn hdr-seamless-danger" id="btnBlackoutAll" title="Immediately stop all outputs on every device">⚫ Blackout</button>
+        <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device">🟢 Restore</button>
+      </div>
+
+      <!-- ④ Listen port -->
+      <div class="hdr-box hdr-box-listen">
+        <div class="hdr-listen-status">
+          <span class="listen-dot" id="listenDot"></span>
+          <span class="hdr-listen-label">Listening on port <strong id="listenPortDisplay">9000</strong></span>
+        </div>
+        <div class="hdr-listen-change">
+          <input type="number" class="hdr-input-sm" id="replyPort" value="9000" min="1" max="65535" title="Listen port for device replies">
+          <button class="hdr-btn" id="btnApplyPort" title="Apply new listen port">Apply</button>
+        </div>
+      </div>
+
+    </div><!-- /hdr-row -->
+
+    <!-- ── Row 2: Query · Device tabs ── -->
+    <div class="hdr-row">
+
+      <!-- ⑤ Query / Auto-query -->
+      <div class="hdr-box hdr-box-query">
+        <div class="hdr-query-row">
+          <select class="hdr-select-sm" id="queryDeviceSelect" title="Device to query (leave blank for all)">
+            <option value="">all devices</option>
+          </select>
+          <button class="hdr-btn" id="btnQueryDevice" title="Query verbose — refresh registry">⟳ Query</button>
+          <label class="hdr-auto-label">
+            <input type="checkbox" id="autoQueryEnabled"> Auto
+          </label>
+          <input type="number" class="hdr-input-sm hdr-input-narrow" id="autoQueryPeriod" value="5" min="0.1" step="0.1" title="Auto-query period in seconds">
+          <span class="hdr-unit-label">s</span>
+        </div>
+        <div class="hdr-query-list" id="autoQueryList" title="Active auto-query targets"></div>
+      </div>
+
+      <!-- ⑥ Device tabs -->
+      <div class="hdr-box hdr-devices" id="hdrDevices">
+        <!-- Device tab buttons inserted here by JS (before hdrDevActions) -->
+        <div class="hdr-dev-actions" id="hdrDevActions">
+          <button id="btnAddDevice" class="hdr-btn hdr-btn-add" title="Add device">+</button>
+          <button id="btnSaveDevices" class="hdr-btn" title="Save devices to file">💾</button>
+          <label id="btnLoadDevices" class="hdr-btn" title="Load devices from file" style="cursor:pointer;display:flex;align-items:center;">
+            📂<input type="file" id="deviceFileInput" accept=".json" style="display:none">
+          </label>
+          <button id="btnFeedToggle" class="hdr-btn" title="Show/hide live feed">Feed</button>
+        </div>
+      </div>
+
+    </div><!-- /hdr-row -->
+
   </header>
 
-  <!-- ===== Device Strip ===== -->
-  <div class="device-strip" id="deviceStrip">
-    <!-- Populated by JS -->
-    <div class="device-strip-right">
-      <div class="auto-query-controls">
-        <label class="auto-query-label">
-          <input type="checkbox" id="autoQueryEnabled"> Auto Query
-        </label>
-        <input type="number" id="autoQueryPeriod" value="5" min="1" max="3600" title="Period in seconds">
-        <span class="auto-query-unit">s</span>
-      </div>
-      <div class="device-strip-actions">
-        <button id="btnSaveDevices" title="Save devices to file">💾</button>
-        <label id="btnLoadDevices" title="Load devices from file" style="display:flex;align-items:center;cursor:pointer;">
-          📂<input type="file" id="deviceFileInput" accept=".json" style="display:none">
-        </label>
-      </div>
-      <button id="btnQueryVerbose" title="Query verbose (refresh active device)" class="device-strip-reload">⟳</button>
-      <button id="btnAddDevice" title="Add device">+</button>
-      <button id="btnFeedToggle" class="btn-feed-toggle" title="Show/hide live feed">Feed ▶</button>
-    </div>
+  <!-- Per-device action dropdown (positioned and shown by JS) -->
+  <div class="dev-dropdown" id="devDropdown">
+    <div class="dev-dropdown-title" id="devDdTitle">Device</div>
+    <div class="dev-dropdown-info" id="devDdInfo"></div>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdQuery">⟳ Query Verbose</button>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdStatusConfig">⚙ Status Config</button>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdSave">💾 Save All</button>
+    <button class="dev-dropdown-item" id="devDdLoad">📂 Load All</button>
+    <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">🗑 NVS Clear</button>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdBlackout">⚫ Blackout</button>
+    <button class="dev-dropdown-item dev-dropdown-item-success" id="devDdRestore">🟢 Restore</button>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
+    <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
 
   <!-- ===== Main Split Layout ===== -->
@@ -67,7 +119,6 @@
         <button class="nav-btn" data-section="patches" title="Manage patch groups and their messages">Patches</button>
         <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + patch and starts streaming">Direct</button>
         <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
-        <button class="nav-btn" data-section="reference" title="Command reference and keyword glossary">Reference</button>
       </nav>
 
       <div class="section-content">
@@ -89,10 +140,9 @@
           </div>
           <div class="card" data-card-id="query-device">
             <h2>Query Device</h2>
-            <p class="hint-text">Refresh the local registry by querying the device. Results appear in the live feed and automatically update the Messages/Patches tables.</p>
+            <p class="hint-text">Refresh the local registry by querying the active device. Results appear in the live feed and automatically update the Messages/Patches tables. Use the header Query controls to target multiple devices at once.</p>
             <div class="quick-grid">
-              <button class="qbtn" data-cmd="list_all" title="Query all messages and patches (names only)">Query</button>
-              <button class="qbtn" data-cmd="list_all" data-payload="verbose" title="Query all messages and patches with full details">Query Verbose</button>
+              <button class="qbtn" data-cmd="list_all" data-payload="verbose" title="Query all messages and patches with full details (verbose)">Query Verbose</button>
             </div>
           </div>
           <div class="card" data-card-id="status-config">
@@ -580,54 +630,64 @@
           </div>
         </section>
 
-        <!-- ===== REFERENCE ===== -->
-        <section class="section" id="sec-reference">
-          <div class="card">
-            <h2>Command Reference</h2>
-            <p class="hint-text">All TheaterGWD OSC commands with their address patterns and expected payloads.</p>
-            <div class="form-group">
-              <input type="text" id="cmdSearch" placeholder="Search commands..." class="search-input">
-            </div>
-            <div class="ref-list" id="cmdList"></div>
-          </div>
-          <div class="card">
-            <h2>Keywords &amp; Definitions</h2>
-            <div class="form-group">
-              <input type="text" id="keywordSearch" placeholder="Search keywords..." class="search-input">
-            </div>
-            <div class="ref-list" id="keywordList"></div>
-          </div>
-          <div class="card">
-            <h2>Config Keys</h2>
-            <div class="ref-list" id="configKeyList"></div>
-          </div>
-          <div class="card">
-            <h2>Address Modes</h2>
-            <div class="ref-list" id="adrModeList"></div>
-          </div>
-        </section>
+        <!-- ===== REFERENCE (now in right panel) ===== -->
 
       </div>
     </div>
 
-    <!-- Right: Live Feed (hidden until listening) -->
-    <div class="panel-right feed-hidden">
-      <div class="feed-header">
-        <h2>Live Activity</h2>
-        <div class="feed-controls">
-          <select class="feed-device-select" id="feedDeviceFilter" title="Filter by device">
-            <option value="">All devices</option>
-          </select>
-          <label class="toggle-label"><input type="checkbox" id="feedAutoScroll" checked> Auto-scroll</label>
-          <input type="text" id="feedFilter" class="feed-filter-input" placeholder="Filter...">
-          <button class="btn btn-small btn-ghost" id="btnFeedClear" title="Clear all entries from the live feed">Clear</button>
+    <!-- Right: Live Feed / Reference (toggled by header buttons) -->
+    <div class="panel-right panel-hidden" id="panelRight">
+
+      <!-- Feed view -->
+      <div class="view-feed" id="viewFeed">
+        <div class="feed-header">
+          <h2>Live Activity</h2>
+          <div class="feed-controls">
+            <select class="feed-device-select" id="feedDeviceFilter" title="Filter by device">
+              <option value="">All devices</option>
+            </select>
+            <label class="toggle-label"><input type="checkbox" id="feedAutoScroll" checked> Auto-scroll</label>
+            <input type="text" id="feedFilter" class="feed-filter-input" placeholder="Filter...">
+            <button class="btn btn-small btn-ghost" id="btnFeedClear" title="Clear all entries from the live feed">Clear</button>
+          </div>
+        </div>
+        <div class="feed-log" id="feedLog"></div>
+        <div class="feed-stats">
+          <span id="feedCount">0 messages</span>
+          <span id="feedRate">0 msg/s</span>
         </div>
       </div>
-      <div class="feed-log" id="feedLog"></div>
-      <div class="feed-stats">
-        <span id="feedCount">0 messages</span>
-        <span id="feedRate">0 msg/s</span>
+
+      <!-- Reference view -->
+      <div class="view-reference" id="viewReference">
+        <div class="ref-panel-header">
+          <h2>Reference</h2>
+          <div class="feed-controls">
+            <input type="text" id="cmdSearch" placeholder="Search commands…" class="feed-filter-input feed-filter-input-narrow">
+            <input type="text" id="keywordSearch" placeholder="Search keywords…" class="feed-filter-input feed-filter-input-narrow">
+          </div>
+        </div>
+        <div class="ref-panel-content">
+          <div class="ref-section-block">
+            <div class="ref-section-title">Commands</div>
+            <p class="hint-text-sm">All TheaterGWD OSC commands with their address patterns and expected payloads.</p>
+            <div class="ref-list" id="cmdList"></div>
+          </div>
+          <div class="ref-section-block">
+            <div class="ref-section-title">Keywords &amp; Definitions</div>
+            <div class="ref-list" id="keywordList"></div>
+          </div>
+          <div class="ref-section-block">
+            <div class="ref-section-title">Config Keys</div>
+            <div class="ref-list" id="configKeyList"></div>
+          </div>
+          <div class="ref-section-block">
+            <div class="ref-section-title">Address Modes</div>
+            <div class="ref-list" id="adrModeList"></div>
+          </div>
+        </div>
       </div>
+
     </div>
 
   </div>
