@@ -226,11 +226,27 @@ void patch_send_task(void* param) {
     OscPatch* patch = static_cast<OscPatch*>(param);
     OscRegistry& reg = osc_registry();
 
+#ifdef AB7_BUILD
+    int last_ori_index = -1;   // matches OriTracker default (no active ori)
+#endif
+
     for (;;) {
         // Sleep for the polling period.
         vTaskDelay(pdMS_TO_TICKS(clamp_patch_period_ms((long)patch->send_period_ms)));
 
         if (!patch->enabled) continue;
+
+#ifdef AB7_BUILD
+        // Reset dedup caches whenever the active ori changes so that messages
+        // always fire at least once after each ori transition.
+        if (_dedup_enabled) {
+            int cur_ori_index = ori_tracker().active_ori_index;
+            if (cur_ori_index != last_ori_index) {
+                last_ori_index = cur_ori_index;
+                clear_all_dedup_caches();
+            }
+        }
+#endif
 
         reg.lock();
 
