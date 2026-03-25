@@ -876,6 +876,97 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             return;
         }
 
+        // /ori/color/{name}  — set the LED color of an ori ("r,g,b" payload)
+        if (ori_rest.startsWith("/color")) {
+            String ori_name;
+            if (ori_rest.length() > 6 && ori_rest.charAt(6) == '/') {
+                ori_name = ori_rest_orig.length() > 7 ? ori_rest_orig.substring(7) : String("");
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (ori_name.length() == 0 && typetags && typetags[0] == 's') {
+                // Payload could be "name, r, g, b" or just "r,g,b" if name is in address.
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "color: no name given");
+                return;
+            }
+            // Parse RGB from payload string: "r,g,b" or "r g b"
+            String rgb_str;
+            if (typetags) {
+                const char* tt = osc_msg.getTypeTags();
+                // Check if there's another string arg (the name was first arg, rgb is second)
+                if (tt && strlen(tt) >= 2 && tt[1] == 's') {
+                    rgb_str = String(osc_msg.nextAsString());
+                } else {
+                    // Name might contain the color: check if ori_name looks like "r,g,b"
+                    // Actually, let's just use payload as the color string.
+                    rgb_str = ori_name;
+                    // Re-extract name from address
+                    if (ori_rest.length() > 7) {
+                        ori_name = ori_rest_orig.length() > 7 ? ori_rest_orig.substring(7) : String("");
+                        ori_name.trim();
+                    }
+                }
+            }
+            // If rgb_str is empty, try the single-string payload
+            if (rgb_str.length() == 0 && typetags && typetags[0] == 's') {
+                rgb_str = ori_name;  // fallback
+            }
+
+            // Parse the "r,g,b" string
+            uint8_t r = 255, g = 255, b = 255;  // default white
+            if (rgb_str.length() > 0) {
+                int c1 = rgb_str.indexOf(',');
+                if (c1 > 0) {
+                    int c2 = rgb_str.indexOf(',', c1 + 1);
+                    if (c2 > 0) {
+                        r = (uint8_t)rgb_str.substring(0, c1).toInt();
+                        g = (uint8_t)rgb_str.substring(c1 + 1, c2).toInt();
+                        b = (uint8_t)rgb_str.substring(c2 + 1).toInt();
+                    }
+                }
+            }
+            if (ot.set_color(ori_name, r, g, b)) {
+                status_reporter().info("ori", "Set color of '" + ori_name + "' to ("
+                    + String(r) + "," + String(g) + "," + String(b) + ")");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/color",
+                          ori_name + ": " + String(r) + "," + String(g) + "," + String(b));
+            } else {
+                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
+            }
+            return;
+        }
+
+        // /ori/select/{name}  — select an ori for button editing
+        if (ori_rest.startsWith("/select")) {
+            String ori_name;
+            if (ori_rest.length() > 7 && ori_rest.charAt(7) == '/') {
+                ori_name = ori_rest_orig.length() > 8 ? ori_rest_orig.substring(8) : String("");
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "select: no name given");
+                return;
+            }
+            int idx = ot.find(ori_name);
+            if (idx >= 0) {
+                ot.selected_ori_index = idx;
+                status_reporter().info("ori", "Selected ori '" + ori_name + "' for button editing");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/select", "Selected: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
+            }
+            return;
+        }
+
         status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
         return;
     }

@@ -120,7 +120,30 @@ struct SavedOri {
     uint8_t sample_count = 0;
     float   euler_center[3]     = {0.0f, 0.0f, 0.0f};  // [roll, pitch, yaw] degrees
     float   euler_half_width[3] = {0.0f, 0.0f, 0.0f};  // per-axis half-width degrees
+
+    // LED color for on-device ori editing workflow.
+    // Auto-assigned from a default palette when an ori is created; can be
+    // changed via /ori/color/{name} command.
+    uint8_t color_r = 0, color_g = 0, color_b = 0;
 };
+
+// Default color palette for auto-assigning ori colors.
+// 12 distinct hues at moderate brightness (suitable for an LED indicator).
+static const uint8_t ORI_PALETTE[][3] = {
+    {255,   0,   0},  // red
+    {  0, 255,   0},  // green
+    {  0,   0, 255},  // blue
+    {255, 255,   0},  // yellow
+    {255,   0, 255},  // magenta
+    {  0, 255, 255},  // cyan
+    {255, 128,   0},  // orange
+    {128,   0, 255},  // purple
+    {  0, 255, 128},  // spring green
+    {255,   0, 128},  // rose
+    {128, 255,   0},  // chartreuse
+    {  0, 128, 255},  // sky blue
+};
+static constexpr uint8_t ORI_PALETTE_SIZE = sizeof(ORI_PALETTE) / sizeof(ORI_PALETTE[0]);
 
 // ---------------------------------------------------------------------------
 // OriTracker
@@ -151,6 +174,15 @@ public:
 
     /// Name of the currently matched ori ("" = none).
     String active_ori_name;
+
+    // --- On-device ori editing (button workflow) ----------------------------
+
+    /// Index of the ori currently selected for editing via buttons (-1 = none).
+    /// Button A adds a range point to this ori; Button B advances to the next.
+    int selected_ori_index = -1;
+
+    /// Next palette color index to auto-assign when an ori is created.
+    uint8_t next_color_index = 0;
 
     // --- Saved oris ---------------------------------------------------------
 
@@ -226,6 +258,11 @@ public:
                 oris[i].euler_half_width[0] = 0.0f;
                 oris[i].euler_half_width[1] = 0.0f;
                 oris[i].euler_half_width[2] = 0.0f;
+                // Auto-assign a color from the palette.
+                oris[i].color_r = ORI_PALETTE[next_color_index % ORI_PALETTE_SIZE][0];
+                oris[i].color_g = ORI_PALETTE[next_color_index % ORI_PALETTE_SIZE][1];
+                oris[i].color_b = ORI_PALETTE[next_color_index % ORI_PALETTE_SIZE][2];
+                next_color_index++;
                 if (i >= ori_count) ori_count = i + 1;
                 return i;
             }
@@ -454,6 +491,49 @@ public:
         return active_ori_index >= 0
             && oris[active_ori_index].used
             && oris[active_ori_index].name.equalsIgnoreCase(name);
+    }
+
+    // --- On-device ori editing helpers --------------------------------------
+
+    /// Set the RGB color of a named ori.  Returns true if found.
+    bool set_color(const String& name, uint8_t r, uint8_t g, uint8_t b) {
+        int idx = find(name);
+        if (idx < 0) return false;
+        oris[idx].color_r = r;
+        oris[idx].color_g = g;
+        oris[idx].color_b = b;
+        return true;
+    }
+
+    /// Advance selected_ori_index to the next used ori (wraps around).
+    /// Returns the new selected index, or -1 if no oris exist.
+    int select_next() {
+        if (count() == 0) {
+            selected_ori_index = -1;
+            return -1;
+        }
+        // Start searching from the slot after the current selection.
+        int start = (selected_ori_index < 0) ? 0 : selected_ori_index + 1;
+        for (uint8_t n = 0; n < ori_count + 1; n++) {
+            int idx = (start + n) % (int)ori_count;
+            // Handle case where idx could be negative if ori_count is 0
+            if (idx < 0) idx = 0;
+            if (idx < (int)ori_count && oris[idx].used) {
+                selected_ori_index = idx;
+                return idx;
+            }
+        }
+        // Shouldn't reach here if count() > 0, but just in case.
+        selected_ori_index = -1;
+        return -1;
+    }
+
+    /// Get the currently selected ori (for LED display), or nullptr if none.
+    const SavedOri* selected_ori() const {
+        if (selected_ori_index < 0 || selected_ori_index >= (int)ori_count)
+            return nullptr;
+        if (!oris[selected_ori_index].used) return nullptr;
+        return &oris[selected_ori_index];
     }
 };
 

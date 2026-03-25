@@ -355,7 +355,7 @@ void setup() {
     }
     Serial.println(F("  Type 'help' in serial monitor for debug commands."));
 #ifdef AB7_BUILD
-    Serial.println(F("  Press BTN_A to save an ori, BTN_B to query active ori."));
+    Serial.println(F("  BTN_A: add range point to selected ori  |  BTN_B: cycle to next ori"));
 #endif
     Serial.println(F("════════════════════════════════════════════════"));
     Serial.println();
@@ -373,37 +373,65 @@ void loop() {
 
 #ifdef AB7_BUILD
     // --- Button handling (ab7 only) -----------------------------------------
+    //
+    // Button A: add a range point to the currently selected ori.
+    // Button B: cycle to the next ori (LED shows its color).
+    //
+    // Workflow: create oris via OSC, then use the buttons on-site to add
+    // range samples without needing a computer.
 
-    // Button A (GPIO 0): Save current orientation as a new ori.
+    OriTracker& ot = ori_tracker();
+
+    // Button A (GPIO 0): Add range point to selected ori.
     if (digitalRead(BTN_A) == LOW && millis() - btn_a_last > BTN_DEBOUNCE_MS) {
         btn_a_last = millis();
-        int idx = ori_tracker().save_auto(cur_qi, cur_qj, cur_qk, cur_qr);
-        if (idx >= 0) {
-            String n = ori_tracker().oris[idx].name;
-            Serial.println("[BTN_A] Saved ori: " + n);
-            status_reporter().info("ori", "Button saved ori '" + n + "'");
+        const SavedOri* sel = ot.selected_ori();
+        if (sel) {
+            int idx = ot.save(sel->name, cur_qi, cur_qj, cur_qk, cur_qr);
+            if (idx >= 0) {
+                Serial.println("[BTN_A] Added point to ori '" + sel->name
+                    + "' (samples: " + String(ot.oris[idx].sample_count) + ")");
+                status_reporter().info("ori", "Button added point to '" + sel->name + "'");
 
-            // Flash LED white briefly.
-            leds[0] = CRGB(80, 80, 80);
+                // Flash white briefly then return to the ori's color.
+                leds[0] = CRGB(80, 80, 80);
+                FastLED.show();
+                delay(100);
+                leds[0] = CRGB(sel->color_r / 4, sel->color_g / 4, sel->color_b / 4);
+                FastLED.show();
+            }
+        } else {
+            Serial.println(F("[BTN_A] No ori selected. Create oris via OSC, then press BTN_B to select."));
+            // Flash red to indicate error.
+            leds[0] = CRGB(80, 0, 0);
             FastLED.show();
             delay(100);
             leds[0] = CRGB(0, 40, 0);
             FastLED.show();
-        } else {
-            Serial.println(F("[BTN_A] Ori slots full!"));
         }
     }
 
-    // Button B (GPIO 14): Print active ori to serial.
+    // Button B (GPIO 14): Cycle to the next ori.
     if (digitalRead(BTN_B) == LOW && millis() - btn_b_last > BTN_DEBOUNCE_MS) {
         btn_b_last = millis();
-        OriTracker& ot = ori_tracker();
-        if (ot.active_ori_index >= 0) {
-            Serial.println("[BTN_B] Active ori: " + ot.active_ori_name);
+        int idx = ot.select_next();
+        if (idx >= 0) {
+            const SavedOri& o = ot.oris[idx];
+            Serial.println("[BTN_B] Selected ori: " + o.name
+                + " (" + String(o.sample_count) + " samples)"
+                + " color=(" + String(o.color_r) + "," + String(o.color_g) + "," + String(o.color_b) + ")");
+            // Show the ori's color on the LED (dimmed to 1/4 brightness).
+            leds[0] = CRGB(o.color_r / 4, o.color_g / 4, o.color_b / 4);
+            FastLED.show();
         } else {
-            Serial.println(F("[BTN_B] No active ori (none saved or moving too fast)."));
+            Serial.println(F("[BTN_B] No oris saved. Create oris via OSC first."));
+            // Flash red to indicate no oris.
+            leds[0] = CRGB(80, 0, 0);
+            FastLED.show();
+            delay(100);
+            leds[0] = CRGB(0, 40, 0);
+            FastLED.show();
         }
-        Serial.println("[BTN_B] Saved oris: " + ot.list());
     }
 #endif // AB7_BUILD
 }
