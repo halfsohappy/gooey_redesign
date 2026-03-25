@@ -772,13 +772,31 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         // /ori/threshold  (set motion gate threshold in rad/s)
+        //   Accepts int ('i'), float ('f'), or quoted string ('s') argument.
+        //   Handles both comma-prefixed (",f") and bare ("f") typetag formats.
         if (ori_rest == "/threshold" || ori_rest.startsWith("/threshold")) {
             const char* typetags = osc_msg.getTypeTags();
-            if (typetags && typetags[0] == 'f') {
-                ot.motion_threshold = osc_msg.nextAsFloat();
-            } else if (typetags && typetags[0] == 's') {
-                ot.motion_threshold = String(osc_msg.nextAsString()).toFloat();
+            bool have_val = false;
+            float new_threshold = 0.0f;
+            if (typetags && typetags[0] == ',' && (typetags[1] == 'i' || typetags[1] == 'f')) {
+                new_threshold = osc_msg.nextAsFloat();
+                have_val = true;
+            } else if (typetags && (typetags[0] == 'f' || typetags[0] == 'i')) {
+                new_threshold = osc_msg.nextAsFloat();
+                have_val = true;
             }
+            if (!have_val) {
+                const char* raw = osc_msg.nextAsString();
+                if (raw) {
+                    String ts = String(raw);
+                    ts.trim();
+                    if (ts.length() > 0) {
+                        new_threshold = ts.toFloat();
+                        have_val = true;
+                    }
+                }
+            }
+            if (have_val) ot.motion_threshold = new_threshold;
             status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
             osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
                       "threshold: " + String(ot.motion_threshold, 2));
