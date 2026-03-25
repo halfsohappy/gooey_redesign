@@ -569,8 +569,9 @@ Hold the device in the desired position and send:
 /annieData/{dev}/ori/save/spotlight
 ```
 
-Or press **Button A** on the ab7 board to save with an auto-generated name
-(`ori_0`, `ori_1`, ...).
+Each new ori is automatically assigned a color from a 12-color palette.
+The color is shown on the device's status LED when that ori is selected
+(see [On-device button workflow](#on-device-button-workflow) below).
 
 ### Point oris vs range oris
 
@@ -708,6 +709,47 @@ Or as a one-liner with `direct`:
 "ternori:spotlight, ip:192.168.1.50, port:9000, adr:/light/1, low:0, high:255, period:50"
 ```
 
+### Ori colors
+
+Each ori is automatically assigned an RGB color from a 12-color palette when
+first created.  Colors help identify oris visually on-device (via the status
+LED) and can be customized:
+
+```
+# Set the color of "spotlight" to red (r,g,b values 0–255)
+/annieData/{dev}/ori/color/spotlight   "255,0,0"
+
+# Set to a dim blue
+/annieData/{dev}/ori/color/spotlight   "0,0,64"
+```
+
+### On-device button workflow
+
+The ab7 board has two buttons and a status LED for hands-free ori editing:
+
+| Button | Action |
+|--------|--------|
+| **Button B** | Cycle to the next ori.  The status LED shows that ori's color (dimmed). |
+| **Button A** | Add a range sample point to the currently selected ori.  LED flashes white, then returns to the ori's color. |
+
+You can also select an ori remotely:
+
+```
+/annieData/{dev}/ori/select/spotlight
+```
+
+**Typical on-device workflow:**
+
+1. Create oris via OSC from your laptop: `/ori/save/light1`, `/ori/save/light2`, etc.
+2. Press **Button B** to cycle to the ori you want to refine — the LED color
+   tells you which one is selected.
+3. Point the device at the desired direction and press **Button A** to add a
+   range sample.  Repeat to expand the range.
+4. Press **Button B** again to move to the next ori and repeat.
+
+> **Tip:** If no oris exist, both buttons flash red briefly to indicate there
+> is nothing to select.  Create oris via OSC first.
+
 ### Ori command reference
 
 | Address | Payload | What it does |
@@ -723,6 +765,8 @@ Or as a one-liner with `direct`:
 | `/annieData/{dev}/ori/threshold` | float (rad/s) | Set the motion gate gyro threshold. |
 | `/annieData/{dev}/ori/tolerance` | float (degrees) | Set angular match tolerance for range oris. |
 | `/annieData/{dev}/ori/strict` | `"on"` / `"off"` | Toggle strict matching (no-match allowed). |
+| `/annieData/{dev}/ori/color/{name}` | `"r,g,b"` (0–255) | Set the RGB color of a named ori. |
+| `/annieData/{dev}/ori/select/{name}` | *(none)* | Select an ori for on-device editing (Button A). |
 
 ### Notes
 
