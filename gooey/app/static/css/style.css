@@ -775,11 +775,59 @@ select {
 .card-star.starred { color: var(--warning); }
 
 /* ── Ori Section ── */
-.ori-section { display: none; }
-.ori-enabled .ori-section { display: block; }
-.ori-enabled .ori-section.form-row { display: flex; }
-.ori-enabled th.ori-section,
-.ori-enabled td.ori-section { display: table-cell; }
+/* Shown by default; toggled via oriMode checkbox which adds .ori-hidden */
+.ori-section.form-row { display: flex; }
+th.ori-section, td.ori-section { display: table-cell; }
+.ori-hidden .ori-section { display: none; }
+.ori-hidden .ori-section.form-row { display: none; }
+.ori-hidden th.ori-section,
+.ori-hidden td.ori-section { display: none; }
+
+/* Ori color swatches */
+.ori-color-swatch {
+  width: 36px; height: 36px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  display: inline-block;
+}
+.ori-color-dot {
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+}
+
+/* Ori type badges */
+.ori-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.ori-badge-point { background: #e8f0fe; color: var(--accent); }
+.ori-badge-range { background: #e6f9e6; color: var(--success); }
+.ori-badge-active { background: #fef3cd; color: #856404; }
+
+/* Ori details card */
+.ori-detail-row {
+  display: flex; gap: 12px;
+  padding: 4px 0; font-size: 13px;
+}
+.ori-detail-label {
+  font-weight: 500;
+  color: var(--text-medium);
+  min-width: 90px;
+}
+
+/* Color picker */
+input[type="color"] {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  background: var(--bg-input);
+  padding: 2px;
+}
 
 /* ── Responsive ── */
 @media (max-width: 900px) {

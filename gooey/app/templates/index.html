@@ -117,6 +117,7 @@
         <button class="nav-btn active" data-section="dashboard" title="Device controls, queries, and status config">Dashboard</button>
         <button class="nav-btn" data-section="messages" title="View, create, and edit OSC messages">Messages</button>
         <button class="nav-btn" data-section="patches" title="Manage patch groups and their messages">Patches</button>
+        <button class="nav-btn" data-section="ori" title="Orientation tracking and ori conditions">Ori</button>
         <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + patch and starts streaming">Direct</button>
         <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
       </nav>
@@ -185,34 +186,9 @@
               <label class="cb-label"><input type="checkbox" id="debugMode"> Enable debug mode (confirm before sending)</label>
             </div>
             <div class="cb-row">
-              <label class="cb-label"><input type="checkbox" id="oriMode"> Enable Ori mode (show orientation controls)</label>
+              <label class="cb-label"><input type="checkbox" id="oriMode" checked> Show Ori columns in Messages table</label>
             </div>
-            <p class="hint-text">When enabled, a confirmation popup will appear before any OSC message is sent, showing the exact address and payload.</p>
-          </div>
-          <div class="card ori-section" data-card-id="ori-control">
-            <h2>Orientation Control</h2>
-            <p class="hint-text">Manage saved orientations (oris). Enable "Ori Mode" in settings to show this panel.</p>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="oriName">Ori Name</label>
-                <input type="text" id="oriName" placeholder="e.g. light1">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="oriThreshold">Threshold (rad/s)</label>
-                <input type="number" id="oriThreshold" value="1.5" step="0.1" min="0">
-              </div>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnOriSave" title="Save current orientation">Save Ori</button>
-              <button class="btn btn-secondary" id="btnOriSaveAuto" title="Save with auto-generated name">Save Auto</button>
-              <button class="btn btn-secondary" id="btnOriList" title="List all saved oris">List Oris</button>
-              <button class="btn btn-secondary" id="btnOriActive" title="Query active ori">Active Ori</button>
-              <button class="btn btn-stop" id="btnOriDelete" title="Delete named ori">Delete Ori</button>
-              <button class="btn btn-stop" id="btnOriClear" title="Clear all oris">Clear All</button>
-            </div>
-            <div class="btn-row" style="margin-top:6px">
-              <button class="btn btn-secondary" id="btnOriThreshold" title="Set motion gate threshold">Set Threshold</button>
-            </div>
+            <p class="hint-text">When debug mode is enabled, a confirmation popup will appear before any OSC message is sent, showing the exact address and payload.</p>
           </div>
         </section>
 
@@ -302,12 +278,16 @@
             </div>
             <div class="form-row ori-section">
               <div class="form-group">
-                <label for="msgOriOnly">Ori Only <span class="hint">(send only when this ori is active)</span></label>
-                <input type="text" id="msgOriOnly" placeholder="e.g. light1">
+                <label for="msgOriOnly">Ori Only <span class="hint">(send only when active)</span></label>
+                <input type="text" id="msgOriOnly" placeholder="e.g. light1" list="oriNameList">
               </div>
               <div class="form-group">
-                <label for="msgOriNot">Ori Not <span class="hint">(send only when this ori is NOT active)</span></label>
-                <input type="text" id="msgOriNot" placeholder="e.g. light2">
+                <label for="msgOriNot">Ori Not <span class="hint">(send only when NOT active)</span></label>
+                <input type="text" id="msgOriNot" placeholder="e.g. light2" list="oriNameList">
+              </div>
+              <div class="form-group">
+                <label for="msgTernori">Ternori <span class="hint">(high when active, low when not)</span></label>
+                <input type="text" id="msgTernori" placeholder="e.g. spotlight" list="oriNameList">
               </div>
             </div>
             <div class="form-group">
@@ -490,6 +470,121 @@
             </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="btnPatchSetAll" title="Apply this config to all messages in the patch">Apply setAll</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== ORI ===== -->
+        <section class="section" id="sec-ori">
+          <div class="card" data-card-id="ori-list">
+            <h2>Saved Orientations</h2>
+            <p class="hint-text">Oris saved on the device. Click "List Oris" to refresh.</p>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="oriTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Samples</th>
+                    <th>Color</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="oriTableBody">
+                  <tr><td colspan="6" class="empty-state">No oris tracked. Query the device or save one below.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="ori-details" id="oriDetailsCard" style="display:none">
+            <h2>Ori Details</h2>
+            <div id="oriDetailsContent"></div>
+          </div>
+
+          <div class="card" data-card-id="ori-save">
+            <h2>Save Orientation</h2>
+            <p class="hint-text">Save the device's current orientation. Re-saving an existing name expands it to a range ori.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="oriName">Ori Name</label>
+                <input type="text" id="oriName" placeholder="e.g. light1" list="oriNameList">
+                <datalist id="oriNameList"></datalist>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="btnOriSave" title="Save current orientation">Save Ori</button>
+              <button class="btn btn-secondary" id="btnOriSaveAuto" title="Save with auto-generated name">Save Auto</button>
+              <button class="btn btn-stop" id="btnOriDelete" title="Delete named ori">Delete Ori</button>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="ori-settings">
+            <h2>Ori Settings</h2>
+            <div class="form-row">
+              <div class="form-group fg-narrow">
+                <label for="oriThreshold">Threshold (rad/s)</label>
+                <input type="number" id="oriThreshold" value="1.5" step="0.1" min="0">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="oriTolerance">Tolerance (deg)</label>
+                <input type="number" id="oriTolerance" value="10" step="1" min="0">
+              </div>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label"><input type="checkbox" id="oriStrict"> Strict matching (no fallback when no ori matches)</label>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-secondary" id="btnOriThreshold" title="Set motion gate threshold">Set Threshold</button>
+              <button class="btn btn-secondary" id="btnOriTolerance" title="Set angular match tolerance">Set Tolerance</button>
+              <button class="btn btn-secondary" id="btnOriStrict" title="Apply strict matching setting">Apply Strict</button>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="ori-color">
+            <h2>Ori Color &amp; Select</h2>
+            <p class="hint-text">Set the LED color for an ori (used for on-device button editing).</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="oriColorName">Ori Name</label>
+                <input type="text" id="oriColorName" placeholder="ori name" list="oriNameList">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="oriColorR">R</label>
+                <input type="number" id="oriColorR" value="255" min="0" max="255">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="oriColorG">G</label>
+                <input type="number" id="oriColorG" value="255" min="0" max="255">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="oriColorB">B</label>
+                <input type="number" id="oriColorB" value="255" min="0" max="255">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group fg-narrow">
+                <label for="oriColorPicker">Pick</label>
+                <input type="color" id="oriColorPicker" value="#ffffff" style="height:36px;width:60px">
+              </div>
+              <div class="form-group fg-narrow">
+                <label>Preview</label>
+                <div class="ori-color-swatch" id="oriColorPreview" style="background:#ffffff"></div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="btnOriColor" title="Set LED color for this ori">Set Color</button>
+              <button class="btn btn-secondary" id="btnOriSelect" title="Select this ori for on-device button editing">Select for Buttons</button>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="ori-actions">
+            <h2>Ori Actions</h2>
+            <div class="btn-row">
+              <button class="btn btn-secondary" id="btnOriList" title="Query device for all saved oris">List Oris</button>
+              <button class="btn btn-secondary" id="btnOriActive" title="Query which ori is currently active">Active Ori</button>
+              <button class="btn btn-stop" id="btnOriClear" title="Clear all oris from device">Clear All</button>
             </div>
           </div>
         </section>

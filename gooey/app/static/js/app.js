@@ -83,7 +83,7 @@
   function addDevice(host, port, name) {
     var id = generateDeviceId(host, port, name);
     if (!devices[id]) {
-      devices[id] = { host: host, port: parseInt(port, 10), name: name, messages: {}, patches: {} };
+      devices[id] = { host: host, port: parseInt(port, 10), name: name, messages: {}, patches: {}, oris: {} };
     }
     activeDeviceId = id;
     renderDeviceTabs();
@@ -100,6 +100,7 @@
     renderDeviceTabs();
     renderMsgTable();
     renderPatchTable();
+    renderOriTable();
     refreshAllDropdowns();
   }
 
@@ -133,6 +134,7 @@
         renderDeviceTabs();
         renderMsgTable();
         renderPatchTable();
+        renderOriTable();
         refreshAllDropdowns();
         refreshQueryDeviceSelect();
         /* Show per-device dropdown menu */
@@ -194,6 +196,7 @@
       addDevice(resolvedHost, parseInt(port, 10), name.trim());
       renderMsgTable();
       renderPatchTable();
+      renderOriTable();
       toast("Device updated: " + name.trim(), "success");
     });
   }
@@ -210,6 +213,7 @@
       addDevice(resolvedHost, parseInt(port, 10), name.trim());
       renderMsgTable();
       renderPatchTable();
+      renderOriTable();
       toast("Device added: " + name.trim(), "success");
     });
   });
@@ -445,8 +449,22 @@
           if (/^patches\s*\(\d+\):/i.test(trimmed))  { curBlock = "patch"; return; }
           var n = trimmed.split(/\s+/)[0];
           if (!n) return;
-          if (curBlock === "msg"   && !dev.messages[n]) dev.messages[n] = {};
-          if (curBlock === "patch" && !dev.patches[n])  dev.patches[n]  = {};
+          if (curBlock === "msg") {
+            var mParams = parseConfigString(trimmed);
+            // Normalize firmware's 'val:' key to 'value' for UI compatibility.
+            if (mParams.val !== undefined && mParams.value === undefined) mParams.value = mParams.val;
+            // Extract enabled state from [ON]/[OFF] status block.
+            if (/\[ON\]/i.test(trimmed))  mParams.enabled = "true";
+            if (/\[OFF\]/i.test(trimmed)) mParams.enabled = "false";
+            dev.messages[n] = Object.assign(dev.messages[n] || {}, mParams);
+          }
+          if (curBlock === "patch") {
+            var pParams = parseConfigString(trimmed);
+            // Extract send period from "[RUNNING, 50ms, …]" or "[STOPPED, 50ms, …]".
+            var periodM = trimmed.match(/\[(?:RUNNING|STOPPED),\s*(\d+)ms/i);
+            if (periodM) pParams.period = periodM[1];
+            dev.patches[n] = Object.assign(dev.patches[n] || {}, pParams);
+          }
         });
       }
       renderMsgTable();
@@ -477,13 +495,79 @@
       return;
     }
 
+    /* ── Parse ori list reply ──
+       Address contains /ori/list.  Payload format:
+       "light1, spot [R3] (*), light2"  or  "(none)" */
+    if (/\/ori\/list/i.test(listAddr)) {
+      dev.oris = {};
+      if (text !== "(none)") {
+        var oriParts = text.split(/,\s*/);
+        oriParts.forEach(function (part) {
+          part = part.trim();
+          if (!part) return;
+          var om = part.match(/^(\S+)\s*(?:\[R(\d+)\])?\s*(\(\*\))?/);
+          if (om) {
+            var oName = om[1];
+            var samples = om[2] ? parseInt(om[2], 10) : 1;
+            dev.oris[oName] = {
+              name: oName,
+              type: samples >= 2 ? "range" : "point",
+              samples: samples,
+              color: null,
+              active: !!om[3]
+            };
+          }
+        });
+      }
+      renderOriTable();
+      refreshAllDropdowns();
+      return;
+    }
+
+    /* ── Parse ori info reply ──
+       Address contains /ori/info.  Payload format:
+       "name: samples=N center=[x, y, z] half_w=[x, y, z]"  or
+       "name: samples=1 point q=(qi,qj,qk,qr) euler=[x, y, z]" */
+    if (/\/ori\/info/i.test(listAddr)) {
+      showOriDetails(text);
+      return;
+    }
+
+    /* ── Parse ori active reply ──
+       Address contains /ori/active. Payload: ori name or "(none)" */
+    if (/\/ori\/active/i.test(listAddr)) {
+      Object.keys(dev.oris).forEach(function (k) { dev.oris[k].active = false; });
+      if (text !== "(none)" && dev.oris[text]) {
+        dev.oris[text].active = true;
+      }
+      renderOriTable();
+      toast("Active ori: " + text, "info");
+      return;
+    }
+
+    /* ── Parse ori color reply ──
+       "name: r,g,b" */
+    if (/\/ori\/color/i.test(listAddr)) {
+      var colorMatch = text.match(/^(\S+):\s*(\d+),(\d+),(\d+)/);
+      if (colorMatch && dev.oris[colorMatch[1]]) {
+        dev.oris[colorMatch[1]].color = [
+          parseInt(colorMatch[2], 10),
+          parseInt(colorMatch[3], 10),
+          parseInt(colorMatch[4], 10)
+        ];
+        renderOriTable();
+      }
+      return;
+    }
+
     /* ── Parse verbose list lines (key:val pairs with a leading name) ── */
     var verboseMatch = text.match(/^\[(?:INFO|DEBUG)\]\s+(\S+)\s*[:=]\s*(.*)/i);
     if (verboseMatch) {
       var vName = verboseMatch[1];
       var vRest = verboseMatch[2];
-      if (vRest.indexOf("value:") !== -1 || vRest.indexOf("ip:") !== -1 || vRest.indexOf("adr:") !== -1) {
+      if (vRest.indexOf("value:") !== -1 || vRest.indexOf("val:") !== -1 || vRest.indexOf("ip:") !== -1 || vRest.indexOf("adr:") !== -1) {
         var vParams = parseConfigString(vRest);
+        if (vParams.val !== undefined && vParams.value === undefined) vParams.value = vParams.val;
         dev.messages[vName] = Object.assign(dev.messages[vName] || {}, vParams);
         renderMsgTable();
         refreshAllDropdowns();
@@ -526,11 +610,12 @@
       var oriStr = "";
       if (m.ori_only || m.orionly) oriStr = "only:" + (m.ori_only || m.orionly);
       else if (m.ori_not || m.orinot) oriStr = "not:" + (m.ori_not || m.orinot);
+      else if (m.ternori) oriStr = "tern:" + m.ternori;
       var tr = document.createElement("tr");
       tr.dataset.msgName = name;
       tr.innerHTML =
         '<td class="cell-name">' + esc(name) + '</td>' +
-        '<td class="cell-mono">' + esc(m.value || "") + '</td>' +
+        '<td class="cell-mono">' + esc(m.value || m.val || "") + '</td>' +
         '<td class="cell-mono">' + esc(m.ip || "") + '</td>' +
         '<td class="cell-mono">' + esc(m.port || "") + '</td>' +
         '<td class="cell-mono">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
@@ -562,7 +647,7 @@
 
   function populateMsgForm(name, m) {
     $("#msgName").value = name;
-    $("#msgValue").value = m.value || "";
+    $("#msgValue").value = m.value || m.val || "";
     $("#msgIP").value = m.ip || "";
     $("#msgPort").value = m.port || "9000";
     $("#msgAdr").value = m.adr || m.addr || m.address || "";
@@ -571,6 +656,7 @@
     $("#msgPatch").value = m.patch || "";
     $("#msgOriOnly").value = m.ori_only || m.orionly || "";
     $("#msgOriNot").value = m.ori_not || m.orinot || "";
+    $("#msgTernori").value = m.ternori || "";
     updateMsgPreview();
     /* scroll to form — switch to messages tab */
     $(".nav-btn[data-section='messages']").click();
@@ -676,6 +762,127 @@
   }
 
   /* ═══════════════════════════════════════════
+     ORI TABLE
+     ═══════════════════════════════════════════ */
+
+  function renderOriTable() {
+    var dev = getActiveDev();
+    var tbody = $("#oriTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!dev || Object.keys(dev.oris).length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No oris tracked. Query the device or save one below.</td></tr>';
+      return;
+    }
+    Object.keys(dev.oris).forEach(function (name) {
+      var o = dev.oris[name];
+      var typeBadge = o.type === "range"
+        ? '<span class="ori-badge ori-badge-range">Range [R' + o.samples + ']</span>'
+        : '<span class="ori-badge ori-badge-point">Point</span>';
+      var colorHtml = "—";
+      if (o.color) {
+        var rgb = "rgb(" + o.color[0] + "," + o.color[1] + "," + o.color[2] + ")";
+        colorHtml = '<span class="ori-color-dot" style="background:' + rgb + '" title="' + o.color.join(",") + '"></span>';
+      }
+      var activeHtml = o.active ? '<span class="ori-badge ori-badge-active">Active</span>' : "—";
+      var tr = document.createElement("tr");
+      tr.dataset.oriName = name;
+      tr.innerHTML =
+        '<td class="cell-name">' + esc(name) + '</td>' +
+        '<td>' + typeBadge + '</td>' +
+        '<td class="cell-mono">' + o.samples + '</td>' +
+        '<td>' + colorHtml + '</td>' +
+        '<td>' + activeHtml + '</td>' +
+        '<td class="cell-actions">' +
+          '<button class="tbl-btn" data-act="info" title="Show details">ℹ️</button>' +
+          '<button class="tbl-btn" data-act="reset" title="Reset range to point">↺</button>' +
+          '<button class="tbl-btn" data-act="select" title="Select for button editing">🎯</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori">🗑</button>' +
+        '</td>';
+      tr.querySelector(".cell-name").addEventListener("click", function () {
+        /* Populate color form with this ori's name */
+        var colorNameEl = $("#oriColorName");
+        if (colorNameEl) colorNameEl.value = name;
+        var oriNameEl = $("#oriName");
+        if (oriNameEl) oriNameEl.value = name;
+        if (o.color) {
+          $("#oriColorR").value = o.color[0];
+          $("#oriColorG").value = o.color[1];
+          $("#oriColorB").value = o.color[2];
+          updateOriColorPreview();
+        }
+      });
+      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          oriAction(btn.dataset.act, name);
+        });
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function oriAction(act, name) {
+    switch (act) {
+      case "info":
+        sendCmd(addr("/annieData/{device}/ori/info/" + name), null);
+        break;
+      case "reset":
+        sendCmd(addr("/annieData/{device}/ori/reset/" + name), null).then(function (res) {
+          if (res.status === "ok") {
+            toast("Reset: " + name, "success");
+            if (getActiveDev() && getActiveDev().oris[name]) {
+              getActiveDev().oris[name].type = "point";
+              getActiveDev().oris[name].samples = 1;
+              renderOriTable();
+            }
+          }
+        });
+        break;
+      case "select":
+        sendCmd(addr("/annieData/{device}/ori/select/" + name), null).then(function (res) {
+          if (res.status === "ok") toast("Selected: " + name, "success");
+        });
+        break;
+      case "delete":
+        sendCmd(addr("/annieData/{device}/ori/delete/" + name), null).then(function (res) {
+          if (res.status === "ok") {
+            toast("Deleted: " + name, "success");
+            var dev = getActiveDev();
+            if (dev) { delete dev.oris[name]; renderOriTable(); refreshAllDropdowns(); }
+          }
+        });
+        break;
+    }
+  }
+
+  function showOriDetails(text) {
+    var card = $("#oriDetailsCard");
+    var content = $("#oriDetailsContent");
+    if (!card || !content) return;
+    card.style.display = "block";
+    /* Parse: "name: samples=N center=[...] half_w=[...] (ACTIVE)" or
+       "name: samples=1 point q=(...) euler=[...]" */
+    var html = "";
+    var nm = text.match(/^(\S+):/);
+    if (nm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Name</span><span>' + esc(nm[1]) + '</span></div>';
+    var sm = text.match(/samples=(\d+)/);
+    if (sm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Samples</span><span>' + esc(sm[1]) + '</span></div>';
+    var cm = text.match(/center=\[([^\]]+)\]/);
+    if (cm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Center</span><span class="cell-mono">[' + esc(cm[1]) + ']</span></div>';
+    var hw = text.match(/half_w=\[([^\]]+)\]/);
+    if (hw) html += '<div class="ori-detail-row"><span class="ori-detail-label">Half Width</span><span class="cell-mono">[' + esc(hw[1]) + ']</span></div>';
+    var qm = text.match(/q=\(([^)]+)\)/);
+    if (qm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Quaternion</span><span class="cell-mono">(' + esc(qm[1]) + ')</span></div>';
+    var em = text.match(/euler=\[([^\]]+)\]/);
+    if (em) html += '<div class="ori-detail-row"><span class="ori-detail-label">Euler</span><span class="cell-mono">[' + esc(em[1]) + ']</span></div>';
+    if (/\(ACTIVE\)/i.test(text)) html += '<div class="ori-detail-row"><span class="ori-detail-label">Status</span><span class="ori-badge ori-badge-active">Active</span></div>';
+    if (!html) html = '<p class="cell-mono">' + esc(text) + '</p>';
+    content.innerHTML = html;
+    /* Switch to ori tab */
+    $(".nav-btn[data-section='ori']").click();
+  }
+
+  /* ═══════════════════════════════════════════
      DROPDOWN / DATALIST REFRESH
      ═══════════════════════════════════════════ */
 
@@ -708,6 +915,18 @@
         dl.appendChild(o);
       });
     });
+
+    /* Ori name datalist */
+    var oriNames = Object.keys(dev.oris || {});
+    var oriDl = $("#oriNameList");
+    if (oriDl) {
+      oriDl.innerHTML = "";
+      oriNames.forEach(function (n) {
+        var o = document.createElement("option");
+        o.value = n;
+        oriDl.appendChild(o);
+      });
+    }
   }
 
   /* ═══════════════════════════════════════════
@@ -867,10 +1086,11 @@
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
     var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
     var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
+    var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + tn);
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot"].forEach(function (id) {
+  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -890,6 +1110,7 @@
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
     var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
     var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
+    var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + tn);
     var cfg = parts.join(", ");
     var address = addr("/annieData/{device}/msg/{name}", name);
     sendCmd(address, cfg || null).then(function (res) {
@@ -908,7 +1129,7 @@
 
   /* Clear form */
   $("#btnMsgClear").addEventListener("click", function () {
-    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot"].forEach(function (id) {
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";
@@ -1366,6 +1587,7 @@
         });
         renderMsgTable();
         renderPatchTable();
+        renderOriTable();
         toast("Loaded " + list.length + " device(s)", "success");
       } catch (_) { toast("Invalid device file", "error"); }
     };
@@ -1809,14 +2031,14 @@
      ORI CONTROLS
      ═══════════════════════════════════════════ */
 
-  /* Ori mode toggle */
+  /* Ori mode toggle — controls ori column/field visibility in Messages */
   var oriModeEl = $("#oriMode");
   if (oriModeEl) {
     oriModeEl.addEventListener("change", function () {
       if (oriModeEl.checked) {
-        document.body.classList.add("ori-enabled");
+        document.body.classList.remove("ori-hidden");
       } else {
-        document.body.classList.remove("ori-enabled");
+        document.body.classList.add("ori-hidden");
       }
     });
   }
@@ -1844,12 +2066,51 @@
     },
     btnOriClear: function () {
       if (!window.confirm("Clear all saved orientations?")) return;
-      sendCmd(addr("/annieData/{device}/ori/clear"), null);
+      sendCmd(addr("/annieData/{device}/ori/clear"), null).then(function (res) {
+        if (res.status === "ok") {
+          var dev = getActiveDev();
+          if (dev) { dev.oris = {}; renderOriTable(); refreshAllDropdowns(); }
+          toast("All oris cleared", "success");
+        }
+      });
     },
     btnOriThreshold: function () {
       var val = ($("#oriThreshold").value || "").trim();
       if (!val) { toast("Threshold value required", "error"); return; }
-      sendCmd(addr("/annieData/{device}/ori/threshold"), val);
+      sendCmd(addr("/annieData/{device}/ori/threshold"), '"' + val + '"');
+    },
+    btnOriTolerance: function () {
+      var val = ($("#oriTolerance").value || "").trim();
+      if (!val) { toast("Tolerance value required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/tolerance"), '"' + val + '"');
+    },
+    btnOriStrict: function () {
+      var checked = $("#oriStrict").checked;
+      sendCmd(addr("/annieData/{device}/ori/strict"), checked ? "on" : "off");
+    },
+    btnOriColor: function () {
+      var name = ($("#oriColorName").value || "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      var r = parseInt($("#oriColorR").value || "0", 10);
+      var g = parseInt($("#oriColorG").value || "0", 10);
+      var b = parseInt($("#oriColorB").value || "0", 10);
+      sendCmd(addr("/annieData/{device}/ori/color/" + name), '"' + r + "," + g + "," + b + '"').then(function (res) {
+        if (res.status === "ok") {
+          toast("Color set: " + name, "success");
+          var dev = getActiveDev();
+          if (dev && dev.oris[name]) {
+            dev.oris[name].color = [r, g, b];
+            renderOriTable();
+          }
+        }
+      });
+    },
+    btnOriSelect: function () {
+      var name = ($("#oriColorName").value || "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/select/" + name), null).then(function (res) {
+        if (res.status === "ok") toast("Selected for buttons: " + name, "success");
+      });
     }
   };
 
@@ -1860,6 +2121,38 @@
         oriButtons[id]();
       });
     }
+  });
+
+  /* ── Ori color picker sync ── */
+  function updateOriColorPreview() {
+    var r = parseInt($("#oriColorR").value || "0", 10);
+    var g = parseInt($("#oriColorG").value || "0", 10);
+    var b = parseInt($("#oriColorB").value || "0", 10);
+    var hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    var picker = $("#oriColorPicker");
+    if (picker) picker.value = hex;
+    var preview = $("#oriColorPreview");
+    if (preview) preview.style.background = hex;
+  }
+
+  var colorPicker = $("#oriColorPicker");
+  if (colorPicker) {
+    colorPicker.addEventListener("input", function () {
+      var hex = colorPicker.value;
+      var r = parseInt(hex.substr(1, 2), 16);
+      var g = parseInt(hex.substr(3, 2), 16);
+      var b = parseInt(hex.substr(5, 2), 16);
+      $("#oriColorR").value = r;
+      $("#oriColorG").value = g;
+      $("#oriColorB").value = b;
+      var preview = $("#oriColorPreview");
+      if (preview) preview.style.background = hex;
+    });
+  }
+
+  ["oriColorR", "oriColorG", "oriColorB"].forEach(function (id) {
+    var el = $("#" + id);
+    if (el) el.addEventListener("input", updateOriColorPreview);
   });
 
 })();
