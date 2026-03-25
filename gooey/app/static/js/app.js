@@ -328,6 +328,26 @@
     closeDevDropdown();
   });
 
+  $("#devDdDedupOn").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/dedup", "on").then(function (res) {
+      if (res.status === "ok") toast("Dedup on: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  $("#devDdDedupOff").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/dedup", "off").then(function (res) {
+      if (res.status === "ok") toast("Dedup off: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
   $("#devDdEdit").addEventListener("click", function () {
     var id = _dropdownDeviceId;
     closeDevDropdown();
@@ -372,6 +392,7 @@
   var CMD_ADDRESSES = {
     blackout:       "/annieData/{device}/blackout",
     restore:        "/annieData/{device}/restore",
+    dedup:          "/annieData/{device}/dedup",
     save:           "/annieData/{device}/save",
     load:           "/annieData/{device}/load",
     nvs_clear:      "/annieData/{device}/nvs/clear",
