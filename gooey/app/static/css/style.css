@@ -786,7 +786,6 @@ select {
   .app-layout { flex-direction: column; }
   .panel-left { width: 100%; max-width: none; min-width: auto; border-right: none; border-bottom: 1px solid var(--border); max-height: 55vh; }
   .panel-right { min-width: auto; max-height: 45vh; }
-  .main-header { margin-top: 3vh; }
   .hdr-row { flex-wrap: wrap; min-height: auto; }
   .hdr-box-query { min-width: auto; flex: 1 1 100%; }
   .hdr-devices { flex: 1 1 100%; border-top: 1px solid rgba(0,0,0,0.08); }
@@ -796,7 +795,6 @@ select {
   .nav-btn { padding: 8px 8px; font-size: 9px; }
   .form-row { flex-direction: column; gap: 0; }
   .fg-narrow { flex: 1; }
-  .main-header { margin-top: 0; }
 }
 
 /* ═══════════════════════════════════════════
@@ -812,7 +810,6 @@ select {
   position: relative;
   z-index: 20;
   overflow: visible;
-  margin-top: 8vh;
 }
 
 /* Each header row is a horizontal flex strip */
