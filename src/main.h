@@ -5,9 +5,9 @@
 // This header is included only from main.cpp and pulls in every module in
 // the correct dependency order.
 //
-// Build with -DAB7_BUILD to target the ab7 board (BNO085 IMU,
+// Build with -DAB7_BUILD to target the ab7 board (BNO085 IMU via SlimeIMU,
 // SK6812 LED, two buttons, orientation tracker).  Without this flag the
-// build targets the Bart board (BMP5xx, ISM330DHCX, MMC5983MA).
+// build targets the Bart board (BMP5xx, LSM6DSV16XTR via SlimeIMU).
 // =============================================================================
 
 #ifndef _MAIN_H_
