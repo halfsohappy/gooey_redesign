@@ -300,6 +300,7 @@ If a section is empty, the device replies with `none` for that section
 |---------|--------------|
 | `/annieData/{dev}/blackout` | Stop all patches immediately. |
 | `/annieData/{dev}/restore` | Restart all patches. |
+| `/annieData/{dev}/dedup` | Payload `"on"`/`"off"` — enable or disable duplicate-value suppression. No payload queries the current state. |
 
 ### Status Commands
 

@@ -645,6 +645,7 @@ When a section has no entries, it is returned as `none` (for example:
 |---------|-------------|
 | `/annieData{dev}/blackout` | Stop all patch tasks immediately. |
 | `/annieData{dev}/restore` | Restart all patches that have messages. |
+| `/annieData{dev}/dedup` | Payload `"on"`/`"off"` — enable or disable duplicate-value suppression. No payload queries the current state. |
 
 ### Status Commands
 
