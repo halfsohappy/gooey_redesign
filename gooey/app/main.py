@@ -1,8 +1,10 @@
 """Flask application with SocketIO for TheaterGWD Control Center."""
 
+import os
 import re
 import threading
 
+import markdown as md_lib
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 
@@ -662,6 +664,53 @@ THEATER_GWD_PRESETS = {
 @app.route("/api/presets/theater-gwd", methods=["GET"])
 def api_theater_gwd_presets():
     return jsonify({"status": "ok", "presets": THEATER_GWD_PRESETS})
+
+
+# ── Docs ──
+
+_DOCS_ROOT = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "docs")
+)
+
+_DOCS_GUIDES = {
+    "user-guide": ("user_guide.md", "User Guide"),
+    "technical-guide": ("technical_guide.md", "Technical Guide"),
+}
+
+_MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
+_MD_EXTENSION_CONFIGS = {
+    "toc": {"permalink": True, "toc_depth": "2-3"},
+}
+
+
+@app.route("/docs/")
+@app.route("/docs/<guide>")
+def docs(guide=None):
+    if guide is None:
+        guide = "user-guide"
+    if guide not in _DOCS_GUIDES:
+        return _error("Unknown guide", 404)
+    filename, title = _DOCS_GUIDES[guide]
+    path = os.path.join(_DOCS_ROOT, filename)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            raw = fh.read()
+    except OSError:
+        return _error("Guide not found", 404)
+    md = md_lib.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXTENSION_CONFIGS)
+    content_html = md.convert(raw)
+    toc_html = getattr(md, "toc", "")
+    other_guide = "technical-guide" if guide == "user-guide" else "user-guide"
+    other_title = _DOCS_GUIDES[other_guide][1]
+    return render_template(
+        "docs.html",
+        title=title,
+        content=content_html,
+        toc=toc_html,
+        guide=guide,
+        other_guide=other_guide,
+        other_title=other_title,
+    )
 
 
 def create_app():
