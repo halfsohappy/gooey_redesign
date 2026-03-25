@@ -153,17 +153,17 @@ body {
 .docs-layout {
   display: flex;
   flex: 1;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
-  padding: 32px 24px;
+  padding: 32px 16px;
   gap: 32px;
   align-items: flex-start;
 }
 
 /* ── TOC sidebar ── */
 .docs-toc {
-  width: 220px;
+  width: 260px;
   flex-shrink: 0;
   position: sticky;
   top: 96px;
@@ -192,16 +192,13 @@ body {
 .docs-toc .toc a {
   display: block;
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 300;
   color: var(--text-medium);
   text-decoration: none;
   padding: 4px 16px;
   border-left: 2px solid transparent;
   transition: color 0.12s, background 0.12s;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .docs-toc .toc a:hover    { color: var(--accent); background: var(--accent-dim); }
@@ -213,8 +210,8 @@ body {
 }
 
 .docs-toc .toc ul          { list-style: none; padding: 0; margin: 0; }
-.docs-toc .toc ul a        { padding-left: 28px; font-size: 11px; }
-.docs-toc .toc ul ul a     { padding-left: 42px; font-size: 10px; color: var(--text-light); }
+.docs-toc .toc ul a        { padding-left: 28px; font-size: 12px; }
+.docs-toc .toc ul ul a     { padding-left: 42px; font-size: 11px; color: var(--text-light); }
 
 /* ── Article ── */
 .docs-content { flex: 1; min-width: 0; }
