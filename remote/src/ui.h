@@ -277,11 +277,7 @@ static void _parse_list(const char* text) {
     _dyn_count = 0;
     // Find the ':' that precedes the list body
     const char* colon = strchr(text, ':');
-    if (!colon) {
-        // Try the whole string as comma-separated
-        colon = text - 1;
-    }
-    const char* p = colon + 1;
+    const char* p = colon ? colon + 1 : text;  // no colon → parse whole string
     while (*p && _dyn_count < MAX_MENU_ITEMS) {
         while (*p == ' ' || *p == '\n' || *p == '\r') p++;
         if (*p == 0) break;
@@ -463,14 +459,14 @@ static void _on_msg_form_select(int idx) {
         case 9: {
             // CREATE / UPDATE — compose config string and send
             if (!_mf.name[0]) { _show_reply("Name is required"); return; }
-            char cfg[256] = "";
+            char cfg[256];
+            int pos = 0;
             auto ap = [&](const char* k, const char* v) {
                 if (!v[0]) return;
-                if (cfg[0]) strncat(cfg, ", ", sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, k, sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, ":", sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, v, sizeof(cfg) - strlen(cfg) - 1);
+                if (pos > 0) pos += snprintf(cfg + pos, sizeof(cfg) - pos, ", ");
+                pos += snprintf(cfg + pos, sizeof(cfg) - pos, "%s:%s", k, v);
             };
+            cfg[0] = 0;
             ap("value", _mf.value);
             char ip_str[16];
             snprintf(ip_str, sizeof(ip_str), "%d.%d.%d.%d", _mf.ip[0], _mf.ip[1], _mf.ip[2], _mf.ip[3]);
@@ -620,14 +616,14 @@ static void _on_patch_form_select(int idx) {
         case 7: _start_pick("Address Mode", ADR_MODES, ADR_MODE_COUNT, _pf_adr_mode_cb); break;
         case 8: {
             if (!_pf.name[0]) { _show_reply("Name is required"); return; }
-            char cfg[256] = "";
+            char cfg[256];
+            int pos = 0;
             auto ap = [&](const char* k, const char* v) {
                 if (!v[0]) return;
-                if (cfg[0]) strncat(cfg, ", ", sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, k, sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, ":", sizeof(cfg) - strlen(cfg) - 1);
-                strncat(cfg, v, sizeof(cfg) - strlen(cfg) - 1);
+                if (pos > 0) pos += snprintf(cfg + pos, sizeof(cfg) - pos, ", ");
+                pos += snprintf(cfg + pos, sizeof(cfg) - pos, "%s:%s", k, v);
             };
+            cfg[0] = 0;
             char ip_str[16];
             snprintf(ip_str, sizeof(ip_str), "%d.%d.%d.%d", _pf.ip[0], _pf.ip[1], _pf.ip[2], _pf.ip[3]);
             ap("ip", ip_str);

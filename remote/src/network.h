@@ -83,7 +83,8 @@ static NetState net_state() { return _net_state; }
 static void net_connect() {
     if (!net_has_credentials()) { _net_state = NET_FAILED; return; }
     WiFi.mode(WIFI_STA);
-    WiFi.begin(net_ssid, net_pass);
+    wl_status_t rc = WiFi.begin(net_ssid, net_pass);
+    if (rc == WL_CONNECT_FAILED) { _net_state = NET_FAILED; return; }
     _net_state = NET_CONNECTING;
     _net_start = millis();
 }

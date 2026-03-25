@@ -141,9 +141,9 @@ static bool osc_poll(OscReply& reply) {
     char type = (pos + 1 < len) ? _osc_buf[pos + 1] : 0;
     int tag_end = pos;
     while (tag_end < len && _osc_buf[tag_end] != 0) tag_end++;
-    if (tag_end >= len) return true;   // malformed — no null terminator
+    if (tag_end >= len) return false;   // malformed — no null terminator
     pos = _osc_pad(tag_end + 1);
-    if (pos >= len) return true;       // no argument data follows
+    if (pos >= len) return false;       // no argument data follows
 
     // ── read argument ───────────────────────────────────────────────────
     if (type == 's' && pos < len) {
