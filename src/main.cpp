@@ -4,8 +4,8 @@
 //
 // BOOT SEQUENCE:
 //   1. Initialise serial, GPIO pins, sensors.
-//      - Bart: barometer (BMP5xx), IMU (ISM330DHCX), magnetometer (MMC5983MA)
-//      - ab7:  BNO085 IMU (SPI), SK6812 status LED, two buttons;
+//      - Bart: barometer (BMP5xx), IMU (LSM6DSV16XTR via SlimeIMU)
+//      - ab7:  BNO085 IMU (SPI via SlimeIMU), SK6812 status LED, two buttons;
 //              no physical barometer and BARO is forced to 1.0
 //   2. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
@@ -66,11 +66,11 @@ void setup() {
     begin_pins();
 
     Serial.println(F("[BOOT] Initialising SK6812 LED..."));
-    FastLED.addLeds<SK6812, LED_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.addLeds<SK6812, STATUS_LED_PIN, GRB>(leds, NUM_LEDS);
     leds[0] = CRGB(40, 0, 40);  // dim purple = booting
     FastLED.show();
 
-    Serial.println(F("[BOOT] Initialising BNO085 (SPI)..."));
+    Serial.println(F("[BOOT] Initialising BNO085 via SlimeIMU (SPI)..."));
     begin_imu();
 #else
     Serial.println(F("[BOOT] Initialising GPIO pins..."));
@@ -82,8 +82,8 @@ void setup() {
     Serial.println(F("[BOOT] Initialising barometer (BMP5xx)..."));
     begin_baro(CS_BAR);
 
-    Serial.println(F("[BOOT] Initialising IMU (ISM330DHCX) + magnetometer (MMC5983MA)..."));
-    begin_imu(CS_IMU, CS_MAG);
+    Serial.println(F("[BOOT] Initialising IMU (LSM6DSV16XTR) via SlimeIMU (SPI)..."));
+    begin_imu();
 #endif
 
     Serial.println(F("[BOOT] Hardware initialised."));
@@ -251,33 +251,87 @@ void setup() {
 
     Serial.println(F("[BOOT] Sensor task started (BNO085 real data)."));
 #else
-    // Bart: simulated sensor data for development/testing.
+    // Bart: real IMU data via SlimeIMU (LSM6DSV16XTR + VQF fusion).
     xTaskCreate([](void*) {
-        for (;;) {
-            // ── Real hardware reads (uncomment when hardware is connected) ──
-            // IMU.getAccel(&accel_data);
-            // IMU.getGyro(&gyro_data);
-            // mmc.getMeasurementXYZ(&mag_data[0], &mag_data[1], &mag_data[2]);
-            // process_imu_data(&accel_data, &my_a_data, ACCEL_NORM, true);
-            // process_imu_data(&gyro_data,  &my_g_data, GYRO_NORM, false);
-            // data_streams[ACCELX] = my_a_data.xData;
-            // data_streams[ACCELY] = my_a_data.yData;
-            // data_streams[ACCELZ] = my_a_data.zData;
-            // data_streams[ACCELLENGTH] = my_a_data.length;
-            // data_streams[GYROX] = my_g_data.xData;
-            // data_streams[GYROY] = my_g_data.yData;
-            // data_streams[GYROZ] = my_g_data.zData;
-            // data_streams[GYROLENGTH] = my_g_data.length;
-            // TODO: read barometer, compute Euler angles from sensor fusion.
+        bool first_data = true;
+        unsigned long no_data_count = 0;
+        unsigned long total_reads = 0;
+        unsigned long last_heartbeat_ms = 0;
+        static constexpr unsigned long HEARTBEAT_INTERVAL_MS = 10000;
 
-            // ── Simulated data (distinct sine waves for testing) ────────────
-            update_simulated_data();
+        for (;;) {
+            if (imu_data_available()) {
+                no_data_count = 0;
+                total_reads++;
+
+                if (first_data) {
+                    first_data = false;
+                    Serial.println(F("[IMU] First sensor data received."));
+                }
+
+                // ── Rotation vector (quaternion) ───────────────────────
+                float qi, qj, qk, qr;
+                imu_get_quat(qi, qj, qk, qr);
+
+                // Convert to Euler angles in degrees, then normalise to [0, 1].
+                float roll, pitch, yaw;
+                quat_to_euler(qi, qj, qk, qr, roll, pitch, yaw);
+
+                data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
+                data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;
+                data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+
+                // ── Linear acceleration (gravity-free, m/s²) ──────────
+                float ax, ay, az;
+                imu_get_accel(ax, ay, az);
+
+                const float ACCEL_SCALE = 4.0f;
+                data_streams[ACCELX]      = constrain((ax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELY]      = constrain((ay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELZ]      = constrain((az / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                float accel_len = sqrtf(ax * ax + ay * ay + az * az);
+                data_streams[ACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Gyroscope (rad/s) ─────────────────────────────────
+                float gx, gy, gz;
+                imu_get_gyro(gx, gy, gz);
+
+                const float GYRO_SCALE = 4.0f;
+                data_streams[GYROX]       = constrain((gx / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROY]       = constrain((gy / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROZ]       = constrain((gz / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                float gyro_len = sqrtf(gx * gx + gy * gy + gz * gz);
+                data_streams[GYROLENGTH]  = constrain(gyro_len / GYRO_SCALE, 0.0f, 1.0f);
+
+                // ── Barometer — read from BMP5xx ──────────────────────
+                // TODO: integrate barometer reading here if needed.
+                data_streams[BARO] = 0.5f;
+            } else {
+                no_data_count++;
+                if (no_data_count == 500) {
+                    Serial.println(F("[IMU] WARNING: No sensor data for 5 seconds — check SPI wiring."));
+                }
+            }
+
+            // ── Periodic heartbeat — print sensor summary every 10 s ──
+            unsigned long now = millis();
+            if (now - last_heartbeat_ms >= HEARTBEAT_INTERVAL_MS) {
+                last_heartbeat_ms = now;
+                Serial.print(F("[IMU] Heartbeat — reads: "));
+                Serial.print(total_reads);
+                Serial.print(F("  aX:"));
+                Serial.print((float)data_streams[ACCELX], 3);
+                Serial.print(F("  gX:"));
+                Serial.print((float)data_streams[GYROX], 3);
+                Serial.print(F("  eX:"));
+                Serial.println((float)data_streams[EULERX], 3);
+            }
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
         }
-    }, "sensor_task", 4096, nullptr, 1, nullptr);
+    }, "sensor_task", 16384, nullptr, 1, nullptr);
 
-    Serial.println(F("[BOOT] Sensor task started (simulated data)."));
+    Serial.println(F("[BOOT] Sensor task started (LSM6DSV16XTR real data via SlimeIMU)."));
 #endif // AB7_BUILD
 
     Serial.println();

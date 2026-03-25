@@ -1,3 +1,22 @@
+// =============================================================================
+// bart_hardware.h — Hardware abstraction layer for the Bart PCB
+// =============================================================================
+//
+// The Bart board carries an ESP32-S3 with:
+//   - LSM6DSV16XTR IMU (6DoF accel+gyro) over SPI
+//   - BMP5xx barometer over SPI
+//
+// IMU processing is handled by the SlimeIMU library (slime_swipe), which
+// provides VQF sensor fusion, automatic sensor detection, and calibration.
+//
+// SPI bus wiring (GPIO numbers):
+//   SCK  = 36
+//   SDI  = 35  (MOSI)
+//   SDO  = 37  (MISO)
+//   CS_IMU = 42
+//   CS_BAR = 48
+// =============================================================================
+
 #ifndef BART_HARDWARE_H
 #define BART_HARDWARE_H
 
@@ -5,17 +24,18 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP5xx.h"
-#include <SparkFun_MMC5983MA_Arduino_Library.h>
-#include "SparkFun_ISM330DHCX.h"
+#include <SlimeIMU.h>
 #include <FastLED.h>
 #include <Preferences.h>
+
+// ---------------------------------------------------------------------------
+// Pin definitions
+// ---------------------------------------------------------------------------
 
 static constexpr int SDO_PIN = 37;
 static constexpr int SCK_PIN = 36;
 static constexpr int SDI_PIN = 35;
 static constexpr int CS_IMU = 42;
-static constexpr int CS_MAG = 39;
-static constexpr int CS_UWB = 38;
 static constexpr int CS_BAR = 48;
 static constexpr int INT_IMU = 41;
 static constexpr int INT_BAR = 34;
@@ -30,34 +50,37 @@ static constexpr int CC_PWM1 = 9;
 static constexpr int CC_PWM2 = 10;
 
 #define SEALEVELPRESSURE_HPA (1013.25)
-#define ACCEL_NORM 2.0
-#define GYRO_NORM 250.0
+
+// ---------------------------------------------------------------------------
+// Globals
+// ---------------------------------------------------------------------------
 
 extern Preferences preferences;
-
 extern Adafruit_BMP5xx bmp;
-extern bmp5xx_powermode_t desiredMode;
-extern SparkFun_ISM330DHCX_SPI IMU;
-extern SFE_MMC5983MA mmc;
+extern SlimeIMU slime;
 
-extern sfe_ism_data_t accel_data;
-extern sfe_ism_data_t gyro_data;
-extern uint32_t mag_data[3];
-
-struct norm_imu_data {
-    float xData;
-    float yData;
-    float zData;
-    float length;
-};
-
-extern norm_imu_data my_a_data;
-extern norm_imu_data my_g_data;
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 void begin_pins(bool b13, bool b46, bool cen1, bool cen2);
 void begin_baro(uint16_t BCS);
-void begin_imu(int16_t ICS, int16_t MCS);
-void process_imu_data(sfe_ism_data_t *sdata, norm_imu_data *mydata, float div_norm, bool gravity_comp);
-void normalize_in_place(sfe_ism_data_t *adata, float div_norm);
+void begin_imu();
+
+/// Poll the IMU; returns true if fresh data was read.
+bool imu_data_available();
+
+/// Read current rotation as a quaternion (i, j, k, real).
+void imu_get_quat(float &qi, float &qj, float &qk, float &qr);
+
+/// Read linear acceleration in m/s² (x, y, z).
+void imu_get_accel(float &ax, float &ay, float &az);
+
+/// Read calibrated gyroscope in rad/s (x, y, z).
+void imu_get_gyro(float &gx, float &gy, float &gz);
+
+/// Convert a quaternion to Euler angles (roll, pitch, yaw) in degrees.
+void quat_to_euler(float qi, float qj, float qk, float qr,
+                   float &roll, float &pitch, float &yaw);
 
 #endif

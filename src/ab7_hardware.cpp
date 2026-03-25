@@ -10,16 +10,12 @@
 // ---------------------------------------------------------------------------
 
 Preferences preferences;
-Adafruit_BNO08x imu(BNO_RST);
-static sh2_SensorValue_t imu_value;
+SlimeIMU slime;
 
-struct ImuCache {
-    float qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;
-    float ax = 0.0f, ay = 0.0f, az = 0.0f;
-    float gx = 0.0f, gy = 0.0f, gz = 0.0f;
-};
-
-static ImuCache imu_cache;
+// Cache for latest IMU readings (SlimeIMU only updates on hasNewData)
+static Quat  cached_quat;
+static Vector3 cached_accel;
+static Vector3 cached_gyro;
 
 // ---------------------------------------------------------------------------
 // Pin initialisation
@@ -36,25 +32,21 @@ void begin_pins() {
 // ---------------------------------------------------------------------------
 
 void begin_imu() {
-    // ESP32 SPI signature: begin(int8_t sck, int8_t miso, int8_t mosi, int8_t ss=-1);
-    // here we intentionally omit the optional SS parameter. Chip select is handled by the
-    // Adafruit driver via begin_SPI() below (args: CS, INT, SPI*).
-    SPI.begin(BNO_SCK, BNO_MISO, BNO_MOSI);
-
-    pinMode(BNO_WAKE, OUTPUT);
-    digitalWrite(BNO_WAKE, HIGH);
-
-    if (!imu.begin_SPI(BNO_CS, BNO_INT, &SPI)) {
-        Serial.println(F("[IMU] Failed to initialise BNO085 over SPI!"));
+    // SlimeIMU reads PIN_IMU_CS, PIN_SPI_SCK/MISO/MOSI, PIN_IMU_INT,
+    // PIN_BNO_RST, PIN_BNO_WAK from build_flags.  It auto-detects the
+    // BNO085 on the SPI bus and configures sensor fusion.
+    //
+    // The I2C SDA/SCL parameters are passed to begin() for any secondary
+    // I2C sensor; they are unused when the primary sensor is on SPI.
+    if (!slime.begin(21, 22)) {
+        Serial.println(F("[IMU] SlimeIMU failed to initialise BNO085 over SPI!"));
         Serial.println(F("[IMU] Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).  Halting."));
         while (1) { delay(100); }
     }
 
-    imu.enableReport(SH2_ROTATION_VECTOR);
-    imu.enableReport(SH2_LINEAR_ACCELERATION);
-    imu.enableReport(SH2_GYROSCOPE_CALIBRATED);
-
-    Serial.println(F("[IMU] BNO085 initialised (SPI)."));
+    Serial.print(F("[IMU] BNO085 initialised via SlimeIMU ("));
+    Serial.print(slime.getSensorName(0));
+    Serial.println(F(")."));
 }
 
 // ---------------------------------------------------------------------------
@@ -62,54 +54,33 @@ void begin_imu() {
 // ---------------------------------------------------------------------------
 
 bool imu_data_available() {
-    if (!imu.getSensorEvent(&imu_value)) {
-        return false;
+    slime.update();
+    if (slime.hasNewData(0)) {
+        cached_quat  = slime.getQuaternion(0);
+        cached_accel = slime.getLinearAcceleration(0);
+        cached_gyro  = slime.getAngularVelocity(0);
+        return true;
     }
-
-    switch (imu_value.sensorId) {
-        case SH2_ROTATION_VECTOR:
-            imu_cache.qi = imu_value.un.rotationVector.i;
-            imu_cache.qj = imu_value.un.rotationVector.j;
-            imu_cache.qk = imu_value.un.rotationVector.k;
-            imu_cache.qr = imu_value.un.rotationVector.real;
-            break;
-
-        case SH2_LINEAR_ACCELERATION:
-            imu_cache.ax = imu_value.un.linearAcceleration.x;
-            imu_cache.ay = imu_value.un.linearAcceleration.y;
-            imu_cache.az = imu_value.un.linearAcceleration.z;
-            break;
-
-        case SH2_GYROSCOPE_CALIBRATED:
-            imu_cache.gx = imu_value.un.gyroscope.x;
-            imu_cache.gy = imu_value.un.gyroscope.y;
-            imu_cache.gz = imu_value.un.gyroscope.z;
-            break;
-
-        default:
-            break;
-    }
-
-    return true;
+    return false;
 }
 
 void imu_get_quat(float &qi, float &qj, float &qk, float &qr) {
-    qi = imu_cache.qi;
-    qj = imu_cache.qj;
-    qk = imu_cache.qk;
-    qr = imu_cache.qr;
+    qi = cached_quat.x;
+    qj = cached_quat.y;
+    qk = cached_quat.z;
+    qr = cached_quat.w;
 }
 
 void imu_get_accel(float &ax, float &ay, float &az) {
-    ax = imu_cache.ax;
-    ay = imu_cache.ay;
-    az = imu_cache.az;
+    ax = cached_accel.x;
+    ay = cached_accel.y;
+    az = cached_accel.z;
 }
 
 void imu_get_gyro(float &gx, float &gy, float &gz) {
-    gx = imu_cache.gx;
-    gy = imu_cache.gy;
-    gz = imu_cache.gz;
+    gx = cached_gyro.x;
+    gy = cached_gyro.y;
+    gz = cached_gyro.z;
 }
 
 // ---------------------------------------------------------------------------
