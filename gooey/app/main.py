@@ -4,7 +4,7 @@ import os
 import re
 import threading
 
-import markdown as _md
+import markdown as md_lib
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO
 
@@ -697,7 +697,7 @@ def docs(guide=None):
             raw = fh.read()
     except OSError:
         return _error("Guide not found", 404)
-    md = _md.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXTENSION_CONFIGS)
+    md = md_lib.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXTENSION_CONFIGS)
     content_html = md.convert(raw)
     toc_html = getattr(md, "toc", "")
     other_guide = "technical-guide" if guide == "user-guide" else "user-guide"
