@@ -37,7 +37,7 @@ MD_EXT_CONFIG = {
 # Flask.  Google Fonts are loaded from the network (works on GitHub Pages).
 
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&family=Playwrite+IE:wght@100..400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&display=swap');
 
 :root {
   --bg:           #ffffff;
@@ -59,7 +59,6 @@ CSS = """
   --shadow-md:    0 2px 8px rgba(0,0,0,0.1);
   --font:         "Martian Mono", monospace;
   --font-title:   "Playwrite DE Grund", cursive;
-  --font-header:  "Playwrite IE", cursive;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -99,7 +98,7 @@ body {
 }
 
 .hdr-logo-text {
-  font-family: var(--font-header);
+  font-family: var(--font-title);
   font-size: 22px;
   font-weight: 300;
   color: var(--header-text);
@@ -229,9 +228,9 @@ body {
 }
 
 .docs-article h1 {
-  font-family: var(--font-header);
+  font-family: var(--font-title);
   font-size: 28px;
-  font-weight: 300;
+  font-weight: 400;
   color: var(--header-text);
   margin-bottom: 8px;
   line-height: 1.2;
@@ -252,8 +251,8 @@ body {
 
 .docs-article h3 {
   font-family: var(--font-title);
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--accent);
   margin-top: 24px;
   margin-bottom: 8px;
@@ -261,8 +260,8 @@ body {
 
 .docs-article h4 {
   font-family: var(--font);
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 19px;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-medium);
@@ -400,9 +399,9 @@ body {
 }
 
 .index-hero-title {
-  font-family: var(--font-header);
+  font-family: var(--font-title);
   font-size: 44px;
-  font-weight: 300;
+  font-weight: 400;
   color: var(--header-text);
   letter-spacing: -0.02em;
   margin-bottom: 6px;
