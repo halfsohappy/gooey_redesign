@@ -38,10 +38,10 @@
 #include "osc_status.h"
 #ifdef AB7_BUILD
 #include "ab7_hardware.h"
-#include "ori_tracker.h"
 #else
 #include "bart_hardware.h"
 #endif
+#include "ori_tracker.h"
 
 // ---------------------------------------------------------------------------
 // Global transport objects
@@ -226,9 +226,7 @@ void patch_send_task(void* param) {
     OscPatch* patch = static_cast<OscPatch*>(param);
     OscRegistry& reg = osc_registry();
 
-#ifdef AB7_BUILD
     int last_ori_index = -1;   // matches OriTracker default (no active ori)
-#endif
 
     for (;;) {
         // Sleep for the polling period.
@@ -236,7 +234,6 @@ void patch_send_task(void* param) {
 
         if (!patch->enabled) continue;
 
-#ifdef AB7_BUILD
         // Reset dedup caches whenever the active ori changes so that messages
         // always fire at least once after each ori transition.
         if (_dedup_enabled) {
@@ -246,7 +243,6 @@ void patch_send_task(void* param) {
                 clear_all_dedup_caches();
             }
         }
-#endif
 
         reg.lock();
 
@@ -258,23 +254,18 @@ void patch_send_task(void* param) {
             if (!msg.enabled) continue;
 
             // Determine if this is a ternori (binary ori switch) message.
-            bool is_ternori = false;
-#ifdef AB7_BUILD
-            is_ternori = (msg.ternori.length() > 0);
-#endif
+            bool is_ternori = (msg.ternori.length() > 0);
 
             // Normal messages need a sensor value pointer.
             if (!is_ternori && !msg.value_ptr) continue;
 
-            // --- Ori-conditional check (ab7 only) ---
+            // --- Ori-conditional check ---
             // Ternori messages always send (the value changes, not the send decision).
-#ifdef AB7_BUILD
             if (!is_ternori) {
                 OriTracker& ot = ori_tracker();
                 if (msg.ori_only.length() > 0 && !ot.is_active(msg.ori_only)) continue;
                 if (msg.ori_not.length() > 0  &&  ot.is_active(msg.ori_not))  continue;
             }
-#endif
 
             // Resolve effective destination.
             IPAddress    eff_ip   = resolve_ip(msg, *patch);
@@ -287,12 +278,9 @@ void patch_send_task(void* param) {
 
             // Read the value: ternori → binary from ori state, normal → sensor.
             float val;
-#ifdef AB7_BUILD
             if (is_ternori) {
                 val = ori_tracker().is_active(msg.ternori) ? 1.0f : 0.0f;
-            } else
-#endif
-            {
+            } else {
                 val = *(msg.value_ptr);
             }
 

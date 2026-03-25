@@ -6,8 +6,8 @@
 // the correct dependency order.
 //
 // Build with -DAB7_BUILD to target the ab7 board (BNO085 IMU via SlimeIMU,
-// SK6812 LED, two buttons, orientation tracker).  Without this flag the
-// build targets the Bart board (BMP5xx, LSM6DSV16XTR via SlimeIMU).
+// SK6812 LED, two buttons).  Without this flag the build targets the Bart
+// board (BMP5xx, LSM6DSV16XTR via SlimeIMU).  Both boards support oris.
 // =============================================================================
 
 #ifndef _MAIN_H_
@@ -23,10 +23,8 @@
 // --- Sensor data stream definitions -----------------------------------------
 #include "data_streams.h"
 
-// --- Orientation tracker (ab7 only) -----------------------------------------
-#ifdef AB7_BUILD
+// --- Orientation tracker -------------------------------------------------------
 #include "ori_tracker.h"
-#endif
 
 // --- OSC object model -------------------------------------------------------
 #include "osc_message.h"   // OscMessage class

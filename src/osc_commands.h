@@ -96,17 +96,13 @@
 #define OSC_COMMANDS_H
 
 #include "osc_engine.h"
-#ifdef AB7_BUILD
 #include "ori_tracker.h"
-#endif
 
 // Forward-declare the device address (defined in main.h / main.cpp).
 extern String device_adr;
 
-// Forward-declare the current quaternion globals (defined in main.cpp, ab7 only).
-#ifdef AB7_BUILD
+// Forward-declare the current quaternion globals (defined in main.cpp).
 extern float cur_qi, cur_qj, cur_qk, cur_qr;
-#endif
 
 // ---------------------------------------------------------------------------
 // Command normaliser — accepts camelCase, snake_case, and lowercase
@@ -682,8 +678,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
-    // ── ORI COMMANDS (/annieData{dev}/ori/...) — ab7 only ───────────────────
-#ifdef AB7_BUILD
+    // ── ORI COMMANDS (/annieData{dev}/ori/...) ──────────────────────────────
     if (norm_adr.startsWith("/ori/") || norm_adr == "/ori") {
         String ori_rest = (norm_adr == "/ori") ? String("") : norm_adr.substring(4);
         Serial.println("  → ori command, sub=" + ori_rest);
@@ -988,7 +983,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
         return;
     }
-#endif // AB7_BUILD
 
     // ── CATEGORY DISPATCH: /msg or /patch ──────────────────────────────────
 
