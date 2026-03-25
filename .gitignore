@@ -6,6 +6,7 @@ build/
 
 .aider*
 .aiderignore
+.claude/
 
 # Python
 __pycache__/
