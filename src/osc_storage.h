@@ -101,6 +101,10 @@ static inline String msg_to_save_string(const OscMessage& m) {
         if (s.length() > 0) s += ", ";
         s += "ori_not:" + m.ori_not;
     }
+    if (m.ternori.length() > 0) {
+        if (s.length() > 0) s += ", ";
+        s += "ternori:" + m.ternori;
+    }
 
     return s;
 }

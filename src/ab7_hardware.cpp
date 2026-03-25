@@ -38,7 +38,10 @@ void begin_imu() {
     //
     // The I2C SDA/SCL parameters are passed to begin() for any secondary
     // I2C sensor; they are unused when the primary sensor is on SPI.
-    if (!slime.begin(21, 22)) {
+    // GPIO 22 does not exist on ESP32-S3 (valid range: 0-21, 26-48).
+    // Pins 15/16 are unused on this board; SlimeIMU skips I2C init in SPI
+    // mode anyway (PIN_IMU_CS != 255), so these are never actually driven.
+    if (!slime.begin(15, 16)) {
         Serial.println(F("[IMU] SlimeIMU failed to initialise BNO085 over SPI!"));
         Serial.println(F("[IMU] Check SPI wiring (CS=10, MOSI=11, SCK=12, MISO=13, INT=4, RST=5, WAKE=6).  Halting."));
         while (1) { delay(100); }
