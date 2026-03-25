@@ -21,10 +21,10 @@
 
 #include "main.h"
 
-#ifdef AB7_BUILD
-
 // Current quaternion — shared with osc_commands.h for ori save commands
 float cur_qi = 0.0f, cur_qj = 0.0f, cur_qk = 0.0f, cur_qr = 1.0f;
+
+#ifdef AB7_BUILD
 
 // SK6812 LED (one pixel)
 #define NUM_LEDS 1
@@ -254,6 +254,7 @@ void setup() {
 #else
     // Bart: real IMU data via SlimeIMU (LSM6DSV16XTR + VQF fusion).
     xTaskCreate([](void*) {
+        OriTracker& ot = ori_tracker();
         bool first_data = true;
         unsigned long no_data_count = 0;
         unsigned long total_reads = 0;
@@ -273,6 +274,12 @@ void setup() {
                 // ── Rotation vector (quaternion) ───────────────────────
                 float qi, qj, qk, qr;
                 imu_get_quat(qi, qj, qk, qr);
+
+                // Store globally for ori save commands.
+                cur_qi = qi;
+                cur_qj = qj;
+                cur_qk = qk;
+                cur_qr = qr;
 
                 // Convert to Euler angles in degrees, then normalise to [0, 1].
                 float roll, pitch, yaw;
@@ -303,6 +310,9 @@ void setup() {
                 data_streams[GYROZ]       = constrain((gz / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float gyro_len = sqrtf(gx * gx + gy * gy + gz * gz);
                 data_streams[GYROLENGTH]  = constrain(gyro_len / GYRO_SCALE, 0.0f, 1.0f);
+
+                // ── Update orientation tracker ────────────────────────
+                ot.update(qi, qj, qk, qr, gyro_len);
 
                 // ── Barometer — read from BMP5xx ──────────────────────
                 // TODO: integrate barometer reading here if needed.
