@@ -6,7 +6,8 @@ build/
 
 .aider*
 .aiderignore
-.claude/
+.claude/worktrees/
+.claude/settings.local.json
 
 # Python
 __pycache__/
