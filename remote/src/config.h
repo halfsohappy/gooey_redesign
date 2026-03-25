@@ -18,6 +18,9 @@
 #define OLED_RESET     -1       // share reset with MCU (no dedicated pin)
 
 // ── Adafruit Seesaw ANO Rotary Encoder Breakout ────────────────────────────
+// Pin assignments match Adafruit product #5740 (ANO Rotary Navigation
+// Encoder to I2C Stemma QT Adapter).  If your breakout uses different
+// seesaw firmware, adjust these constants to match.
 #define SEESAW_ADDR       0x49
 
 // Seesaw GPIO pins — directional buttons

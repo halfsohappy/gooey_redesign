@@ -388,6 +388,7 @@ static void _build_msg_form(bool is_edit) {
 
 static void _rebuild_msg_form() {
     MenuScreen& s = _cur();
+    int saved_sel = s.selected;
     s.count = 0;
     char buf[MAX_ITEM_LEN];
 
@@ -409,6 +410,14 @@ static void _rebuild_msg_form() {
     _add_item(buf);
     _add_item("ori_only / ori_not...");
     _add_item(_mf.editing ? ">> UPDATE <<" : ">> CREATE <<");
+
+    // Restore cursor position, clamped to valid range
+    if (saved_sel >= s.count) saved_sel = s.count - 1;
+    if (saved_sel < 0) saved_sel = 0;
+    s.selected = saved_sel;
+    if (s.selected < s.scroll) s.scroll = s.selected;
+    if (s.selected >= s.scroll + VISIBLE_ITEMS)
+        s.scroll = s.selected - VISIBLE_ITEMS + 1;
 }
 
 // Callbacks for each form field
@@ -560,6 +569,7 @@ static void _build_patch_form() {
 
 static void _rebuild_patch_form() {
     MenuScreen& s = _cur();
+    int saved_sel = s.selected;
     s.count = 0;
     char buf[MAX_ITEM_LEN];
     snprintf(buf, MAX_ITEM_LEN, "name:    %s", _pf.name[0] ? _pf.name : "(set)");
@@ -579,6 +589,14 @@ static void _rebuild_patch_form() {
     snprintf(buf, MAX_ITEM_LEN, "adrMode: %s", _pf.adr_mode);
     _add_item(buf);
     _add_item(">> CREATE <<");
+
+    // Restore cursor position, clamped to valid range
+    if (saved_sel >= s.count) saved_sel = s.count - 1;
+    if (saved_sel < 0) saved_sel = 0;
+    s.selected = saved_sel;
+    if (s.selected < s.scroll) s.scroll = s.selected;
+    if (s.selected >= s.scroll + VISIBLE_ITEMS)
+        s.scroll = s.selected - VISIBLE_ITEMS + 1;
 }
 
 static void _pf_name_cb(const char* t) { strncpy(_pf.name, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_patch_form(); }
@@ -897,15 +915,26 @@ static void _build_settings_menu() {
     _add_item(">> Save & Reconnect <<");
 }
 
-static void _set_ssid_cb(const char* t) { strncpy(net_ssid, t, sizeof(net_ssid)-1); _mode = MODE_MENU; _pop(); _build_settings_menu(); }
-static void _set_pass_cb(const char* t) { strncpy(net_pass, t, sizeof(net_pass)-1); _mode = MODE_MENU; _pop(); _build_settings_menu(); }
-static void _set_dev_cb(const char* t)  { strncpy(target_name, t, sizeof(target_name)-1); _mode = MODE_MENU; _pop(); _build_settings_menu(); }
+// Helper: rebuild settings menu while preserving cursor position.
+static void _rebuild_settings(int sel) {
+    _pop();
+    _build_settings_menu();
+    MenuScreen& s = _cur();
+    if (sel >= s.count) sel = s.count - 1;
+    s.selected = sel;
+    if (s.selected >= s.scroll + VISIBLE_ITEMS)
+        s.scroll = s.selected - VISIBLE_ITEMS + 1;
+}
+
+static void _set_ssid_cb(const char* t) { strncpy(net_ssid, t, sizeof(net_ssid)-1); _mode = MODE_MENU; _rebuild_settings(0); }
+static void _set_pass_cb(const char* t) { strncpy(net_pass, t, sizeof(net_pass)-1); _mode = MODE_MENU; _rebuild_settings(1); }
+static void _set_dev_cb(const char* t)  { strncpy(target_name, t, sizeof(target_name)-1); _mode = MODE_MENU; _rebuild_settings(2); }
 static void _set_tip_cb(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
     target_ip[0]=a; target_ip[1]=b; target_ip[2]=c; target_ip[3]=d;
-    _mode = MODE_MENU; _pop(); _build_settings_menu();
+    _mode = MODE_MENU; _rebuild_settings(3);
 }
-static void _set_tport_cb(int v) { target_port = v; _mode = MODE_MENU; _pop(); _build_settings_menu(); }
-static void _set_lport_cb(int v) { listen_port = v; _mode = MODE_MENU; _pop(); _build_settings_menu(); }
+static void _set_tport_cb(int v) { target_port = v; _mode = MODE_MENU; _rebuild_settings(4); }
+static void _set_lport_cb(int v) { listen_port = v; _mode = MODE_MENU; _rebuild_settings(5); }
 
 static void _on_settings(int idx) {
     switch (idx) {
