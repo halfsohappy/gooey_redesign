@@ -24,9 +24,10 @@ control surface on the same network.
 8. [Working with Patches](#8-working-with-patches)
 9. [Overrides and Scaling](#9-overrides-and-scaling)
 10. [Address Composition](#10-address-composition)
-11. [Status Monitoring](#11-status-monitoring)
-12. [Practical Workflows](#12-practical-workflows)
-13. [Troubleshooting](#13-troubleshooting)
+11. [Orientations (Oris)](#11-orientations-oris)
+12. [Status Monitoring](#12-status-monitoring)
+13. [Practical Workflows](#13-practical-workflows)
+14. [Troubleshooting](#14-troubleshooting)
 
 ---
 
@@ -543,7 +544,198 @@ how addresses are assembled.
 
 ---
 
-## 11. Status Monitoring
+## 11. Orientations (Oris)
+
+> **ab7 only** — Orientation features require a device with a BNO085 IMU
+> (the ab7 board).  They are not available on the bart board.
+
+### What are oris?
+
+An **ori** (short for "orientation") is a saved device orientation — a
+snapshot of which way the device was pointing at the moment you saved it.
+You give each ori a name (like `spotlight` or `upstage`) and the device
+continuously reports which saved ori the device is currently closest to.
+
+The typical use case: an actor holds the device and several oris correspond
+to hand positions pointing at different stage lights.  As the actor moves
+their hand, the system reports which light they are pointing at, and OSC
+messages can trigger accordingly.
+
+### Saving an ori
+
+Hold the device in the desired position and send:
+
+```
+/annieData/{dev}/ori/save/spotlight
+```
+
+Or press **Button A** on the ab7 board to save with an auto-generated name
+(`ori_0`, `ori_1`, ...).
+
+### Point oris vs range oris
+
+By default, saving an ori creates a **point ori** — a single quaternion.
+The device matches it by finding the closest saved ori (geodesic distance).
+
+If you save the **same name again** while pointing in a different direction,
+the ori becomes a **range ori**.  The system computes a per-axis Euler angle
+bounding box from all the sample points you've saved.
+
+**Why this is useful:** If you save `upstage` twice — once while facing
+stage-left and once while facing stage-right — the system learns that yaw
+doesn't matter for this ori, but pitch and roll do.  Now `upstage` will
+match any orientation that is "pointing upstage" regardless of which way
+you're facing.
+
+```
+# First save — creates a point ori
+/annieData/{dev}/ori/save/upstage
+
+# (rotate to a different yaw, keep similar pitch/roll)
+
+# Second save — expands into a range ori
+/annieData/{dev}/ori/save/upstage
+```
+
+Use `/ori/info/{name}` to inspect the range:
+
+```
+/annieData/{dev}/ori/info/upstage
+```
+
+Reply: `upstage: samples=2 center=[12.3, 45.6, -90.1] half_w=[2.1, 1.8, 67.4]`
+
+The `half_w` values show the half-width (in degrees) on each axis: roll,
+pitch, yaw.  A small number means "must match closely"; a large number
+means "don't care about this axis."
+
+### Resetting a range ori
+
+If you want to start over with a fresh single point:
+
+```
+/annieData/{dev}/ori/reset/upstage
+```
+
+This overwrites the range and replaces it with the current device
+orientation as a single-point ori.
+
+### Matching behaviour
+
+When the device has saved oris, matching works in two phases:
+
+1. **Range oris** are checked first.  If the current orientation falls
+   within a range ori's bounding box (center ± half_width + tolerance on
+   each axis), that ori is active.  If multiple ranges match, the tightest
+   one wins.
+
+2. **Point oris** are checked next (closest geodesic distance wins).  If
+   `strict_matching` is off (default), range oris that didn't match their
+   bounding box also participate here as point oris, so there is always an
+   active ori.
+
+### Motion gate
+
+When the device is rotating quickly (gyroscope magnitude above
+`motion_threshold`), the tracker freezes and keeps reporting the last stable
+ori.  This prevents flickering during fast sweeps and lets the actor make
+deliberate gestures.
+
+```
+# Set motion gate threshold (rad/s, default 1.5 ≈ 86°/s)
+/annieData/{dev}/ori/threshold   1.5
+```
+
+### Tolerance
+
+The angular match tolerance adds a margin around range ori bounding boxes.
+A larger tolerance makes matching more forgiving; a smaller one requires
+more precision.
+
+```
+# Set match tolerance (degrees, default 10)
+/annieData/{dev}/ori/tolerance   15
+```
+
+### Strict matching
+
+By default, there is always an active ori (closest wins as a fallback).
+In strict mode, if no range ori matches and there are no point oris that
+qualify, the system reports "no active ori."
+
+```
+/annieData/{dev}/ori/strict   on
+/annieData/{dev}/ori/strict   off
+```
+
+### Ori-conditional messaging
+
+Messages can be configured to send based on ori state:
+
+| Config key | Effect |
+|-----------|--------|
+| `ori_only:spotlight` | Message sends **only** when `spotlight` is the active ori. |
+| `ori_not:spotlight` | Message sends **only** when `spotlight` is **not** active. |
+| `ternori:spotlight` | Message sends `high` when `spotlight` is active, `low` when not. |
+
+**`ori_only` and `ori_not`** suppress the message entirely when the
+condition isn't met.  No OSC packet is sent.
+
+**`ternori`** is different: the message **always sends**, but the value is a
+binary switch.  When the named ori is active, the message sends its `high`
+bound; when not active, it sends its `low` bound.  This is useful for
+on/off signals like "light is on" (255) or "light is off" (0).
+
+A ternori message does **not** need a sensor `value` — the ori state IS the
+value.
+
+#### Ternori example
+
+```
+# Create a ternori message that sends 255 when "spotlight" is active, 0 otherwise
+/annieData/{dev}/msg/light_sw
+"ternori:spotlight, ip:192.168.1.50, port:9000, adr:/light/1, low:0, high:255"
+
+# Add to a patch and start
+/annieData/{dev}/patch/lights/addMsg   "light_sw"
+/annieData/{dev}/patch/lights/start
+```
+
+Or as a one-liner with `direct`:
+
+```
+/annieData/{dev}/direct/light_sw
+"ternori:spotlight, ip:192.168.1.50, port:9000, adr:/light/1, low:0, high:255, period:50"
+```
+
+### Ori command reference
+
+| Address | Payload | What it does |
+|---------|---------|--------------|
+| `/annieData/{dev}/ori/save` | *(none)* | Save current orientation with auto-generated name. |
+| `/annieData/{dev}/ori/save/{name}` | *(none)* | Save current orientation (or expand range if name exists). |
+| `/annieData/{dev}/ori/reset/{name}` | *(none)* | Reset a range ori to a fresh single point. |
+| `/annieData/{dev}/ori/delete/{name}` | *(none)* | Delete an ori. |
+| `/annieData/{dev}/ori/clear` | *(none)* | Delete all oris. |
+| `/annieData/{dev}/ori/list` | *(none)* | List all oris. Range oris show `[R<N>]`. |
+| `/annieData/{dev}/ori/info/{name}` | *(none)* | Show ori details (samples, center, half-widths). |
+| `/annieData/{dev}/ori/active` | *(none)* | Query the currently active ori. |
+| `/annieData/{dev}/ori/threshold` | float (rad/s) | Set the motion gate gyro threshold. |
+| `/annieData/{dev}/ori/tolerance` | float (degrees) | Set angular match tolerance for range oris. |
+| `/annieData/{dev}/ori/strict` | `"on"` / `"off"` | Toggle strict matching (no-match allowed). |
+
+### Notes
+
+- Oris are stored in RAM only and do not survive power cycles.  You must
+  re-save them after each reboot.
+- The maximum number of oris is 32.
+- Euler angles are used internally for range matching.  Near-vertical
+  orientations (pitch ≈ ±90°) may behave unpredictably due to gimbal lock.
+  This is unlikely in typical theater use.
+
+---
+
+## 12. Status Monitoring
 
 The device can send status messages to a monitoring station on your network.
 
@@ -575,7 +767,7 @@ Example: `[INFO] patch: Started patch 'showPatch'`
 
 ---
 
-## 12. Practical Workflows
+## 13. Practical Workflows
 
 ### Workflow 1: Quick sensor test
 
@@ -700,9 +892,76 @@ To start fresh, clear all saved data:
 /annieData/bart/nvs/clear
 ```
 
+### Workflow 8: Point-to-activate with oris (ab7)
+
+An actor holds the ab7 device.  You want to turn on a light when they point
+at it and turn it off when they point away.
+
+**Step 1: Save oris for each target**
+
+Have the actor point at each light and save an ori:
+
+```
+/annieData/{dev}/ori/save/light1
+# actor points at light 1
+
+/annieData/{dev}/ori/save/light2
+# actor points at light 2
+```
+
+**Step 2: Create ternori messages**
+
+```
+/annieData/{dev}/msg/sw1   "ternori:light1, adr:/light/1, low:0, high:255"
+/annieData/{dev}/msg/sw2   "ternori:light2, adr:/light/2, low:0, high:255"
+```
+
+**Step 3: Add to a patch and start**
+
+```
+/annieData/{dev}/patch/lights   "ip:192.168.1.50, port:9000"
+/annieData/{dev}/patch/lights/override   "ip, port"
+/annieData/{dev}/patch/lights/addMsg   "sw1, sw2"
+/annieData/{dev}/patch/lights/start
+```
+
+Now when the actor points at light 1, `/light/1` receives 255 and `/light/2`
+receives 0.  When they point at light 2, the values swap.
+
+### Workflow 9: Range oris for stage zones (ab7)
+
+You want to detect when the actor is pointing "upstage" regardless of which
+direction they're facing (yaw doesn't matter, but pitch does).
+
+**Step 1: Save two samples at different yaw angles**
+
+```
+# Actor points upstage while facing left
+/annieData/{dev}/ori/save/upstage
+
+# Actor points upstage while facing right
+/annieData/{dev}/ori/save/upstage
+```
+
+**Step 2: Verify the range**
+
+```
+/annieData/{dev}/ori/info/upstage
+```
+
+You should see a large `half_w` on the yaw axis and small values on the
+other axes.
+
+**Step 3: Use it in messages**
+
+```
+/annieData/{dev}/direct/zone_up
+"ternori:upstage, ip:192.168.1.50, port:9000, adr:/zone/upstage, low:0, high:1, period:50"
+```
+
 ---
 
-## 13. Troubleshooting
+## 14. Troubleshooting
 
 ### The device is not responding to commands
 
