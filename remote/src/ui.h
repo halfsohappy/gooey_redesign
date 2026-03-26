@@ -849,6 +849,8 @@ static void _build_quick_menu() {
     _add_item("Clear NVS");
     _add_item("Dedup On");
     _add_item("Dedup Off");
+    _add_item("Tare Euler");
+    _add_item("Tare Reset");
 }
 
 static void _quick_clear_cb(bool yes) {
@@ -885,6 +887,14 @@ static void _on_quick(int idx) {
             osc_send_string(target_ip_addr(), target_port,
                             _osc_addr("dedup"), "off");
             _show_reply("Dedup off");
+            break;
+        case 7:
+            osc_send_empty(target_ip_addr(), target_port, _osc_addr("tare"));
+            _show_reply("Tare set");
+            break;
+        case 8:
+            osc_send_empty(target_ip_addr(), target_port, _osc_addr("tare/reset"));
+            _show_reply("Tare reset");
             break;
     }
 }
