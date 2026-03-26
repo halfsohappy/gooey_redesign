@@ -213,14 +213,14 @@ portal mode.
 
 **File:** `data_streams.h`
 
-The global array `float data_streams[12]` holds the current normalised sensor
+The global array `float data_streams[18]` holds the current normalised sensor
 values.  All values are in the range **[0, 1]**.
 
 | Index | Name | Physical meaning |
 |-------|------|-----------------|
-| 0  | `ACCELX` | Accelerometer X |
-| 1  | `ACCELY` | Accelerometer Y |
-| 2  | `ACCELZ` | Accelerometer Z |
+| 0  | `ACCELX` | Accelerometer X (body frame) |
+| 1  | `ACCELY` | Accelerometer Y (body frame) |
+| 2  | `ACCELZ` | Accelerometer Z (body frame) |
 | 3  | `ACCELLENGTH` | Acceleration magnitude |
 | 4  | `GYROX` | Gyroscope X |
 | 5  | `GYROY` | Gyroscope Y |
@@ -230,6 +230,16 @@ values.  All values are in the range **[0, 1]**.
 | 9  | `EULERX` | Euler angle X (roll) |
 | 10 | `EULERY` | Euler angle Y (pitch) |
 | 11 | `EULERZ` | Euler angle Z (yaw) |
+| 12 | `GACCELX` | Global-frame acceleration X |
+| 13 | `GACCELY` | Global-frame acceleration Y |
+| 14 | `GACCELZ` | Global-frame acceleration Z |
+| 15 | `GACCELLENGTH` | Global-frame acceleration magnitude |
+| 16 | `CONST_ZERO` | Fixed 0.0 — always outputs the `low` bound |
+| 17 | `CONST_ONE` | Fixed 1.0 — always outputs the `high` bound |
+| 18 | `QUAT_I` | Quaternion X component, normalised: `qi*0.5+0.5` |
+| 19 | `QUAT_J` | Quaternion Y component, normalised: `qj*0.5+0.5` |
+| 20 | `QUAT_K` | Quaternion Z component, normalised: `qk*0.5+0.5` |
+| 21 | `QUAT_R` | Quaternion scalar (W), normalised: `qr*0.5+0.5` |
 
 ### Simulated data (Bart only)
 
@@ -241,9 +251,16 @@ building without `AB7_BUILD` (i.e. Bart).
 ### Real IMU data (ab7 only)
 
 When `AB7_BUILD` is defined, the sensor task reads the selected IMU at ~100 Hz,
-converts quaternions to Euler angles, computes gravity-free linear acceleration,
-and writes all values to `data_streams[]`.  The barometer stream is always 0.
-The orientation tracker is also updated each cycle.
+converts quaternions to Euler angles, computes gravity-free linear acceleration
+in both body frame (`ACCELX/Y/Z`) and global frame (`GACCELX/Y/Z`, rotated by
+the quaternion), writes the raw quaternion components (`QUAT_I/J/K/R`), and
+writes all values to `data_streams[]`.  The barometer stream is always 0.  The
+orientation tracker is also updated each cycle.
+
+The Euler decomposition is auto-selected at tare time (`euler_order` global,
+0 = ZYX default, 1 = ZXY).  ZXY is chosen when the device Y-axis is most
+vertical at the tare pose, avoiding ZYX's singularity.  Quaternion streams are
+always raw (untared); normalise with `low:-1 high:1` to recover `[-1, 1]`.
 
 ### Helper functions
 
@@ -727,7 +744,7 @@ Type these commands into the serial monitor (115200 baud):
                                │ writes
                                ▼
                     ┌──────────────────────┐
-                    │ data_streams[0..11]  │  volatile float[12], all in [0, 1]
+                    │ data_streams[0..21]  │  volatile float[22], all in [0, 1]
                     └──────────┬───────────┘
                                │ read by
                                ▼
@@ -839,7 +856,7 @@ Approximate memory footprint:
 |-------|------|-------------|
 | `patches[64]` | 64 × ~300 bytes | ~19 KB |
 | `messages[256]` | 256 × ~100 bytes | ~25 KB |
-| `data_streams[12]` | 12 × 4 bytes | 48 bytes |
+| `data_streams[22]` | 22 × 4 bytes | 88 bytes |
 
 The ESP32-S3 has ~512 KB of SRAM, of which ~300 KB is available after WiFi and
 BLE stacks.  The registry uses about 44 KB, leaving plenty of room.

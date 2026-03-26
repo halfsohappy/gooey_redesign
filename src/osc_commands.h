@@ -104,6 +104,14 @@ extern String device_adr;
 // Forward-declare the current quaternion globals (defined in main.cpp).
 extern float cur_qi, cur_qj, cur_qk, cur_qr;
 
+// Forward-declare the tare globals (defined in main.cpp).
+extern float tare_qi, tare_qj, tare_qk, tare_qr;
+extern bool  tare_active;
+
+// Forward-declare the Euler decomposition selector (defined in main.cpp).
+// 0 = ZYX (default, singular on Y), 1 = ZXY (singular on X).
+extern int euler_order;
+
 // ---------------------------------------------------------------------------
 // Command normaliser — accepts camelCase, snake_case, and lowercase
 // ---------------------------------------------------------------------------
@@ -175,6 +183,48 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     if (norm_adr == "/restore") {
         restore_all();
         osc_reply(sender_ip, sender_port, reply_adr, "RESTORE");
+        return;
+    }
+
+    // ── TARE COMMANDS ──────────────────────────────────────────────────────
+    //    /tare          — capture current orientation as Euler zero reference
+    //    /tare/reset    — clear tare, return to absolute world-frame Euler
+    //    /tare/status   — report whether a tare is currently active
+
+    if (norm_adr == "/tare") {
+        tare_qi = cur_qi; tare_qj = cur_qj; tare_qk = cur_qk; tare_qr = cur_qr;
+        tare_active = true;
+
+        // Auto-select Euler decomposition to minimise gimbal-lock risk.
+        // vx/vy/vz = how vertical each device axis is at the tare pose.
+        // R[2][*] gives the world-Z (vertical) direction in device-frame coords.
+        float vx = fabsf(2.0f*(tare_qi*tare_qk - tare_qr*tare_qj));  // |R[2][0]|
+        float vy = fabsf(2.0f*(tare_qj*tare_qk + tare_qr*tare_qi));  // |R[2][1]|
+        float vz = fabsf(1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj));  // |R[2][2]|
+        // ZYX is singular when device-Y is vertical (vy ≈ 1).
+        // ZXY is singular when device-X is vertical (vx ≈ 1).
+        // Choose ZXY when Y is most vertical (avoid ZYX singularity), else ZYX.
+        euler_order = (vy > vx && vy > vz) ? 1 : 0;
+
+        const char* order_name = (euler_order == 1) ? "ZXY" : "ZYX";
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("TARE SET (") + order_name + ")");
+        status_reporter().info("tare", String("Tare captured — decomposition: ") + order_name);
+        return;
+    }
+
+    if (norm_adr == "/tare/reset") {
+        tare_qi = 0.0f; tare_qj = 0.0f; tare_qk = 0.0f; tare_qr = 1.0f;
+        tare_active = false;
+        euler_order = 0;  // back to default ZYX
+        osc_reply(sender_ip, sender_port, reply_adr, "TARE RESET");
+        status_reporter().info("tare", "Tare cleared — decomposition: ZYX");
+        return;
+    }
+
+    if (norm_adr == "/tare/status") {
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  tare_active ? "TARE ACTIVE" : "TARE INACTIVE");
         return;
     }
 

@@ -59,9 +59,12 @@
 // ── Sensor value names (for pick list) ──────────────────────────────────────
 static const char* const SENSOR_NAMES[] = {
     "accelX", "accelY", "accelZ", "accelLength",
+    "gaccelX", "gaccelY", "gaccelZ", "gaccelLength",
     "gyroX",  "gyroY",  "gyroZ",  "gyroLength",
     "baro",
-    "eulerX", "eulerY", "eulerZ"
+    "eulerX", "eulerY", "eulerZ",
+    "quatI", "quatJ", "quatK", "quatR",
+    "high", "low"
 };
 static const int SENSOR_COUNT = sizeof(SENSOR_NAMES) / sizeof(SENSOR_NAMES[0]);
 

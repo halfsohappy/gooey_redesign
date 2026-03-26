@@ -24,6 +24,15 @@
 // Current quaternion — shared with osc_commands.h for ori save commands
 float cur_qi = 0.0f, cur_qj = 0.0f, cur_qk = 0.0f, cur_qr = 1.0f;
 
+// Tare reference quaternion — identity = no tare applied
+float tare_qi = 0.0f, tare_qj = 0.0f, tare_qk = 0.0f, tare_qr = 1.0f;
+bool  tare_active = false;
+
+// Euler decomposition order — auto-selected at tare time.
+// 0 = ZYX (default, singular on Y/pitch)
+// 1 = ZXY (singular on X/roll — chosen when device Y-axis is most vertical)
+int euler_order = 0;
+
 #ifdef AB7_BUILD
 
 // SK6812 LED (one pixel)
@@ -60,6 +69,10 @@ void setup() {
     Serial.print(ESP.getFreeHeap());
     Serial.println(F(" bytes"));
     Serial.println();
+
+    // --- Constant streams (never written by sensor task) --------------------
+    data_streams[CONST_ZERO] = 0.0f;
+    data_streams[CONST_ONE]  = 1.0f;
 
     // --- Hardware initialisation --------------------------------------------
 #ifdef AB7_BUILD
@@ -188,13 +201,32 @@ void setup() {
                 cur_qk = qk;
                 cur_qr = qr;
 
-                // Convert to Euler angles in degrees, then normalise to [0, 1].
-                float roll, pitch, yaw;
-                quat_to_euler(qi, qj, qk, qr, roll, pitch, yaw);
+                // Apply tare: compute orientation relative to reference pose.
+                // q_rel = q_tare_conj ⊗ q_current  (conjugate = inverse for unit quat)
+                float eq_i = qi, eq_j = qj, eq_k = qk, eq_r = qr;
+                if (tare_active) {
+                    eq_r =  tare_qr*qr + tare_qi*qi + tare_qj*qj + tare_qk*qk;
+                    eq_i =  tare_qr*qi - tare_qi*qr - tare_qj*qk + tare_qk*qj;
+                    eq_j =  tare_qr*qj + tare_qi*qk - tare_qj*qr - tare_qk*qi;
+                    eq_k =  tare_qr*qk - tare_qi*qj + tare_qj*qi - tare_qk*qr;
+                }
 
-                data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
-                data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;
-                data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                // Convert to Euler angles in degrees, then normalise to [0, 1].
+                // Decomposition is auto-selected at tare time to avoid gimbal lock.
+                float roll, pitch, yaw;
+                if (euler_order == 1) {
+                    // ZXY — singular on X/roll; chosen when device Y is most vertical.
+                    quat_to_euler_zxy(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
+                    data_streams[EULERX] = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[EULERY] = (pitch + 180.0f) / 360.0f;
+                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                } else {
+                    // ZYX (default) — singular on Y/pitch.
+                    quat_to_euler(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
+                    data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
+                    data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
                 float ax, ay, az;
@@ -206,6 +238,26 @@ void setup() {
                 data_streams[ACCELZ]      = constrain((az / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float accel_len = sqrtf(ax * ax + ay * ay + az * az);
                 data_streams[ACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Global-frame (rotation-compensated) acceleration ───
+                // Rotate body-frame linear accel into global frame using
+                // the quaternion: v_global = q * v_body * q^-1.
+                float gax = (1.0f - 2.0f*(qj*qj + qk*qk))*ax + 2.0f*(qi*qj - qr*qk)*ay + 2.0f*(qi*qk + qr*qj)*az;
+                float gay = 2.0f*(qi*qj + qr*qk)*ax + (1.0f - 2.0f*(qi*qi + qk*qk))*ay + 2.0f*(qj*qk - qr*qi)*az;
+                float gaz = 2.0f*(qi*qk - qr*qj)*ax + 2.0f*(qj*qk + qr*qi)*ay + (1.0f - 2.0f*(qi*qi + qj*qj))*az;
+
+                data_streams[GACCELX]      = constrain((gax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELY]      = constrain((gay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Quaternion components (raw, untared) ───────────────
+                // Normalised via *0.5+0.5 → [0,1].  Set low:-1 high:1 on the
+                // OscMessage to recover the native [-1,1] quaternion range.
+                data_streams[QUAT_I] = qi * 0.5f + 0.5f;
+                data_streams[QUAT_J] = qj * 0.5f + 0.5f;
+                data_streams[QUAT_K] = qk * 0.5f + 0.5f;
+                data_streams[QUAT_R] = qr * 0.5f + 0.5f;
 
                 // ── Gyroscope (rad/s) ─────────────────────────────────
                 float gx, gy, gz;
@@ -281,13 +333,32 @@ void setup() {
                 cur_qk = qk;
                 cur_qr = qr;
 
-                // Convert to Euler angles in degrees, then normalise to [0, 1].
-                float roll, pitch, yaw;
-                quat_to_euler(qi, qj, qk, qr, roll, pitch, yaw);
+                // Apply tare: compute orientation relative to reference pose.
+                // q_rel = q_tare_conj ⊗ q_current  (conjugate = inverse for unit quat)
+                float eq_i = qi, eq_j = qj, eq_k = qk, eq_r = qr;
+                if (tare_active) {
+                    eq_r =  tare_qr*qr + tare_qi*qi + tare_qj*qj + tare_qk*qk;
+                    eq_i =  tare_qr*qi - tare_qi*qr - tare_qj*qk + tare_qk*qj;
+                    eq_j =  tare_qr*qj + tare_qi*qk - tare_qj*qr - tare_qk*qi;
+                    eq_k =  tare_qr*qk - tare_qi*qj + tare_qj*qi - tare_qk*qr;
+                }
 
-                data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
-                data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;
-                data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                // Convert to Euler angles in degrees, then normalise to [0, 1].
+                // Decomposition is auto-selected at tare time to avoid gimbal lock.
+                float roll, pitch, yaw;
+                if (euler_order == 1) {
+                    // ZXY — singular on X/roll; chosen when device Y is most vertical.
+                    quat_to_euler_zxy(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
+                    data_streams[EULERX] = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[EULERY] = (pitch + 180.0f) / 360.0f;
+                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                } else {
+                    // ZYX (default) — singular on Y/pitch.
+                    quat_to_euler(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
+                    data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
+                    data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
                 float ax, ay, az;
@@ -299,6 +370,26 @@ void setup() {
                 data_streams[ACCELZ]      = constrain((az / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float accel_len = sqrtf(ax * ax + ay * ay + az * az);
                 data_streams[ACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Global-frame (rotation-compensated) acceleration ───
+                // Rotate body-frame linear accel into global frame using
+                // the quaternion: v_global = q * v_body * q^-1.
+                float gax = (1.0f - 2.0f*(qj*qj + qk*qk))*ax + 2.0f*(qi*qj - qr*qk)*ay + 2.0f*(qi*qk + qr*qj)*az;
+                float gay = 2.0f*(qi*qj + qr*qk)*ax + (1.0f - 2.0f*(qi*qi + qk*qk))*ay + 2.0f*(qj*qk - qr*qi)*az;
+                float gaz = 2.0f*(qi*qk - qr*qj)*ax + 2.0f*(qj*qk + qr*qi)*ay + (1.0f - 2.0f*(qi*qi + qj*qj))*az;
+
+                data_streams[GACCELX]      = constrain((gax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELY]      = constrain((gay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Quaternion components (raw, untared) ───────────────
+                // Normalised via *0.5+0.5 → [0,1].  Set low:-1 high:1 on the
+                // OscMessage to recover the native [-1,1] quaternion range.
+                data_streams[QUAT_I] = qi * 0.5f + 0.5f;
+                data_streams[QUAT_J] = qj * 0.5f + 0.5f;
+                data_streams[QUAT_K] = qk * 0.5f + 0.5f;
+                data_streams[QUAT_R] = qr * 0.5f + 0.5f;
 
                 // ── Gyroscope (rad/s) ─────────────────────────────────
                 float gx, gy, gz;
