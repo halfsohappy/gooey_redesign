@@ -20,6 +20,9 @@
 #include "bart_hardware.h"
 #endif
 
+// --- Alternative Euler decompositions (ZXY for gimbal-lock avoidance) -------
+#include "euler_utils.h"
+
 // --- Sensor data stream definitions -----------------------------------------
 #include "data_streams.h"
 

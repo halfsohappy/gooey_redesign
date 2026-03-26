@@ -15,27 +15,28 @@
 //   not) the active match, enabling "point to turn on / off" workflows.
 //
 // ORI TYPES:
-//   Point ori  — a single quaternion.  Matched by geodesic distance (closest
-//                wins).  Created by saving a name for the first time.
+//   Point ori  — a single quaternion.  Matched by geodesic angular distance
+//                (closest wins).  Created by saving a name for the first time.
 //
-//   Range ori  — defined by 2+ sample quaternions.  The system computes per-
-//                axis Euler angle bounding boxes.  Matched when the current
-//                Euler angles fall within center ± half_width + tolerance.
-//                Created by re-saving an existing ori name (each save adds a
-//                sample and expands the range).
+//   Range ori  — defined by 2+ sample quaternions.  The system tracks the
+//                maximum geodesic angular distance from the center quaternion
+//                (angular_half_width).  Matched when the device is within
+//                angular_half_width + ori_tolerance of the center.
+//                Created by re-saving an existing ori name.
 //
-//   Range oris let you express "don't care about rotation along one axis."
-//   For example, save two orientations that differ only in yaw, and the
-//   system will match any yaw between them but require similar pitch/roll.
+//   All matching is done purely in quaternion space — no Euler angles are
+//   involved.  This avoids gimbal-lock artefacts and works correctly for any
+//   device mounting orientation.
 //
 // MATCHING ALGORITHM:
-//   1. Range oris are checked first.  If the current Euler angles fall within
-//      a range ori's bounding box, that ori is active (tightest box wins).
-//   2. If no range ori matches, fall back to point oris (closest geodesic
-//      angle wins).
-//   3. If strict_matching is false (default), range oris whose centers are
-//      closest also participate in the point-ori fallback, so there is always
-//      an active ori.  If strict_matching is true, "no match" is possible.
+//   1. Range oris are checked first.  If the current quaternion is within a
+//      range ori's angular_half_width + tolerance, that ori is active
+//      (tightest half-width wins among multiple matches).
+//   2. If no range ori matches, fall back to point oris — the closest
+//      geodesic angle wins.
+//   3. If strict_matching is false (default), range oris also participate in
+//      the point-ori fallback, so there is always an active ori.
+//      If strict_matching is true, "no match" is possible.
 //
 // MOTION GATE:
 //   When the device is rotating quickly (gyroscope magnitude above a
@@ -78,31 +79,17 @@
 // Maximum number of saved oris.
 #define MAX_ORIS 32
 
-// Forward-declare quat_to_euler (defined in ab7_hardware.cpp / bart_hardware.cpp).
-extern void quat_to_euler(float qi, float qj, float qk, float qr,
-                           float &roll, float &pitch, float &yaw);
-
 // ---------------------------------------------------------------------------
-// Circular-angle math helpers (degrees)
+// Quaternion geodesic distance helper
 // ---------------------------------------------------------------------------
 
-/// Circular distance between two angles in degrees, result in [0, 180].
-static inline float circular_distance_deg(float a, float b) {
-    float d = fmodf(a - b + 540.0f, 360.0f) - 180.0f;
-    return fabsf(d);
-}
-
-/// Circular mean of two angles in degrees.
-static inline float circular_mean_2_deg(float a, float b) {
-    float sa = sinf(a * (float)M_PI / 180.0f) + sinf(b * (float)M_PI / 180.0f);
-    float ca = cosf(a * (float)M_PI / 180.0f) + cosf(b * (float)M_PI / 180.0f);
-    return atan2f(sa, ca) * (180.0f / (float)M_PI);
-}
-
-/// Expand a circular half-width so that `sample` is within center ± result.
-static inline float expand_half_width_deg(float center, float hw, float sample) {
-    float dist = circular_distance_deg(center, sample);
-    return (dist > hw) ? dist : hw;
+/// Angular distance (radians) between two unit quaternions.
+/// Returns a value in [0, π].  Handles the double-cover (q ≡ -q) correctly.
+static inline float quat_angle_between(float qi1, float qj1, float qk1, float qr1,
+                                        float qi2, float qj2, float qk2, float qr2) {
+    float d = fabsf(qi1*qi2 + qj1*qj2 + qk1*qk2 + qr1*qr2);
+    if (d > 1.0f) d = 1.0f;
+    return 2.0f * acosf(d);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,15 +98,14 @@ static inline float expand_half_width_deg(float center, float hw, float sample) 
 
 struct SavedOri {
     String  name;
-    float   qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;  // identity
+    float   qi = 0.0f, qj = 0.0f, qk = 0.0f, qr = 1.0f;  // center quaternion
     bool    used = false;
 
-    // Range data — computed from multiple save() calls on the same name.
-    // sample_count == 0 or 1  →  point mode (geodesic match)
-    // sample_count >= 2       →  range mode (per-axis Euler bounding box)
+    // Range data — updated from multiple save() calls on the same name.
+    // sample_count == 0 or 1  →  point mode (geodesic match, half-width = 0)
+    // sample_count >= 2       →  range mode (angular sphere in quaternion space)
     uint8_t sample_count = 0;
-    float   euler_center[3]     = {0.0f, 0.0f, 0.0f};  // [roll, pitch, yaw] degrees
-    float   euler_half_width[3] = {0.0f, 0.0f, 0.0f};  // per-axis half-width degrees
+    float   angular_half_width = 0.0f;  // max angular distance from center (radians)
 
     // LED color for on-device ori editing workflow.
     // Auto-assigned from a default palette when an ori is created; can be
@@ -199,45 +185,18 @@ public:
     ///
     /// If the name is new, a single-point ori is created.
     int save(const String& name, float qi, float qj, float qk, float qr) {
-        float roll, pitch, yaw;
-        quat_to_euler(qi, qj, qk, qr, roll, pitch, yaw);
-        float new_euler[3] = {roll, pitch, yaw};
-
         // --- Existing name: expand range ---
         for (uint8_t i = 0; i < ori_count; i++) {
             if (oris[i].used && oris[i].name.equalsIgnoreCase(name)) {
-                if (oris[i].sample_count <= 1) {
-                    // Transition from point → range.
-                    // Compute new center as circular mean of old center + new sample,
-                    // and half_width encompassing both.
-                    for (int ax = 0; ax < 3; ax++) {
-                        float old_c = oris[i].euler_center[ax];
-                        oris[i].euler_center[ax] = circular_mean_2_deg(old_c, new_euler[ax]);
-                        oris[i].euler_half_width[ax] = 0.0f;
-                        oris[i].euler_half_width[ax] = expand_half_width_deg(
-                            oris[i].euler_center[ax], 0.0f, old_c);
-                        oris[i].euler_half_width[ax] = expand_half_width_deg(
-                            oris[i].euler_center[ax], oris[i].euler_half_width[ax], new_euler[ax]);
-                    }
-                } else {
-                    // Already a range — update circular mean incrementally and expand.
-                    float N = (float)oris[i].sample_count;
-                    for (int ax = 0; ax < 3; ax++) {
-                        float old_sin = sinf(oris[i].euler_center[ax] * (float)M_PI / 180.0f) * N;
-                        float old_cos = cosf(oris[i].euler_center[ax] * (float)M_PI / 180.0f) * N;
-                        float new_sin = old_sin + sinf(new_euler[ax] * (float)M_PI / 180.0f);
-                        float new_cos = old_cos + cosf(new_euler[ax] * (float)M_PI / 180.0f);
-                        oris[i].euler_center[ax] = atan2f(new_sin, new_cos) * (180.0f / (float)M_PI);
-                        oris[i].euler_half_width[ax] = expand_half_width_deg(
-                            oris[i].euler_center[ax], oris[i].euler_half_width[ax], new_euler[ax]);
-                    }
-                }
+                // Expand angular_half_width to cover the new sample from the
+                // current center.  The center stays fixed (first saved pose);
+                // use reset() to reposition it.
+                float ang = quat_angle_between(qi, qj, qk, qr,
+                                               oris[i].qi, oris[i].qj,
+                                               oris[i].qk, oris[i].qr);
+                if (ang > oris[i].angular_half_width)
+                    oris[i].angular_half_width = ang;
                 oris[i].sample_count++;
-                // Keep the latest quaternion for backward compat / point fallback.
-                oris[i].qi = qi;
-                oris[i].qj = qj;
-                oris[i].qk = qk;
-                oris[i].qr = qr;
                 return i;
             }
         }
@@ -252,12 +211,7 @@ public:
                 oris[i].qr = qr;
                 oris[i].used = true;
                 oris[i].sample_count = 1;
-                oris[i].euler_center[0] = roll;
-                oris[i].euler_center[1] = pitch;
-                oris[i].euler_center[2] = yaw;
-                oris[i].euler_half_width[0] = 0.0f;
-                oris[i].euler_half_width[1] = 0.0f;
-                oris[i].euler_half_width[2] = 0.0f;
+                oris[i].angular_half_width = 0.0f;
                 // Auto-assign a color from the palette.
                 oris[i].color_r = ORI_PALETTE[next_color_index % ORI_PALETTE_SIZE][0];
                 oris[i].color_g = ORI_PALETTE[next_color_index % ORI_PALETTE_SIZE][1];
@@ -292,20 +246,12 @@ public:
         int idx = find(name);
         if (idx < 0) return -1;
 
-        float roll, pitch, yaw;
-        quat_to_euler(qi, qj, qk, qr, roll, pitch, yaw);
-
         oris[idx].qi = qi;
         oris[idx].qj = qj;
         oris[idx].qk = qk;
         oris[idx].qr = qr;
         oris[idx].sample_count = 1;
-        oris[idx].euler_center[0] = roll;
-        oris[idx].euler_center[1] = pitch;
-        oris[idx].euler_center[2] = yaw;
-        oris[idx].euler_half_width[0] = 0.0f;
-        oris[idx].euler_half_width[1] = 0.0f;
-        oris[idx].euler_half_width[2] = 0.0f;
+        oris[idx].angular_half_width = 0.0f;
         return idx;
     }
 
@@ -333,9 +279,7 @@ public:
             oris[i].used = false;
             oris[i].name = "";
             oris[i].sample_count = 0;
-            oris[i].euler_half_width[0] = 0.0f;
-            oris[i].euler_half_width[1] = 0.0f;
-            oris[i].euler_half_width[2] = 0.0f;
+            oris[i].angular_half_width = 0.0f;
         }
         ori_count = 0;
         active_ori_index = -1;
@@ -382,19 +326,11 @@ public:
         if (idx < 0) return "Ori '" + name + "' not found";
         const SavedOri& o = oris[idx];
         String s = o.name + ": samples=" + String(o.sample_count);
+        s += " q=(" + String(o.qi, 3) + "," + String(o.qj, 3) + ","
+             + String(o.qk, 3) + "," + String(o.qr, 3) + ")";
         if (o.sample_count >= 2) {
-            s += " center=[" + String(o.euler_center[0], 1) + ", "
-                 + String(o.euler_center[1], 1) + ", "
-                 + String(o.euler_center[2], 1) + "]";
-            s += " half_w=[" + String(o.euler_half_width[0], 1) + ", "
-                 + String(o.euler_half_width[1], 1) + ", "
-                 + String(o.euler_half_width[2], 1) + "]";
-        } else {
-            s += " point q=(" + String(o.qi, 3) + "," + String(o.qj, 3) + ","
-                 + String(o.qk, 3) + "," + String(o.qr, 3) + ")";
-            s += " euler=[" + String(o.euler_center[0], 1) + ", "
-                 + String(o.euler_center[1], 1) + ", "
-                 + String(o.euler_center[2], 1) + "]";
+            float hw_deg = o.angular_half_width * (180.0f / (float)M_PI);
+            s += " half_w=" + String(hw_deg, 1) + "deg";
         }
         if (active_ori_index == idx) s += " (ACTIVE)";
         return s;
@@ -416,36 +352,25 @@ public:
             return;
         }
 
-        // Compute current Euler angles for range matching.
-        float cur_roll, cur_pitch, cur_yaw;
-        quat_to_euler(qi, qj, qk, qr, cur_roll, cur_pitch, cur_yaw);
-        float cur_euler[3] = {cur_roll, cur_pitch, cur_yaw};
+        // Convert ori_tolerance from degrees to radians for quaternion comparison.
+        float tol_rad = ori_tolerance * (float)M_PI / 180.0f;
 
         // --- Phase 1: Check range-mode oris (sample_count >= 2) ---
-        // A range ori matches if the current Euler angles fall within its
-        // bounding box (center ± half_width + tolerance) on all three axes.
-        // Among multiple matches, the tightest bounding box wins.
-        int   best_range_idx  = -1;
-        float best_range_area = 1e9f;
+        // A range ori matches if the geodesic angle to its center is within
+        // angular_half_width + tolerance.  Tightest half-width wins.
+        int   best_range_idx = -1;
+        float best_range_hw  = 1e9f;
 
         for (uint8_t i = 0; i < ori_count; i++) {
-            if (!oris[i].used) continue;
-            if (oris[i].sample_count < 2) continue;  // skip point oris
-
-            bool in_range = true;
-            float area = 1.0f;
-            for (int ax = 0; ax < 3; ax++) {
-                float dist = circular_distance_deg(cur_euler[ax], oris[i].euler_center[ax]);
-                float threshold = oris[i].euler_half_width[ax] + ori_tolerance;
-                if (dist > threshold) {
-                    in_range = false;
-                    break;
+            if (!oris[i].used || oris[i].sample_count < 2) continue;
+            float angle = quat_angle_between(qi, qj, qk, qr,
+                                             oris[i].qi, oris[i].qj,
+                                             oris[i].qk, oris[i].qr);
+            if (angle <= oris[i].angular_half_width + tol_rad) {
+                if (oris[i].angular_half_width < best_range_hw) {
+                    best_range_hw  = oris[i].angular_half_width;
+                    best_range_idx = i;
                 }
-                area *= (oris[i].euler_half_width[ax] + 0.01f);  // avoid zero
-            }
-            if (in_range && area < best_range_area) {
-                best_range_area = area;
-                best_range_idx = i;
             }
         }
 
@@ -455,22 +380,18 @@ public:
             return;
         }
 
-        // --- Phase 2: Fall back to point-mode oris (geodesic distance) ---
+        // --- Phase 2: Fall back to point-mode oris (closest geodesic) ---
         // If strict_matching is false, range oris also participate here
-        // using their stored quaternion, so there is always a closest match.
+        // (they didn't match their range but are the closest alternative).
         int   best_idx   = -1;
         float best_angle = 999.0f;
 
         for (uint8_t i = 0; i < ori_count; i++) {
             if (!oris[i].used) continue;
-            // In strict mode, skip range oris (they didn't match their box).
             if (strict_matching && oris[i].sample_count >= 2) continue;
-
-            float dot = fabsf(qi * oris[i].qi + qj * oris[i].qj
-                            + qk * oris[i].qk + qr * oris[i].qr);
-            if (dot > 1.0f) dot = 1.0f;
-            float angle = 2.0f * acosf(dot);
-
+            float angle = quat_angle_between(qi, qj, qk, qr,
+                                             oris[i].qi, oris[i].qj,
+                                             oris[i].qk, oris[i].qr);
             if (angle < best_angle) {
                 best_angle = angle;
                 best_idx = i;

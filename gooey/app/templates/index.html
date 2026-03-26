@@ -102,6 +102,8 @@
     <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdBlackout">⚫ Blackout</button>
     <button class="dev-dropdown-item dev-dropdown-item-success" id="devDdRestore">🟢 Restore</button>
+    <button class="dev-dropdown-item" id="devDdDedupOn" title="Enable duplicate-value suppression — skip sends when value hasn't changed">🔁 Dedup On</button>
+    <button class="dev-dropdown-item" id="devDdDedupOff" title="Disable duplicate-value suppression — send every value regardless of change">🔁 Dedup Off</button>
     <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
@@ -232,10 +234,16 @@
                 <label for="msgValue">Sensor</label>
                 <select id="msgValue">
                   <option value="">— none —</option>
+                  <option value="high">high (constant)</option>
+                  <option value="low">low (constant)</option>
                   <option value="accelX">accelX</option>
                   <option value="accelY">accelY</option>
                   <option value="accelZ">accelZ</option>
                   <option value="accelLength">accelLength</option>
+                  <option value="gaccelX">gaccelX</option>
+                  <option value="gaccelY">gaccelY</option>
+                  <option value="gaccelZ">gaccelZ</option>
+                  <option value="gaccelLength">gaccelLength</option>
                   <option value="gyroX">gyroX</option>
                   <option value="gyroY">gyroY</option>
                   <option value="gyroZ">gyroZ</option>
@@ -244,6 +252,10 @@
                   <option value="eulerX">eulerX</option>
                   <option value="eulerY">eulerY</option>
                   <option value="eulerZ">eulerZ</option>
+                  <option value="quatI">quatI</option>
+                  <option value="quatJ">quatJ</option>
+                  <option value="quatK">quatK</option>
+                  <option value="quatR">quatR</option>
                 </select>
               </div>
             </div>
@@ -603,10 +615,16 @@
                 <label for="directValue">Sensor</label>
                 <select id="directValue">
                   <option value="">— none —</option>
+                  <option value="high">high (constant)</option>
+                  <option value="low">low (constant)</option>
                   <option value="accelX">accelX</option>
                   <option value="accelY">accelY</option>
                   <option value="accelZ">accelZ</option>
                   <option value="accelLength">accelLength</option>
+                  <option value="gaccelX">gaccelX</option>
+                  <option value="gaccelY">gaccelY</option>
+                  <option value="gaccelZ">gaccelZ</option>
+                  <option value="gaccelLength">gaccelLength</option>
                   <option value="gyroX">gyroX</option>
                   <option value="gyroY">gyroY</option>
                   <option value="gyroZ">gyroZ</option>
@@ -615,6 +633,10 @@
                   <option value="eulerX">eulerX</option>
                   <option value="eulerY">eulerY</option>
                   <option value="eulerZ">eulerZ</option>
+                  <option value="quatI">quatI</option>
+                  <option value="quatJ">quatJ</option>
+                  <option value="quatK">quatK</option>
+                  <option value="quatR">quatR</option>
                 </select>
               </div>
             </div>

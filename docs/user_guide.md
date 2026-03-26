@@ -208,10 +208,16 @@ Use these names when configuring the `value` field of a message:
 
 | Name | Description |
 |------|-------------|
-| `accelX` | Acceleration, X axis |
-| `accelY` | Acceleration, Y axis |
-| `accelZ` | Acceleration, Z axis |
+| `accelX` | Acceleration, X axis (body frame) |
+| `accelY` | Acceleration, Y axis (body frame) |
+| `accelZ` | Acceleration, Z axis (body frame) |
 | `accelLength` (or `accelLen`, `aLen`) | Acceleration magnitude |
+| `gaccelX` | Acceleration, X axis (global frame) |
+| `gaccelY` | Acceleration, Y axis (global frame) |
+| `gaccelZ` | Acceleration, Z axis (global frame) |
+| `gaccelLength` (or `gaccelLen`, `gAlen`) | Global-frame acceleration magnitude |
+| `low` (or `lo`, `min`) | Constant — always outputs the message's effective `low` bound |
+| `high` (or `hi`, `max`) | Constant — always outputs the message's effective `high` bound |
 | `gyroX` | Rotation rate, X axis |
 | `gyroY` | Rotation rate, Y axis |
 | `gyroZ` | Rotation rate, Z axis |
@@ -220,8 +226,40 @@ Use these names when configuring the `value` field of a message:
 | `eulerX` | Orientation, roll |
 | `eulerY` | Orientation, pitch |
 | `eulerZ` | Orientation, yaw |
+| `quatI` (or `quat_i`, `qi`) | Quaternion X — set `low:-1 high:1` to get native range |
+| `quatJ` (or `quat_j`, `qj`) | Quaternion Y |
+| `quatK` (or `quat_k`, `qk`) | Quaternion Z |
+| `quatR` (or `quat_r`, `qr`) | Quaternion scalar (W) |
 
 All names are case-insensitive.
+
+> **Body frame vs. global frame acceleration:** `accelX/Y/Z` axes move with the
+> device — if you tilt it 90°, what was "up" becomes "sideways".  `gaccelX/Y/Z`
+> are rotation-compensated: the axes are earth-fixed (X/Y horizontal, Z vertical)
+> regardless of how the device is held.  Use global-frame values when you care
+> about motion *in space* (e.g. "the prop is moving upward") rather than motion
+> *relative to the device*.
+
+> **Taring Euler angles:** Send `/annieData/{dev}/tare` to zero the Euler angles
+> at the device's current orientation.  Afterwards, `eulerX/Y/Z` report rotation
+> *relative to the tare pose* rather than the absolute world frame.  The firmware
+> automatically selects the Euler decomposition order (ZYX or ZXY) that avoids
+> gimbal-lock for the device's current mounting orientation.  The reply reports
+> which order was chosen, e.g. `TARE SET (ZXY)`.  Send `/tare/reset` to return
+> to absolute world-frame angles.
+>
+> **Quaternion streams:** `quatI/J/K/R` stream the raw (untared) quaternion
+> components.  Values are normalised to `[0, 1]` by default — set `low:-1 high:1`
+> on the message to recover the native `[-1, 1]` range.
+
+> **Sending constants:** Use `value:high` or `value:low` to send a fixed value
+> instead of live sensor data.  The output is whatever the effective `high` or
+> `low` bound resolves to (message bound → patch override → default 0/1).
+> Examples:
+> - `value:high, high:127` — always sends 127
+> - `value:low, low:255` — always sends 255
+> - `value:high` on a message inside a patch with `high:255` — sends 255 via the
+>   patch's override, with no per-message configuration needed
 
 ---
 
@@ -300,6 +338,7 @@ If a section is empty, the device replies with `none` for that section
 |---------|--------------|
 | `/annieData/{dev}/blackout` | Stop all patches immediately. |
 | `/annieData/{dev}/restore` | Restart all patches. |
+| `/annieData/{dev}/dedup` | Payload `"on"`/`"off"` — enable or disable duplicate-value suppression. No payload queries the current state. |
 
 ### Status Commands
 
@@ -579,14 +618,13 @@ By default, saving an ori creates a **point ori** — a single quaternion.
 The device matches it by finding the closest saved ori (geodesic distance).
 
 If you save the **same name again** while pointing in a different direction,
-the ori becomes a **range ori**.  The system computes a per-axis Euler angle
-bounding box from all the sample points you've saved.
+the ori becomes a **range ori**.  The system tracks the maximum angular
+distance (in quaternion space) from the first saved pose and uses that
+as the matching radius.
 
-**Why this is useful:** If you save `upstage` twice — once while facing
-stage-left and once while facing stage-right — the system learns that yaw
-doesn't matter for this ori, but pitch and roll do.  Now `upstage` will
-match any orientation that is "pointing upstage" regardless of which way
-you're facing.
+**Why this is useful:** Save `upstage` while holding the prop slightly
+differently several times — the range expands to cover all those positions,
+so small hand-position variations don't break the match.
 
 ```
 # First save — creates a point ori
@@ -604,11 +642,11 @@ Use `/ori/info/{name}` to inspect the range:
 /annieData/{dev}/ori/info/upstage
 ```
 
-Reply: `upstage: samples=2 center=[12.3, 45.6, -90.1] half_w=[2.1, 1.8, 67.4]`
+Reply: `upstage: samples=2 q=(0.123,0.045,-0.678,0.723) half_w=12.4deg`
 
-The `half_w` values show the half-width (in degrees) on each axis: roll,
-pitch, yaw.  A small number means "must match closely"; a large number
-means "don't care about this axis."
+The `half_w` value shows the angular matching radius in degrees.  A smaller
+number means the ori only matches orientations very close to the saved center;
+a larger number gives more tolerance.
 
 ### Resetting a range ori
 
@@ -625,14 +663,14 @@ orientation as a single-point ori.
 
 When the device has saved oris, matching works in two phases:
 
-1. **Range oris** are checked first.  If the current orientation falls
-   within a range ori's bounding box (center ± half_width + tolerance on
-   each axis), that ori is active.  If multiple ranges match, the tightest
-   one wins.
+1. **Range oris** are checked first.  If the geodesic angle from the
+   current orientation to the ori's center quaternion is within
+   `angular_half_width + tolerance`, that ori is active.  If multiple
+   ranges match, the tightest one wins.
 
 2. **Point oris** are checked next (closest geodesic distance wins).  If
    `strict_matching` is off (default), range oris that didn't match their
-   bounding box also participate here as point oris, so there is always an
+   radius also participate here as point oris, so there is always an
    active ori.
 
 ### Motion gate
@@ -773,9 +811,8 @@ You can also select an ori remotely:
 - Oris are stored in RAM only and do not survive power cycles.  You must
   re-save them after each reboot.
 - The maximum number of oris is 32.
-- Euler angles are used internally for range matching.  Near-vertical
-  orientations (pitch ≈ ±90°) may behave unpredictably due to gimbal lock.
-  This is unlikely in typical theater use.
+- Ori matching is fully quaternion-based — no Euler angles are involved, so
+  there is no gimbal-lock risk regardless of device mounting orientation.
 
 ---
 
