@@ -37,18 +37,30 @@
         <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device" aria-label="Restore all">🟢 Restore</button>
       </div>
 
-      <!-- ④ Listen port + notifications -->
+      <!-- ④ Listen port block + notification feed -->
       <div class="hdr-box hdr-box-listen">
-        <div class="hdr-listen-status">
-          <span class="listen-dot" id="listenDot"></span>
-          <span class="hdr-listen-label">:<strong id="listenPortDisplay">9000</strong></span>
-          <button id="btnNotifToggle" class="hdr-btn" title="Recent notifications" aria-label="Recent notifications">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
-          <div id="notifDropdown" class="notif-inline hidden"></div>
+
+        <!-- compact port block, like Reference/Blackout boxes -->
+        <div class="hdr-port-block">
+          <div class="hdr-listen-status">
+            <span class="listen-dot" id="listenDot"></span>
+            <span class="hdr-listen-label">Listening on port <strong id="listenPortDisplay">9000</strong></span>
+          </div>
+          <div class="hdr-listen-change">
+            <input type="number" class="hdr-input-sm hdr-input-port" id="replyPort" value="9000" min="1" max="65535" title="Listen port for OSC replies">
+            <button class="hdr-btn" id="btnApplyPort" title="Apply new listen port">Apply</button>
+          </div>
         </div>
-        <div class="hdr-listen-change">
-          <input type="number" class="hdr-input-sm" id="replyPort" value="9000" min="1" max="65535" title="Listen port for device replies">
-          <button class="hdr-btn" id="btnApplyPort" title="Apply new listen port">Apply</button>
+
+        <!-- notification feed fills remaining header space -->
+        <div class="hdr-notif-area">
+          <div class="hdr-notif-bar">
+            <span class="hdr-notif-label">Notifications</span>
+            <button id="btnNotifToggle" class="hdr-btn hdr-notif-clear" title="Clear notifications" aria-label="Clear notifications">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
+          </div>
+          <div id="notifDropdown" class="notif-feed"></div>
         </div>
+
       </div>
 
     </div><!-- /hdr-row -->

@@ -78,34 +78,19 @@
     });
   }
 
-  var _notifDropdownOpen = false;
+  // Render feed on load
+  renderNotifDropdown();
+
+  // Bell = clear all notifications
   var btnNotifToggle = $("#btnNotifToggle");
   if (btnNotifToggle) {
-    btnNotifToggle.addEventListener("click", function (e) {
-      e.stopPropagation();
-      _notifDropdownOpen = !_notifDropdownOpen;
-      var dd = $("#notifDropdown");
-      if (dd) {
-        if (_notifDropdownOpen) {
-          _unseenNotifs = 0;
-          updateNotifBadge();
-          renderNotifDropdown();
-          dd.classList.remove("hidden");
-        } else {
-          dd.classList.add("hidden");
-        }
-      }
+    btnNotifToggle.addEventListener("click", function () {
+      _toastHistory = [];
+      _unseenNotifs = 0;
+      updateNotifBadge();
+      renderNotifDropdown();
     });
   }
-  document.addEventListener("click", function (e) {
-    if (!e.target.closest("#notifDropdown") && !e.target.closest("#btnNotifToggle")) {
-      var dd = $("#notifDropdown");
-      if (dd && !dd.classList.contains("hidden")) {
-        dd.classList.add("hidden");
-        _notifDropdownOpen = false;
-      }
-    }
-  });
 
   /* ── showToast (public alias: toast) ── */
   function showToast(msg, type, duration) {
@@ -117,6 +102,7 @@
     if (_toastHistory.length > 10) _toastHistory.shift();
     _unseenNotifs++;
     updateNotifBadge();
+    renderNotifDropdown();
 
     var el = document.createElement("div");
     el.className = "toast toast-" + type;
