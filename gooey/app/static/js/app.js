@@ -97,7 +97,15 @@
       }
     });
   }
-  // notif panel is inline — no click-away close needed
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#notifDropdown") && !e.target.closest("#btnNotifToggle")) {
+      var dd = $("#notifDropdown");
+      if (dd && !dd.classList.contains("hidden")) {
+        dd.classList.add("hidden");
+        _notifDropdownOpen = false;
+      }
+    }
+  });
 
   /* ── showToast (public alias: toast) ── */
   function showToast(msg, type, duration) {
@@ -916,6 +924,20 @@
       if (res.status === "ok") toast(act + ": " + name, "success");
     });
   }
+
+  /* ── Ori explainer dismiss ── */
+  (function () {
+    var card = $("#oriExplainerCard");
+    var btn  = $("#oriExplainerDismiss");
+    if (!card || !btn) return;
+    if (localStorage.getItem("oriExplainerDismissed") === "1") {
+      card.style.display = "none";
+    }
+    btn.addEventListener("click", function () {
+      card.style.display = "none";
+      localStorage.setItem("oriExplainerDismissed", "1");
+    });
+  }());
 
   /* ═══════════════════════════════════════════
      ORI TABLE
