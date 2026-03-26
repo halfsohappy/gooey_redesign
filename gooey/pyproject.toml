@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gooey-theatergwd"
-version = "0.1.0"
+version = "0.2.0"
 description = "TheaterGWD Control Center – web-based OSC device manager for theater sensor hardware"
 readme = "README.md"
 license = {text = "MIT"}
