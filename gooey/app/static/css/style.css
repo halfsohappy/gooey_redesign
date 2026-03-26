@@ -973,25 +973,21 @@ input[type="color"] {
 .hdr-box-listen {
   flex: 1 1 auto;
   border-right: none;
+  justify-content: center;
+  gap: 0;
 }
 
-.hdr-listen-status {
+.hdr-listen-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 8px;
 }
 
 .hdr-listen-label {
   font-family: var(--font);
   font-size: 13px;
   color: rgba(0,0,0,0.55);
-}
-
-.hdr-listen-change {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  white-space: nowrap;
 }
 
 /* ── Query box (row 2, left) ── */
@@ -1635,7 +1631,7 @@ button.loading::after {
   content: ' …';
 }
 
-/* ── 2. Toast notification badge + dropdown ── */
+/* ── 2. Toast notification badge + inline panel ── */
 .notif-badge {
   background: var(--danger);
   color: #fff;
@@ -1644,19 +1640,12 @@ button.loading::after {
   padding: 1px 5px;
   vertical-align: super;
 }
-.notif-dropdown {
-  position: absolute;
-  top: 40px;
-  right: 0;
-  width: 320px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  z-index: 200;
-  max-height: 300px;
+.notif-inline {
+  max-height: 180px;
   overflow-y: auto;
-  padding: 8px 0;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  margin-top: 8px;
+  padding-top: 2px;
 }
 .notif-item {
   padding: 8px 14px;

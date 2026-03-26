@@ -97,15 +97,7 @@
       }
     });
   }
-  document.addEventListener("click", function (e) {
-    if (!e.target.closest("#notifDropdown") && !e.target.closest("#btnNotifToggle")) {
-      var dd = $("#notifDropdown");
-      if (dd && !dd.classList.contains("hidden")) {
-        dd.classList.add("hidden");
-        _notifDropdownOpen = false;
-      }
-    }
-  });
+  // notif panel is inline — no click-away close needed
 
   /* ── showToast (public alias: toast) ── */
   function showToast(msg, type, duration) {

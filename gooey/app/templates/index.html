@@ -37,18 +37,16 @@
         <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device" aria-label="Restore all">🟢 Restore</button>
       </div>
 
-      <!-- ④ Listen port -->
-      <div class="hdr-box hdr-box-listen" style="position:relative">
-        <div class="hdr-listen-status">
+      <!-- ④ Listen port + notifications -->
+      <div class="hdr-box hdr-box-listen">
+        <div class="hdr-listen-row">
           <span class="listen-dot" id="listenDot"></span>
-          <span class="hdr-listen-label">Listening on port <strong id="listenPortDisplay">9000</strong></span>
-          <button id="btnNotifToggle" class="hdr-btn" title="Recent notifications" aria-label="Recent notifications" style="margin-left:8px">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
-          <div id="notifDropdown" class="notif-dropdown hidden"></div>
-        </div>
-        <div class="hdr-listen-change">
+          <span class="hdr-listen-label">port <strong id="listenPortDisplay">9000</strong></span>
           <input type="number" class="hdr-input-sm" id="replyPort" value="9000" min="1" max="65535" title="Listen port for device replies">
           <button class="hdr-btn" id="btnApplyPort" title="Apply new listen port">Apply</button>
+          <button id="btnNotifToggle" class="hdr-btn" title="Recent notifications" aria-label="Recent notifications">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
         </div>
+        <div id="notifDropdown" class="notif-inline hidden"></div>
       </div>
 
     </div><!-- /hdr-row -->
