@@ -127,9 +127,9 @@ static int disp_wrapped(const char* text, int scroll_line) {
     int total_lines = 0;
     int len = strlen(text);
     int pos = 0;
-    char lines_buf[64][COLS + 1];   // up to 64 wrapped lines
+    char lines_buf[48][COLS + 1];   // up to 48 wrapped lines
 
-    while (pos < len && total_lines < 64) {
+    while (pos < len && total_lines < 48) {
         int chunk = len - pos;
         if (chunk > COLS) chunk = COLS;
         memcpy(lines_buf[total_lines], text + pos, chunk);
