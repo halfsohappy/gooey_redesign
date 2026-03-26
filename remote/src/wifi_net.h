@@ -1,5 +1,5 @@
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef WIFI_NET_H
+#define WIFI_NET_H
 
 // ============================================================================
 //  TheaterGWD Setup Remote — WiFi Connection, NVS Storage & Provisioning
@@ -213,4 +213,4 @@ static void net_disconnect() {
     _net_state = NET_IDLE;
 }
 
-#endif // NETWORK_H
+#endif // WIFI_NET_H

@@ -23,7 +23,7 @@
 // Project headers (order matters — later headers depend on earlier ones)
 #include "config.h"
 #include "osc_remote.h"
-#include "network.h"
+#include "wifi_net.h"
 #include "display.h"
 #include "input.h"
 #include "ui.h"

@@ -19,7 +19,7 @@
 #include "display.h"
 #include "input.h"
 #include "osc_remote.h"
-#include "network.h"
+#include "wifi_net.h"
 
 // ── Forward declarations ────────────────────────────────────────────────────
 
