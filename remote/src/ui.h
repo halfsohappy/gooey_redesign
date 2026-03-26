@@ -909,6 +909,7 @@ static void _build_settings_menu() {
     snprintf(buf, MAX_ITEM_LEN, "Listen Port: %d", listen_port);
     _add_item(buf);
     _add_item(">> Save & Reconnect <<");
+    _add_item(">> Re-provision WiFi <<");
 }
 
 // Helper: rebuild settings menu while preserving cursor position.
@@ -932,6 +933,11 @@ static void _set_tip_cb(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
 static void _set_tport_cb(int v) { target_port = v; _mode = MODE_MENU; _rebuild_settings(4); }
 static void _set_lport_cb(int v) { listen_port = v; _mode = MODE_MENU; _rebuild_settings(5); }
 
+static void _reprovision_cb(bool yes) {
+    _mode = MODE_MENU;
+    if (yes) net_clear_provision();  // clears NVS and restarts
+}
+
 static void _on_settings(int idx) {
     switch (idx) {
         case 0: _start_text("WiFi SSID", net_ssid, _set_ssid_cb); break;
@@ -946,6 +952,9 @@ static void _on_settings(int idx) {
             net_connect();
             osc_init(listen_port);
             _show_reply("Saved. Reconnecting...");
+            break;
+        case 7:
+            _start_confirm("Reset WiFi setup?", _reprovision_cb);
             break;
     }
 }
@@ -1157,7 +1166,7 @@ static void _draw() {
             // Status bar: WiFi + target
             char st[22];
             if (net_state() == NET_CONNECTED)
-                snprintf(st, sizeof(st), "\x10 %s %d.%d.%d.%d",
+                snprintf(st, sizeof(st), "%s %d.%d.%d.%d",
                          target_name, target_ip[0], target_ip[1],
                          target_ip[2], target_ip[3]);
             else
@@ -1185,7 +1194,7 @@ static void _draw() {
         case MODE_REPLY:
             disp_title("Reply");
             _rp_lines = disp_wrapped(_rp_text, _rp_scroll);
-            disp_status("\x11""back  \x12""scroll");
+            disp_status("B:back  X/Y:scroll");
             break;
         case MODE_WAITING: {
             disp_title("Waiting...");
@@ -1239,9 +1248,6 @@ static void ui_update() {
         if (millis() - _wait_start > REPLY_TIMEOUT_MS) {
             _show_reply("No reply (timeout)");
         }
-        // Spin NeoPixels while waiting
-        int pos = ((millis() - _wait_start) / 100) % SS_NEOPIX_NUM;
-        led_spin(80, 80, 0, pos);
     }
 
     // ── Poll OSC replies ────────────────────────────────────────────────
@@ -1269,16 +1275,6 @@ static void ui_update() {
                 }
                 break;
         }
-    }
-
-    // ── NeoPixel status (when not in waiting mode) ──────────────────────
-    if (_mode != MODE_WAITING) {
-        if (net_state() == NET_CONNECTED)
-            led_set(0, 15, 0);       // dim green
-        else if (net_state() == NET_CONNECTING)
-            led_spin(0, 0, 60, (millis() / 150) % SS_NEOPIX_NUM);
-        else
-            led_set(15, 0, 0);       // dim red
     }
 
     // ── Redraw ──────────────────────────────────────────────────────────

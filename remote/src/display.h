@@ -2,70 +2,67 @@
 #define DISPLAY_H
 
 // ============================================================================
-//  TheaterGWD Setup Remote — SSD1306 128×64 OLED Display Wrapper
+//  TheaterGWD Setup Remote — ST7789 240×240 TFT Display Wrapper
 // ============================================================================
 //
-//  Thin layer over Adafruit_SSD1306 providing helpers for menu rendering,
-//  status bars, and the various editor overlays used by the UI.
+//  Thin layer over TFT_eSPI providing helpers for menu rendering, status
+//  bars, and the various editor overlays used by the UI.
 //
-//  Layout (size-1 font = 6×8 px → 21 chars × 8 rows):
+//  Layout (font size 2 → 12×16 px → 20 chars × 15 rows):
 //
-//    Row 0        Title bar (inverted background)
-//    Rows 1–6     Content area (6 visible menu items or text)
-//    Row 7        Status / hint bar (inverted background)
+//    Row 0         Title bar (coloured background)
+//    Rows 1–10     Content area (10 visible menu items or text)
+//    Row 14        Status / hint bar (coloured background)
 //
 // ============================================================================
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <TFT_eSPI.h>
 #include "config.h"
 
 // ── Display instance ────────────────────────────────────────────────────────
 
-static Adafruit_SSD1306 _oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-// ── Geometry constants ──────────────────────────────────────────────────────
-
-#define CHAR_W       6
-#define CHAR_H       8
-#define COLS         (SCREEN_WIDTH  / CHAR_W)   // 21
-#define ROWS         (SCREEN_HEIGHT / CHAR_H)   // 8
-#define TITLE_Y      0
-#define CONTENT_Y    1       // first content row index
-#define CONTENT_ROWS VISIBLE_ITEMS  // 6
-#define STATUS_Y     7       // bottom row index
+static TFT_eSPI _tft = TFT_eSPI(SCREEN_WIDTH, SCREEN_HEIGHT);
 
 // ── Init ────────────────────────────────────────────────────────────────────
 
 static bool disp_init() {
-    return _oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+    _tft.init();
+    _tft.setRotation(0);
+    _tft.fillScreen(COL_BG);
+
+    // Turn on backlight
+    pinMode(TFT_BL, OUTPUT);
+    digitalWrite(TFT_BL, HIGH);
+
+    _tft.setTextSize(2);           // 12×16 px glyphs
+    _tft.setTextColor(COL_FG, COL_BG);
+    return true;
 }
 
 // ── Low-level helpers ───────────────────────────────────────────────────────
 
-static void disp_clear() { _oled.clearDisplay(); }
-static void disp_show()  { _oled.display(); }
+static void disp_clear() { _tft.fillScreen(COL_BG); }
+static void disp_show()  { /* TFT_eSPI is immediate-mode — nothing to flush */ }
 
-// Draw a full-width inverted text bar at pixel-row y.
-static void _disp_bar(int y, const char* text) {
-    _oled.fillRect(0, y, SCREEN_WIDTH, CHAR_H, SSD1306_WHITE);
-    _oled.setTextColor(SSD1306_BLACK);
-    _oled.setTextSize(1);
-    _oled.setCursor(1, y);
-    _oled.print(text);
-    _oled.setTextColor(SSD1306_WHITE);
+// Draw a full-width coloured text bar at pixel-row y.
+static void _disp_bar(int y, const char* text, uint16_t bg, uint16_t fg) {
+    _tft.fillRect(0, y, SCREEN_WIDTH, CHAR_H, bg);
+    _tft.setTextColor(fg, bg);
+    _tft.setTextSize(2);
+    _tft.setCursor(2, y);
+    _tft.print(text);
+    _tft.setTextColor(COL_FG, COL_BG);
 }
 
 // ── Title & status bars ─────────────────────────────────────────────────────
 
 static void disp_title(const char* text) {
-    _disp_bar(TITLE_Y * CHAR_H, text);
+    _disp_bar(TITLE_Y * CHAR_H, text, COL_TITLE_BG, COL_TITLE_FG);
 }
 
 static void disp_status(const char* text) {
-    _disp_bar(STATUS_Y * CHAR_H, text);
+    _disp_bar(STATUS_Y * CHAR_H, text, COL_STATUS_BG, COL_STATUS_FG);
 }
 
 // ── Menu list ───────────────────────────────────────────────────────────────
@@ -74,48 +71,47 @@ static void disp_status(const char* text) {
 // first visible index.  Items[i] is the label for absolute index i.
 static void disp_menu(const char items[][MAX_ITEM_LEN], int count,
                       int selected, int scroll) {
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextSize(2);
     for (int r = 0; r < CONTENT_ROWS && (scroll + r) < count; r++) {
         int idx = scroll + r;
         int py = (CONTENT_Y + r) * CHAR_H;
         if (idx == selected) {
-            _oled.fillRect(0, py, SCREEN_WIDTH, CHAR_H, SSD1306_WHITE);
-            _oled.setTextColor(SSD1306_BLACK);
+            _tft.fillRect(0, py, SCREEN_WIDTH, CHAR_H, COL_SEL_BG);
+            _tft.setTextColor(COL_SEL_FG, COL_SEL_BG);
+        } else {
+            _tft.setTextColor(COL_FG, COL_BG);
         }
-        _oled.setCursor(2, py);
-        _oled.print(items[idx]);
-        if (idx == selected) {
-            _oled.setTextColor(SSD1306_WHITE);
-        }
+        _tft.setCursor(2, py);
+        _tft.print(items[idx]);
     }
+    _tft.setTextColor(COL_FG, COL_BG);
     // scroll indicators
     if (scroll > 0) {
-        _oled.setCursor(SCREEN_WIDTH - CHAR_W, CONTENT_Y * CHAR_H);
-        _oled.print((char)0x18);  // up arrow
+        _tft.setCursor(SCREEN_WIDTH - CHAR_W, CONTENT_Y * CHAR_H);
+        _tft.print("^");
     }
     if (scroll + CONTENT_ROWS < count) {
         int py = (CONTENT_Y + CONTENT_ROWS - 1) * CHAR_H;
-        _oled.setCursor(SCREEN_WIDTH - CHAR_W, py);
-        _oled.print((char)0x19);  // down arrow
+        _tft.setCursor(SCREEN_WIDTH - CHAR_W, py);
+        _tft.print("v");
     }
 }
 
 // ── Full-screen centred message ─────────────────────────────────────────────
 
 static void disp_message(const char* line1, const char* line2 = nullptr) {
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
-    int y = line2 ? 20 : 28;
+    _tft.setTextSize(2);
+    _tft.setTextColor(COL_FG, COL_BG);
+    int y = line2 ? 80 : 112;
     int x1 = (SCREEN_WIDTH - (int)strlen(line1) * CHAR_W) / 2;
     if (x1 < 0) x1 = 0;
-    _oled.setCursor(x1, y);
-    _oled.print(line1);
+    _tft.setCursor(x1, y);
+    _tft.print(line1);
     if (line2) {
         int x2 = (SCREEN_WIDTH - (int)strlen(line2) * CHAR_W) / 2;
         if (x2 < 0) x2 = 0;
-        _oled.setCursor(x2, y + 12);
-        _oled.print(line2);
+        _tft.setCursor(x2, y + 24);
+        _tft.print(line2);
     }
 }
 
@@ -124,16 +120,16 @@ static void disp_message(const char* line1, const char* line2 = nullptr) {
 // Draw word-wrapped text in the content area, starting from line `scroll`.
 // Returns total number of wrapped lines.
 static int disp_wrapped(const char* text, int scroll_line) {
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextSize(2);
+    _tft.setTextColor(COL_FG, COL_BG);
 
     // Pre-compute wrapped lines
     int total_lines = 0;
     int len = strlen(text);
     int pos = 0;
-    char lines_buf[32][COLS + 1];   // up to 32 wrapped lines
+    char lines_buf[64][COLS + 1];   // up to 64 wrapped lines
 
-    while (pos < len && total_lines < 32) {
+    while (pos < len && total_lines < 64) {
         int chunk = len - pos;
         if (chunk > COLS) chunk = COLS;
         memcpy(lines_buf[total_lines], text + pos, chunk);
@@ -143,8 +139,8 @@ static int disp_wrapped(const char* text, int scroll_line) {
     }
 
     for (int r = 0; r < CONTENT_ROWS && (scroll_line + r) < total_lines; r++) {
-        _oled.setCursor(0, (CONTENT_Y + r) * CHAR_H);
-        _oled.print(lines_buf[scroll_line + r]);
+        _tft.setCursor(0, (CONTENT_Y + r) * CHAR_H);
+        _tft.print(lines_buf[scroll_line + r]);
     }
     return total_lines;
 }
@@ -156,40 +152,42 @@ static void disp_text_input(const char* title, const char* text,
     disp_title(title);
 
     // Show the entered text so far
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
-    _oled.setCursor(2, 2 * CHAR_H);
-    _oled.print(text);
+    _tft.setTextSize(2);
+    _tft.setTextColor(COL_FG, COL_BG);
+    _tft.setCursor(2, 2 * CHAR_H);
+    _tft.print(text);
 
     // Blinking cursor character
     int cx = 2 + cursor_pos * CHAR_W;
     if (cx > SCREEN_WIDTH - CHAR_W) cx = SCREEN_WIDTH - CHAR_W;
-    _oled.fillRect(cx, 2 * CHAR_H, CHAR_W, CHAR_H, SSD1306_WHITE);
-    _oled.setTextColor(SSD1306_BLACK);
-    _oled.setCursor(cx, 2 * CHAR_H);
+    _tft.fillRect(cx, 2 * CHAR_H, CHAR_W, CHAR_H, COL_FG);
+    _tft.setTextColor(COL_BG, COL_FG);
+    _tft.setCursor(cx, 2 * CHAR_H);
     char tmp[2] = { current_char, 0 };
-    _oled.print(tmp);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.print(tmp);
+    _tft.setTextColor(COL_FG, COL_BG);
 
     // Show nearby characters for context
     int ci = 0;
     for (int i = 0; i < CHARSET_LEN; i++) {
         if (CHARSET[i] == current_char) { ci = i; break; }
     }
-    _oled.setCursor(2, 4 * CHAR_H);
+    _tft.setCursor(2, 5 * CHAR_H);
     for (int d = -6; d <= 6; d++) {
         int idx = (ci + d + CHARSET_LEN) % CHARSET_LEN;
         if (d == 0) {
-            _oled.print('[');
-            _oled.print(CHARSET[idx]);
-            _oled.print(']');
+            _tft.setTextColor(COL_TITLE_BG, COL_BG);
+            _tft.print('[');
+            _tft.print(CHARSET[idx]);
+            _tft.print(']');
+            _tft.setTextColor(COL_FG, COL_BG);
         } else {
-            _oled.print(' ');
-            _oled.print(CHARSET[idx]);
+            _tft.print(' ');
+            _tft.print(CHARSET[idx]);
         }
     }
 
-    disp_status("\x12""add \x11""del \x19""done \x18""cancel");
+    disp_status("A:add B:del X/Y:chr");
 }
 
 // ── Number-input overlay ────────────────────────────────────────────────────
@@ -199,21 +197,21 @@ static void disp_num_input(const char* title, int value, int lo, int hi) {
     char buf[24];
     snprintf(buf, sizeof(buf), "%d", value);
 
-    _oled.setTextSize(2);
-    _oled.setTextColor(SSD1306_WHITE);
-    int x = (SCREEN_WIDTH - (int)strlen(buf) * 12) / 2;
+    _tft.setTextSize(4);
+    _tft.setTextColor(COL_FG, COL_BG);
+    int x = (SCREEN_WIDTH - (int)strlen(buf) * 24) / 2;
     if (x < 0) x = 0;
-    _oled.setCursor(x, 24);
-    _oled.print(buf);
+    _tft.setCursor(x, 80);
+    _tft.print(buf);
 
-    _oled.setTextSize(1);
+    _tft.setTextSize(2);
     snprintf(buf, sizeof(buf), "range: %d .. %d", lo, hi);
     int rx = (SCREEN_WIDTH - (int)strlen(buf) * CHAR_W) / 2;
     if (rx < 0) rx = 0;
-    _oled.setCursor(rx, 46);
-    _oled.print(buf);
+    _tft.setCursor(rx, 140);
+    _tft.print(buf);
 
-    disp_status("\x12""scroll  \x19""done");
+    disp_status("X/Y:val  A:done");
 }
 
 // ── IP-address input overlay ────────────────────────────────────────────────
@@ -222,27 +220,27 @@ static void disp_ip_input(const char* title, const uint8_t octets[4],
                           int active_octet) {
     disp_title(title);
 
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextSize(2);
+    _tft.setTextColor(COL_FG, COL_BG);
 
     // Draw each octet, highlighting the active one
     char buf[4];
-    int x = 8;
+    int x = 16;
     for (int i = 0; i < 4; i++) {
         snprintf(buf, sizeof(buf), "%3d", octets[i]);
         if (i == active_octet) {
-            _oled.fillRect(x - 1, 26, 3 * CHAR_W + 2, CHAR_H + 2,
-                           SSD1306_WHITE);
-            _oled.setTextColor(SSD1306_BLACK);
+            _tft.fillRect(x - 1, 98, 3 * CHAR_W + 2, CHAR_H + 2,
+                           COL_SEL_BG);
+            _tft.setTextColor(COL_SEL_FG, COL_SEL_BG);
         }
-        _oled.setCursor(x, 27);
-        _oled.print(buf);
-        _oled.setTextColor(SSD1306_WHITE);
-        x += 3 * CHAR_W + 2;
-        if (i < 3) { _oled.setCursor(x, 27); _oled.print('.'); x += CHAR_W; }
+        _tft.setCursor(x, 99);
+        _tft.print(buf);
+        _tft.setTextColor(COL_FG, COL_BG);
+        x += 3 * CHAR_W + 4;
+        if (i < 3) { _tft.setCursor(x, 99); _tft.print('.'); x += CHAR_W + 2; }
     }
 
-    disp_status("\x12""val \x11""\x12""oct \x19""done");
+    disp_status("X/Y:val LR:oct A:ok");
 }
 
 // ── Pick-list overlay (reuse menu renderer) ─────────────────────────────────
@@ -250,57 +248,58 @@ static void disp_ip_input(const char* title, const uint8_t octets[4],
 static void disp_pick(const char* title, const char* const* options,
                       int count, int selected, int scroll) {
     disp_title(title);
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextSize(2);
     for (int r = 0; r < CONTENT_ROWS && (scroll + r) < count; r++) {
         int idx = scroll + r;
         int py = (CONTENT_Y + r) * CHAR_H;
         if (idx == selected) {
-            _oled.fillRect(0, py, SCREEN_WIDTH, CHAR_H, SSD1306_WHITE);
-            _oled.setTextColor(SSD1306_BLACK);
+            _tft.fillRect(0, py, SCREEN_WIDTH, CHAR_H, COL_SEL_BG);
+            _tft.setTextColor(COL_SEL_FG, COL_SEL_BG);
+        } else {
+            _tft.setTextColor(COL_FG, COL_BG);
         }
-        _oled.setCursor(2, py);
-        _oled.print(options[idx]);
-        if (idx == selected) _oled.setTextColor(SSD1306_WHITE);
+        _tft.setCursor(2, py);
+        _tft.print(options[idx]);
     }
-    disp_status("\x12""scroll  \x19""select");
+    _tft.setTextColor(COL_FG, COL_BG);
+    disp_status("X/Y:scroll A:sel");
 }
 
 // ── Confirm dialog ──────────────────────────────────────────────────────────
 
 static void disp_confirm(const char* text, bool yes_selected) {
-    _oled.setTextSize(1);
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextSize(2);
+    _tft.setTextColor(COL_FG, COL_BG);
 
     int tx = (SCREEN_WIDTH - (int)strlen(text) * CHAR_W) / 2;
     if (tx < 0) tx = 0;
-    _oled.setCursor(tx, 16);
-    _oled.print(text);
+    _tft.setCursor(tx, 60);
+    _tft.print(text);
 
-    int bw = 30, bh = 14, gap = 16;
-    int y = 36;
+    int bw = 60, bh = 28, gap = 24;
+    int y = 120;
     int x_yes = SCREEN_WIDTH / 2 - bw - gap / 2;
     int x_no  = SCREEN_WIDTH / 2 + gap / 2;
 
     // YES box
     if (yes_selected)
-        _oled.fillRoundRect(x_yes, y, bw, bh, 3, SSD1306_WHITE);
+        _tft.fillRoundRect(x_yes, y, bw, bh, 6, COL_SEL_BG);
     else
-        _oled.drawRoundRect(x_yes, y, bw, bh, 3, SSD1306_WHITE);
-    _oled.setTextColor(yes_selected ? SSD1306_BLACK : SSD1306_WHITE);
-    _oled.setCursor(x_yes + 6, y + 3);
-    _oled.print("Yes");
+        _tft.drawRoundRect(x_yes, y, bw, bh, 6, COL_FG);
+    _tft.setTextColor(yes_selected ? COL_SEL_FG : COL_FG, yes_selected ? COL_SEL_BG : COL_BG);
+    _tft.setCursor(x_yes + 12, y + 6);
+    _tft.print("Yes");
 
     // NO box
     if (!yes_selected)
-        _oled.fillRoundRect(x_no, y, bw, bh, 3, SSD1306_WHITE);
+        _tft.fillRoundRect(x_no, y, bw, bh, 6, COL_SEL_BG);
     else
-        _oled.drawRoundRect(x_no, y, bw, bh, 3, SSD1306_WHITE);
-    _oled.setTextColor(!yes_selected ? SSD1306_BLACK : SSD1306_WHITE);
-    _oled.setCursor(x_no + 9, y + 3);
-    _oled.print("No");
+        _tft.drawRoundRect(x_no, y, bw, bh, 6, COL_FG);
+    _tft.setTextColor(!yes_selected ? COL_SEL_FG : COL_FG, !yes_selected ? COL_SEL_BG : COL_BG);
+    _tft.setCursor(x_no + 18, y + 6);
+    _tft.print("No");
 
-    _oled.setTextColor(SSD1306_WHITE);
+    _tft.setTextColor(COL_FG, COL_BG);
 }
 
 #endif // DISPLAY_H
