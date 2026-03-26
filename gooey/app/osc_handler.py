@@ -145,6 +145,35 @@ class OSCEngine:
             "id": recv_id, "port": port, "filter": filter_str})
         return {"status": "ok", "id": recv_id}
 
+    def start_remote_receiver(self, recv_id, port):
+        """Start a receiver that forwards OSC replies to the 'remote_clients' room."""
+        if recv_id in self._receivers:
+            if self._receivers[recv_id]["port"] == int(port):
+                return {"status": "ok", "id": recv_id}
+            self.stop_receiver(recv_id)
+
+        disp = dispatcher.Dispatcher()
+
+        def _handler(address, *args):
+            serialized = [self._serialize_arg(a) for a in args]
+            self.socketio.emit("remote_reply",
+                               {"address": address, "args": serialized},
+                               to="remote_clients")
+
+        disp.set_default_handler(_handler)
+
+        try:
+            server = osc_server.ThreadingOSCUDPServer(
+                ("0.0.0.0", int(port)), disp)
+        except OSError as e:
+            return {"status": "error", "message": str(e)}
+
+        self._receivers[recv_id] = {"server": server, "port": int(port), "filter": ""}
+
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        return {"status": "ok", "id": recv_id}
+
     def stop_receiver(self, recv_id):
         """Stop a receiver."""
         if recv_id in self._receivers:

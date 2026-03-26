@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#DAC7FF">
+  <title>Remote — annieData</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --surface2: #242424;
+      --border: #333;
+      --lavender: #DAC7FF;
+      --lavender-dark: #b8a0e8;
+      --accent: #90849c;
+      --fg: #f0f0f0;
+      --fg2: #aaa;
+      --danger: #D64541;
+      --success: #4CAF50;
+      --warn: #f59e0b;
+      --radius: 10px;
+      --touch: 52px;
+      --font: 'Martian Mono', 'Courier New', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; }
+
+    /* ── Screen system ── */
+    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); transition: transform .22s cubic-bezier(.4,0,.2,1), opacity .22s; will-change: transform; }
+    .screen.hidden { pointer-events: none; opacity: 0; transform: translateX(100%); }
+    .screen.slide-back { transform: translateX(-30%); opacity: 0; }
+
+    /* ── Header ── */
+    .hdr { background: var(--lavender); color: #000; display: flex; align-items: center; padding: 0 14px; min-height: 52px; flex-shrink: 0; gap: 10px; }
+    .hdr-back { background: none; border: none; font: inherit; font-size: 20px; cursor: pointer; color: #000; padding: 8px 4px; line-height: 1; }
+    .hdr-title { font-size: 15px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hdr-action { background: none; border: none; font: inherit; font-size: 14px; cursor: pointer; color: #000; padding: 8px 4px; opacity: .75; }
+    .hdr-action:active { opacity: 1; }
+    .ws-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .ws-dot.ok { background: var(--success); }
+    .ws-dot.err { background: var(--danger); }
+
+    /* ── Scroll body ── */
+    .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+    /* ── Cards / rows ── */
+    .card { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+    .card-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); padding: 10px 14px 4px; }
+    .row { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 14px; border-top: 1px solid var(--border); cursor: pointer; user-select: none; }
+    .row:first-child, .card-label + .row { border-top: none; }
+    .row:active { background: var(--surface2); }
+    .row-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+    .row-text { flex: 1; overflow: hidden; }
+    .row-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-sub { font-size: 11px; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-chev { color: var(--fg2); font-size: 16px; flex-shrink: 0; }
+    .row.danger .row-title { color: var(--danger); }
+    .row.success .row-title { color: var(--success); }
+    .row.warn .row-title { color: var(--warn); }
+
+    /* ── Action buttons (big touch targets) ── */
+    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch); border-radius: var(--radius); border: none; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; padding: 0 16px; transition: filter .1s; }
+    .btn:active { filter: brightness(1.2); }
+    .btn-lavender { background: var(--lavender); color: #000; }
+    .btn-danger   { background: var(--danger);   color: #fff; }
+    .btn-success  { background: var(--success);  color: #fff; }
+    .btn-surface  { background: var(--surface2); color: var(--fg); }
+    .btn-outline  { background: transparent; color: var(--lavender); border: 1.5px solid var(--lavender); }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row .btn { flex: 1; }
+
+    /* ── Form inputs ── */
+    label { display: block; font-size: 11px; color: var(--fg2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .06em; }
+    input[type=text], input[type=number] {
+      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 7px; color: var(--fg); font: inherit; font-size: 14px;
+      padding: 10px 12px; outline: none; -webkit-appearance: none;
+    }
+    input:focus { border-color: var(--lavender); }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .fields { display: flex; flex-direction: column; gap: 12px; }
+
+    /* ── Connect screen ── */
+    #screenConnect .body { justify-content: center; max-width: 420px; margin: 0 auto; width: 100%; }
+    .connect-logo { text-align: center; padding: 24px 0 8px; }
+    .connect-logo-title { font-size: 26px; font-weight: 700; color: var(--lavender); letter-spacing: -.02em; }
+    .connect-logo-sub { font-size: 12px; color: var(--fg2); margin-top: 4px; }
+
+    /* ── Status bar ── */
+    .status-bar { background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; font-size: 11px; color: var(--fg2); display: flex; align-items: center; gap: 8px; }
+    .status-bar span { flex: 1; }
+
+    /* ── Reply / result screen ── */
+    .result-box { background: var(--surface); border-radius: var(--radius); padding: 14px; font-size: 12px; line-height: 1.7; word-break: break-all; flex: 1; overflow-y: auto; white-space: pre-wrap; color: var(--fg); }
+    .result-addr { font-size: 11px; color: var(--lavender); margin-bottom: 8px; }
+
+    /* ── Monitor list ── */
+    .monitor-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 1px; }
+    .monitor-item { background: var(--surface); border-radius: 6px; padding: 8px 12px; font-size: 11px; }
+    .monitor-item-addr { color: var(--lavender); }
+    .monitor-item-args { color: var(--fg2); }
+
+    /* ── Overlay: loading ── */
+    #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 100; }
+    #overlay.hidden { display: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--lavender); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #overlay-msg { font-size: 13px; color: var(--fg2); }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1.5px solid var(--border); color: var(--fg); padding: 10px 18px; border-radius: 50px; font-size: 13px; z-index: 200; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+    #toast.show { opacity: 1; }
+
+    /* ── Confirm sheet ── */
+    #confirmSheet { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; z-index: 150; }
+    #confirmSheet.hidden { display: none; }
+    .confirm-box { background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; padding: 20px 16px 32px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+    .confirm-msg { font-size: 14px; text-align: center; color: var(--fg); line-height: 1.5; padding: 0 8px; }
+
+    /* ── Tag list (names) ── */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
+    .tag { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 50px; padding: 6px 14px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: background .1s; }
+    .tag:active { background: var(--lavender); color: #000; }
+
+    /* ── Settings inputs ── */
+    .settings-row { display: flex; align-items: center; min-height: var(--touch); padding: 0 14px; gap: 12px; border-top: 1px solid var(--border); }
+    .settings-row:first-child { border-top: none; }
+    .settings-row label { margin: 0; flex-shrink: 0; width: 100px; }
+    .settings-row input { flex: 1; }
+
+    /* ── Section divider ── */
+    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); padding: 8px 4px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ══ CONNECT ══════════════════════════════════════════════════════════════ -->
+<div class="screen" id="screenConnect">
+  <div class="hdr">
+    <div class="hdr-title">annieData Remote</div>
+    <div class="ws-dot" id="wsDot"></div>
+  </div>
+  <div class="body">
+    <div class="connect-logo">
+      <div class="connect-logo-title">Remote</div>
+      <div class="connect-logo-sub">annieData Control</div>
+    </div>
+    <div class="fields">
+      <div class="field">
+        <label>Device IP</label>
+        <input type="text" id="cfgHost" placeholder="192.168.1.x" inputmode="decimal">
+      </div>
+      <div class="btn-row">
+        <div class="field" style="flex:1">
+          <label>OSC Port</label>
+          <input type="number" id="cfgPort" value="8000" min="1" max="65535" inputmode="numeric">
+        </div>
+        <div class="field" style="flex:1">
+          <label>Reply Port</label>
+          <input type="number" id="cfgListenPort" value="9000" min="1" max="65535" inputmode="numeric">
+        </div>
+      </div>
+      <div class="field">
+        <label>Device Name</label>
+        <input type="text" id="cfgDevice" value="annieData" placeholder="annieData">
+      </div>
+      <button class="btn btn-lavender" id="btnConnect">Connect</button>
+    </div>
+    <div class="status-bar" id="connectStatus" style="display:none">
+      <span id="connectStatusMsg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN MENU ════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenMain">
+  <div class="hdr">
+    <button class="hdr-action" id="btnDisconnect" title="Disconnect">✕</button>
+    <div class="hdr-title" id="mainTitle">annieData</div>
+    <div class="ws-dot" id="wsDot2"></div>
+  </div>
+  <div class="body">
+    <div class="card">
+      <div class="row" id="menuMessages"><div class="row-icon">📨</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuPatches"><div class="row-icon">🗂</div><div class="row-text"><div class="row-title">Patches</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
+    </div>
+    <div class="card">
+      <div class="row" id="menuQuick"><div class="row-icon">⚡</div><div class="row-text"><div class="row-title">Quick Actions</div><div class="row-sub">Blackout, restore, save, load</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuMonitor"><div class="row-icon">📡</div><div class="row-text"><div class="row-title">Monitor</div><div class="row-sub">Incoming OSC replies</div></div><div class="row-chev">›</div></div>
+    </div>
+    <div class="card">
+      <div class="row" id="menuSettings"><div class="row-icon">⚙️</div><div class="row-text"><div class="row-title">Settings</div><div class="row-sub">Change connection details</div></div><div class="row-chev">›</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MESSAGES LIST ════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenMessages">
+  <div class="hdr">
+    <button class="hdr-back" id="backMessages">‹</button>
+    <div class="hdr-title">Messages</div>
+    <button class="hdr-action" id="btnRefreshMsgs">↻</button>
+  </div>
+  <div class="body" id="msgListBody">
+    <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>
+  </div>
+</div>
+
+<!-- ══ MESSAGE DETAIL ═══════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenMsgDetail">
+  <div class="hdr">
+    <button class="hdr-back" id="backMsgDetail">‹</button>
+    <div class="hdr-title" id="msgDetailTitle">Message</div>
+  </div>
+  <div class="body" id="msgDetailBody"></div>
+</div>
+
+<!-- ══ PATCHES LIST ═════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenPatches">
+  <div class="hdr">
+    <button class="hdr-back" id="backPatches">‹</button>
+    <div class="hdr-title">Patches</div>
+    <button class="hdr-action" id="btnRefreshPatches">↻</button>
+  </div>
+  <div class="body" id="patchListBody">
+    <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>
+  </div>
+</div>
+
+<!-- ══ PATCH DETAIL ══════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenPatchDetail">
+  <div class="hdr">
+    <button class="hdr-back" id="backPatchDetail">‹</button>
+    <div class="hdr-title" id="patchDetailTitle">Patch</div>
+  </div>
+  <div class="body" id="patchDetailBody"></div>
+</div>
+
+<!-- ══ QUICK ACTIONS ════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenQuick">
+  <div class="hdr">
+    <button class="hdr-back" id="backQuick">‹</button>
+    <div class="hdr-title">Quick Actions</div>
+  </div>
+  <div class="body">
+    <div class="card">
+      <div class="row danger" id="qBlackout"><div class="row-icon">⚫</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all patches immediately</div></div></div>
+      <div class="row success" id="qRestore"><div class="row-icon">🟢</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running patches</div></div></div>
+    </div>
+    <div class="card">
+      <div class="row" id="qSave"><div class="row-icon">💾</div><div class="row-text"><div class="row-title">Save</div><div class="row-sub">Persist all config to NVS</div></div></div>
+      <div class="row" id="qLoad"><div class="row-icon">📂</div><div class="row-text"><div class="row-title">Load</div><div class="row-sub">Reload config from NVS</div></div></div>
+    </div>
+    <div class="card">
+      <div class="row" id="qListAll"><div class="row-icon">📋</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and patches</div></div><div class="row-chev">›</div></div>
+    </div>
+    <div class="card">
+      <div class="row danger" id="qNvsClear"><div class="row-icon">🗑</div><div class="row-text"><div class="row-title">NVS Clear</div><div class="row-sub">Factory reset — erase all saved data</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MONITOR ══════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenMonitor">
+  <div class="hdr">
+    <button class="hdr-back" id="backMonitor">‹</button>
+    <div class="hdr-title">Monitor</div>
+    <button class="hdr-action" id="btnClearMonitor">Clear</button>
+  </div>
+  <div class="body" style="padding:8px">
+    <div class="monitor-list" id="monitorList"></div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS ═════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenSettings">
+  <div class="hdr">
+    <button class="hdr-back" id="backSettings">‹</button>
+    <div class="hdr-title">Settings</div>
+  </div>
+  <div class="body">
+    <div class="card">
+      <div class="settings-row"><label>Device IP</label><input type="text" id="sHost" inputmode="decimal"></div>
+      <div class="settings-row"><label>OSC Port</label><input type="number" id="sPort" min="1" max="65535" inputmode="numeric"></div>
+      <div class="settings-row"><label>Reply Port</label><input type="number" id="sListenPort" min="1" max="65535" inputmode="numeric"></div>
+      <div class="settings-row"><label>Device Name</label><input type="text" id="sDevice"></div>
+    </div>
+    <button class="btn btn-lavender" id="btnSaveSettings">Apply &amp; Reconnect</button>
+  </div>
+</div>
+
+<!-- ══ RESULT ═══════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenResult">
+  <div class="hdr">
+    <button class="hdr-back" id="backResult">‹</button>
+    <div class="hdr-title" id="resultTitle">Reply</div>
+  </div>
+  <div class="body">
+    <div class="result-addr" id="resultAddr"></div>
+    <div class="result-box" id="resultBox"></div>
+  </div>
+</div>
+
+<!-- ══ OVERLAYS ══════════════════════════════════════════════════════════════ -->
+<div id="overlay" class="hidden">
+  <div class="spinner"></div>
+  <div id="overlay-msg">Sending…</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="confirmSheet" class="hidden">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <button class="btn btn-danger" id="confirmOk">Confirm</button>
+    <button class="btn btn-surface" id="confirmCancel">Cancel</button>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/remote.js') }}"></script>
+</body>
+</html>

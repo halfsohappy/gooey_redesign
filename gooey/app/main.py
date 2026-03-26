@@ -6,7 +6,7 @@ import threading
 
 import markdown as md_lib
 from flask import Flask, render_template, request, jsonify
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, join_room, leave_room
 
 from .osc_handler import OSCEngine
 
@@ -68,11 +68,20 @@ def _get_device(device_id):
         return _device_registry[device_id]
 
 
+# ── Remote session registry ──
+# {sid: {"host": str, "port": int, "device": str, "listen_port": int}}
+_remote_sessions = {}
+
 # ── Routes ──
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/remote")
+def remote():
+    return render_template("remote.html")
 
 
 # -- Send / Receive / Bridge (unchanged OSC transport) --
@@ -350,9 +359,78 @@ def handle_connect():
     socketio.emit("status", engine.get_status())
 
 
+@socketio.on("disconnect")
+def handle_disconnect():
+    sid = request.sid
+    if sid in _remote_sessions:
+        _remote_sessions.pop(sid, None)
+        try:
+            leave_room("remote_clients")
+        except Exception:
+            pass
+        if not _remote_sessions:
+            engine.stop_receiver("remote-recv")
+
+
 @socketio.on("ping_server")
 def handle_ping():
     socketio.emit("pong_server", {"status": "ok"})
+
+
+@socketio.on("remote_configure")
+def handle_remote_configure(data):
+    sid = request.sid
+    host = _resolve_host(data.get("host", "").strip())
+    port = data.get("port", 8000)
+    device = data.get("device", "annieData").strip()
+    listen_port = data.get("listen_port", 9000)
+
+    if not _valid_host(host):
+        socketio.emit("remote_error", {"message": f"Invalid host: {host}"}, to=sid)
+        return
+    if not _valid_port(port) or not _valid_port(listen_port):
+        socketio.emit("remote_error", {"message": "Invalid port"}, to=sid)
+        return
+
+    _remote_sessions[sid] = {
+        "host": host,
+        "port": int(port),
+        "device": device,
+        "listen_port": int(listen_port),
+    }
+    join_room("remote_clients")
+    engine.start_remote_receiver("remote-recv", int(listen_port))
+    socketio.emit("remote_configured", {
+        "status": "ok",
+        "host": host,
+        "port": int(port),
+        "device": device,
+        "listen_port": int(listen_port),
+    }, to=sid)
+
+
+@socketio.on("remote_send")
+def handle_remote_send(data):
+    sid = request.sid
+    cfg = _remote_sessions.get(sid)
+    if not cfg:
+        socketio.emit("remote_error", {"message": "Not configured"}, to=sid)
+        return
+    address = data.get("address", "")
+    args = data.get("args")
+    engine.send_message(cfg["host"], cfg["port"], address, args)
+
+
+@socketio.on("remote_disconnect_session")
+def handle_remote_disconnect_session():
+    sid = request.sid
+    _remote_sessions.pop(sid, None)
+    try:
+        leave_room("remote_clients")
+    except Exception:
+        pass
+    if not _remote_sessions:
+        engine.stop_receiver("remote-recv")
 
 
 # ── TheaterGWD presets ──
