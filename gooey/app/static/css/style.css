@@ -1012,6 +1012,9 @@ input[type="color"] {
 .hdr-input-port {
   width: 90px !important;
 }
+.hdr-input-port::-webkit-inner-spin-button,
+.hdr-input-port::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.hdr-input-port { -moz-appearance: textfield; }
 
 /* Notification feed — fills remaining header width */
 .hdr-notif-area {
