@@ -1995,11 +1995,12 @@ input.field-error {
 .serial-drawer {
   position: fixed;
   bottom: 0;
-  left: 0;
+  left: 50%;
   right: 0;
   height: 240px;
   background: #0f0f0f;
   border-top: 2px solid var(--accent);
+  border-left: 1px solid #333;
   display: flex;
   flex-direction: column;
   z-index: 500;
@@ -2057,5 +2058,57 @@ input.field-error {
 .hdr-serial-btn { font-size: 12px; }
 .hdr-serial-btn.active { background: var(--accent); color: #fff; }
 
-/* push app-layout up when drawer is open */
-body.serial-open .app-layout { padding-bottom: 240px; }
+/* Serial send bar */
+.serial-send-bar {
+  display: flex;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #1a1a1a;
+  border-top: 1px solid #333;
+  flex-shrink: 0;
+}
+.serial-send-input {
+  flex: 1;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #eee;
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.serial-send-input:focus { outline: none; border-color: var(--accent); }
+.serial-send-btn {
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ccc;
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.serial-send-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* right-half drawer doesn't need body padding-bottom */
+body.serial-open .app-layout { padding-bottom: 0; }
+
+/* ── Pending ori (pre-registration) ── */
+.ori-badge-pending {
+  background: #2a2229;
+  color: #b8a8cc;
+  border: 1px dashed #7a6a8a;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.ori-row-pending td { opacity: 0.85; }
+.ori-row-pending .cell-name { color: var(--accent); font-style: italic; }
+.tbl-btn-primary {
+  background: rgba(144,132,156,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tbl-btn-primary:hover { background: var(--accent); color: #fff; }

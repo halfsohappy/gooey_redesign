@@ -185,16 +185,16 @@
   </div>
   <div class="body">
     <div class="card">
-      <div class="row" id="menuMessages"><div class="row-icon">📨</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuPatches"><div class="row-icon">🗂</div><div class="row-text"><div class="row-title">Patches</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuOris"><div class="row-icon">🧭</div><div class="row-text"><div class="row-title">Orientations</div><div class="row-sub">Save, list, reset, delete oris</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuMessages"><div class="row-icon">▸</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuPatches"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">Patches</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuOris"><div class="row-icon">◎</div><div class="row-text"><div class="row-title">Orientations</div><div class="row-sub">Save, list, reset, delete oris</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
-      <div class="row" id="menuQuick"><div class="row-icon">⚡</div><div class="row-text"><div class="row-title">Quick Actions</div><div class="row-sub">Blackout, restore, save, load</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuMonitor"><div class="row-icon">📡</div><div class="row-text"><div class="row-title">Monitor</div><div class="row-sub">Incoming OSC replies</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuQuick"><div class="row-icon">→</div><div class="row-text"><div class="row-title">Quick Actions</div><div class="row-sub">Blackout, restore, save, load</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuMonitor"><div class="row-icon">◉</div><div class="row-text"><div class="row-title">Monitor</div><div class="row-sub">Incoming OSC replies</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
-      <div class="row" id="menuSettings"><div class="row-icon">⚙️</div><div class="row-text"><div class="row-title">Settings</div><div class="row-sub">Change connection details</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuSettings"><div class="row-icon">⚙</div><div class="row-text"><div class="row-title">Settings</div><div class="row-sub">Change connection details</div></div><div class="row-chev">›</div></div>
     </div>
   </div>
 </div>
@@ -251,8 +251,8 @@
   <div class="body">
     <div class="card">
       <div class="card-label">Global Settings</div>
-      <div class="row" id="qOriStrict"><div class="row-icon">🔒</div><div class="row-text"><div class="row-title">Toggle Strict Mode</div><div class="row-sub">Only one ori active at a time</div></div></div>
-      <div class="row" id="qOriClear"><div class="row-icon">🗑</div><div class="row-text"><div class="row-title danger" style="color:var(--danger)">Clear All Oris</div><div class="row-sub">Delete every saved orientation</div></div></div>
+      <div class="row" id="qOriStrict"><div class="row-icon">◈</div><div class="row-text"><div class="row-title">Toggle Strict Mode</div><div class="row-sub">Only one ori active at a time</div></div></div>
+      <div class="row" id="qOriClear"><div class="row-icon">×</div><div class="row-text"><div class="row-title danger" style="color:var(--danger)">Clear All Oris</div><div class="row-sub">Delete every saved orientation</div></div></div>
     </div>
     <div class="card">
       <div class="card-label">Threshold &amp; Tolerance</div>
@@ -296,18 +296,18 @@
   </div>
   <div class="body">
     <div class="card">
-      <div class="row danger" id="qBlackout"><div class="row-icon">⚫</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all patches immediately</div></div></div>
-      <div class="row success" id="qRestore"><div class="row-icon">🟢</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running patches</div></div></div>
+      <div class="row danger" id="qBlackout"><div class="row-icon">■</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all patches immediately</div></div></div>
+      <div class="row success" id="qRestore"><div class="row-icon">◆</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running patches</div></div></div>
     </div>
     <div class="card">
-      <div class="row" id="qSave"><div class="row-icon">💾</div><div class="row-text"><div class="row-title">Save</div><div class="row-sub">Persist all config to NVS</div></div></div>
-      <div class="row" id="qLoad"><div class="row-icon">📂</div><div class="row-text"><div class="row-title">Load</div><div class="row-sub">Reload config from NVS</div></div></div>
+      <div class="row" id="qSave"><div class="row-icon">↓</div><div class="row-text"><div class="row-title">Save</div><div class="row-sub">Persist all config to NVS</div></div></div>
+      <div class="row" id="qLoad"><div class="row-icon">↑</div><div class="row-text"><div class="row-title">Load</div><div class="row-sub">Reload config from NVS</div></div></div>
     </div>
     <div class="card">
-      <div class="row" id="qListAll"><div class="row-icon">📋</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and patches</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="qListAll"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and patches</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
-      <div class="row danger" id="qNvsClear"><div class="row-icon">🗑</div><div class="row-text"><div class="row-title">NVS Clear</div><div class="row-sub">Factory reset — erase all saved data</div></div></div>
+      <div class="row danger" id="qNvsClear"><div class="row-icon">×</div><div class="row-text"><div class="row-title">NVS Clear</div><div class="row-sub">Factory reset — erase all saved data</div></div></div>
     </div>
   </div>
 </div>

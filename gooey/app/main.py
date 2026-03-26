@@ -435,6 +435,19 @@ def handle_serial_disconnect_port():
     socketio.emit("serial_disconnected", {}, to=sid)
 
 
+@socketio.on("serial_send")
+def handle_serial_send(data):
+    sid = request.sid
+    conn = _serial_connections.get(sid)
+    if not conn:
+        return
+    text = data.get("data", "")
+    try:
+        conn["ser"].write((text + "\n").encode("utf-8", errors="replace"))
+    except Exception as e:
+        socketio.emit("serial_error", {"message": str(e)}, to=sid)
+
+
 @socketio.on("ping_server")
 def handle_ping():
     socketio.emit("pong_server", {"status": "ok"})
