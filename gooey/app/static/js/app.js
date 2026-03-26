@@ -36,20 +36,147 @@
     });
   });
 
-  /* ── Toast ── */
-  function toast(msg, type) {
+  /* ── withLoading helper ── */
+  function withLoading(btn, fn) {
+    if (!btn) return fn();
+    btn.disabled = true;
+    btn.classList.add("loading");
+    return Promise.resolve(fn()).finally(function () {
+      btn.disabled = false;
+      btn.classList.remove("loading");
+    });
+  }
+
+  /* ── Toast history + notification system ── */
+  var _toastHistory = [];
+  var _unseenNotifs = 0;
+
+  function updateNotifBadge() {
+    var badge = $("#notifBadge");
+    if (!badge) return;
+    if (_unseenNotifs > 0) {
+      badge.textContent = _unseenNotifs;
+      badge.style.display = "";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  function renderNotifDropdown() {
+    var dd = $("#notifDropdown");
+    if (!dd) return;
+    dd.innerHTML = "";
+    if (_toastHistory.length === 0) {
+      dd.innerHTML = '<div class="notif-item"><span class="notif-msg" style="color:var(--text-light)">No recent notifications</span></div>';
+      return;
+    }
+    _toastHistory.slice().reverse().forEach(function (item) {
+      var div = document.createElement("div");
+      div.className = "notif-item";
+      div.innerHTML = '<span class="notif-time">' + item.time + '</span><span class="notif-msg notif-type-' + item.type + '">' + item.msg + '</span>';
+      dd.appendChild(div);
+    });
+  }
+
+  var _notifDropdownOpen = false;
+  var btnNotifToggle = $("#btnNotifToggle");
+  if (btnNotifToggle) {
+    btnNotifToggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      _notifDropdownOpen = !_notifDropdownOpen;
+      var dd = $("#notifDropdown");
+      if (dd) {
+        if (_notifDropdownOpen) {
+          _unseenNotifs = 0;
+          updateNotifBadge();
+          renderNotifDropdown();
+          dd.classList.remove("hidden");
+        } else {
+          dd.classList.add("hidden");
+        }
+      }
+    });
+  }
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest("#notifDropdown") && !e.target.closest("#btnNotifToggle")) {
+      var dd = $("#notifDropdown");
+      if (dd && !dd.classList.contains("hidden")) {
+        dd.classList.add("hidden");
+        _notifDropdownOpen = false;
+      }
+    }
+  });
+
+  /* ── showToast (public alias: toast) ── */
+  function showToast(msg, type, duration) {
     type = type || "info";
+    /* Add to history (max 10) */
+    var now = new Date();
+    var timeStr = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0") + ":" + now.getSeconds().toString().padStart(2, "0");
+    _toastHistory.push({ msg: msg, type: type, time: timeStr });
+    if (_toastHistory.length > 10) _toastHistory.shift();
+    _unseenNotifs++;
+    updateNotifBadge();
+
     var el = document.createElement("div");
     el.className = "toast toast-" + type;
-    el.textContent = msg;
+    /* For errors: show close button, no auto-dismiss */
+    if (type === "error") {
+      var closeBtn = document.createElement("button");
+      closeBtn.className = "toast-close";
+      closeBtn.textContent = "✕";
+      closeBtn.addEventListener("click", function () {
+        el.style.opacity = "0";
+        el.style.transform = "translateX(20px)";
+        el.style.transition = "all 0.2s ease-out";
+        setTimeout(function () { el.remove(); }, 250);
+      });
+      el.appendChild(closeBtn);
+      el.appendChild(document.createTextNode(msg));
+    } else {
+      el.textContent = msg;
+      var dismissAfter = (duration !== undefined && duration > 0) ? duration : 3000;
+      if (dismissAfter > 0) {
+        setTimeout(function () {
+          el.style.opacity = "0";
+          el.style.transform = "translateX(20px)";
+          el.style.transition = "all 0.2s ease-out";
+          setTimeout(function () { el.remove(); }, 250);
+        }, dismissAfter);
+      }
+    }
     $("#toastContainer").appendChild(el);
-    setTimeout(function () {
-      el.style.opacity = "0";
-      el.style.transform = "translateX(20px)";
-      el.style.transition = "all 0.2s ease-out";
-      setTimeout(function () { el.remove(); }, 250);
-    }, 3000);
   }
+
+  /* Backward-compatible alias */
+  function toast(msg, type) { showToast(msg, type); }
+
+  /* ── Confirm modal ── */
+  function showConfirm(title, body, onConfirm, okLabel, danger) {
+    if (okLabel === undefined) okLabel = "Confirm";
+    if (danger === undefined) danger = true;
+    var modal = document.getElementById("confirmModal");
+    if (!modal) { if (onConfirm) onConfirm(); return; }
+    document.getElementById("confirmTitle").textContent = title;
+    document.getElementById("confirmBody").textContent = body;
+    var okBtn = document.getElementById("confirmOk");
+    okBtn.textContent = okLabel;
+    okBtn.className = "btn " + (danger ? "btn-danger" : "btn-primary");
+    modal.classList.remove("hidden");
+    var cancel = document.getElementById("confirmCancel");
+    cancel.focus();
+    var cleanup = function () { modal.classList.add("hidden"); };
+    okBtn.onclick = function () { cleanup(); onConfirm(); };
+    cancel.onclick = cleanup;
+    modal.onclick = function (e) { if (e.target === modal) cleanup(); };
+  }
+
+  /* ── toggleHelp for inline help boxes (exposed globally for onclick attrs) ── */
+  window.toggleHelp = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden");
+  };
+  function toggleHelp(id) { window.toggleHelp(id); }
 
   /* ── API helper ── */
   function api(endpoint, data, method) {
@@ -118,16 +245,23 @@
     var devActions = $("#hdrDevActions");
     /* Remove existing tabs */
     $$(".hdr-dev-tab").forEach(function (t) { t.remove(); });
+    var devCount = Object.keys(devices).length;
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
+      var isActive = (id === activeDeviceId);
       var btn = document.createElement("button");
-      btn.className = "hdr-dev-tab" + (id === activeDeviceId ? " active" : "");
+      btn.className = "hdr-dev-tab" + (isActive ? " active" : "");
       btn.dataset.deviceId = id;
-      /* Build button content: status dot + sanitised device name */
+      /* Build button content: status dot + sanitised device name + caret */
       var dot = document.createElement("span");
       dot.className = "dev-dot";
+      dot.title = isActive ? "Active device" : "Inactive";
       btn.appendChild(dot);
       btn.appendChild(document.createTextNode(d.name));
+      var caret = document.createElement("span");
+      caret.className = "tab-caret";
+      caret.textContent = "▾";
+      btn.appendChild(caret);
       btn.addEventListener("click", function (e) {
         /* Select device as active */
         activeDeviceId = id;
@@ -142,6 +276,11 @@
       });
       container.insertBefore(btn, devActions);
     });
+    /* Show/hide welcome banner based on device count */
+    var wb = $("#welcomeBanner");
+    if (wb) wb.style.display = devCount === 0 ? "" : "none";
+    /* Update onboarding steps */
+    updateOnboarding();
     /* Update feed device filter */
     var sel = $("#feedDeviceFilter");
     var curVal = sel.value;
@@ -301,11 +440,12 @@
     var id = _dropdownDeviceId;
     if (!id || !devices[id]) { closeDevDropdown(); return; }
     var d = devices[id];
-    if (!window.confirm("Clear NVS for " + d.name + "? This erases all saved settings.")) { closeDevDropdown(); return; }
-    sendToDevice(id, "/annieData/" + d.name + "/nvs/clear", null).then(function (res) {
-      if (res.status === "ok") toast("NVS cleared: " + d.name, "success");
-    });
     closeDevDropdown();
+    showConfirm("Clear NVS", "Clear NVS for " + d.name + "? This erases all saved settings.", function () {
+      sendToDevice(id, "/annieData/" + d.name + "/nvs/clear", null).then(function (res) {
+        if (res.status === "ok") toast("NVS cleared: " + d.name, "success");
+      });
+    }, "Clear NVS", true);
   });
 
   $("#devDdBlackout").addEventListener("click", function () {
@@ -623,7 +763,8 @@
     var tbody = $("#msgTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.messages).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Query the device to load existing messages, or create one below.</div><button class="btn btn-sm" onclick="document.getElementById(\'btnQueryVerbose\').click()">⚡ Query Device Now</button></div></td></tr>';
+      updateOnboarding();
       return;
     }
     Object.keys(dev.messages).forEach(function (name) {
@@ -635,22 +776,22 @@
       var tr = document.createElement("tr");
       tr.dataset.msgName = name;
       tr.innerHTML =
-        '<td class="cell-name">' + esc(name) + '</td>' +
-        '<td class="cell-mono">' + esc(m.value || m.val || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.ip || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.port || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.low || m.min || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.high || m.max || "") + '</td>' +
-        '<td class="cell-mono">' + esc(m.patch || "") + '</td>' +
-        '<td class="cell-mono ori-section">' + esc(oriStr || "—") + '</td>' +
-        '<td>' + (m.enabled === "false" ? "❌" : "✅") + '</td>' +
-        '<td class="cell-actions">' +
-          '<button class="tbl-btn" data-act="info">ℹ️</button>' +
-          '<button class="tbl-btn tbl-btn-success" data-act="enable">✅</button>' +
-          '<button class="tbl-btn" data-act="disable">🔇</button>' +
-          '<button class="tbl-btn" data-act="save">💾</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete">🗑</button>' +
+        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
+        '<td class="cell-mono" data-label="Sensor">' + esc(m.value || m.val || "") + '</td>' +
+        '<td class="cell-mono" data-label="IP">' + esc(m.ip || "") + '</td>' +
+        '<td class="cell-mono" data-label="Port">' + esc(m.port || "") + '</td>' +
+        '<td class="cell-mono" data-label="Address">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
+        '<td class="cell-mono" data-label="Low" data-col="low">' + esc(m.low || m.min || "") + '</td>' +
+        '<td class="cell-mono" data-label="High" data-col="high">' + esc(m.high || m.max || "") + '</td>' +
+        '<td class="cell-mono" data-label="Patch" data-col="patch">' + esc(m.patch || "") + '</td>' +
+        '<td class="cell-mono ori-section" data-label="Ori" data-col="ori">' + esc(oriStr || "—") + '</td>' +
+        '<td data-label="Enabled">' + (m.enabled === "false" ? "❌" : "✅") + '</td>' +
+        '<td class="cell-actions" data-label="Actions">' +
+          '<button class="tbl-btn" data-act="info" aria-label="Info">ℹ️</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="enable" aria-label="Toggle enabled">✅</button>' +
+          '<button class="tbl-btn" data-act="disable" aria-label="Mute">🔇</button>' +
+          '<button class="tbl-btn" data-act="save" aria-label="Save to device">💾</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" aria-label="Delete">🗑</button>' +
         '</td>';
       /* Row click → populate edit form */
       tr.querySelector(".cell-name").addEventListener("click", function () {
@@ -664,6 +805,8 @@
       });
       tbody.appendChild(tr);
     });
+    applyColVisibility();
+    updateOnboarding();
   }
 
   function populateMsgForm(name, m) {
@@ -708,7 +851,7 @@
     var tbody = $("#patchTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.patches).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No patches tracked. Query the device or create one below.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No patches tracked yet.</div><div class="empty-sub">Query the device or create a patch below.</div><button class="btn btn-sm" onclick="document.getElementById(\'btnQueryVerbose\').click()">⚡ Query Device Now</button></div></td></tr>';
       return;
     }
     Object.keys(dev.patches).forEach(function (name) {
@@ -718,19 +861,19 @@
       var tr = document.createElement("tr");
       tr.dataset.patchName = name;
       tr.innerHTML =
-        '<td class="cell-name">' + esc(name) + '</td>' +
-        '<td class="cell-mono">' + esc(p.period || "50") + ' ms</td>' +
-        '<td class="cell-mono">' + esc(p.adrMode || p.adrmode || p.adr_mode || "fallback") + '</td>' +
-        '<td class="cell-mono">' + esc(p.override || "—") + '</td>' +
-        '<td class="cell-mono" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
-        '<td class="cell-actions">' +
-          '<button class="tbl-btn tbl-btn-success" data-act="start">▶</button>' +
-          '<button class="tbl-btn tbl-btn-stop" data-act="stop">⏹</button>' +
-          '<button class="tbl-btn" data-act="info">ℹ️</button>' +
-          '<button class="tbl-btn" data-act="enableAll">✅</button>' +
-          '<button class="tbl-btn" data-act="unsolo">🔊</button>' +
-          '<button class="tbl-btn" data-act="save">💾</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete">🗑</button>' +
+        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
+        '<td class="cell-mono" data-label="Period">' + esc(p.period || "50") + ' ms</td>' +
+        '<td class="cell-mono" data-label="Adr Mode">' + esc(p.adrMode || p.adrmode || p.adr_mode || "fallback") + '</td>' +
+        '<td class="cell-mono" data-label="Overrides">' + esc(p.override || "—") + '</td>' +
+        '<td class="cell-mono" data-label="Messages" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
+        '<td class="cell-actions" data-label="Actions">' +
+          '<button class="tbl-btn tbl-btn-success" data-act="start" aria-label="Start patch">▶</button>' +
+          '<button class="tbl-btn tbl-btn-stop" data-act="stop" aria-label="Stop patch">⏹</button>' +
+          '<button class="tbl-btn" data-act="info" aria-label="Info">ℹ️</button>' +
+          '<button class="tbl-btn" data-act="enableAll" aria-label="Enable all messages">✅</button>' +
+          '<button class="tbl-btn" data-act="unsolo" aria-label="Unsolo">🔊</button>' +
+          '<button class="tbl-btn" data-act="save" aria-label="Save to device">💾</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" aria-label="Delete">🗑</button>' +
         '</td>';
       tr.querySelector(".cell-name").addEventListener("click", function () {
         populatePatchForm(name, p);
@@ -792,7 +935,7 @@
     if (!tbody) return;
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.oris).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No oris tracked. Query the device or save one below.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">🧭</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Save an orientation below or query the device.</div></div></td></tr>';
       return;
     }
     Object.keys(dev.oris).forEach(function (name) {
@@ -809,16 +952,16 @@
       var tr = document.createElement("tr");
       tr.dataset.oriName = name;
       tr.innerHTML =
-        '<td class="cell-name">' + esc(name) + '</td>' +
-        '<td>' + typeBadge + '</td>' +
-        '<td class="cell-mono">' + o.samples + '</td>' +
-        '<td>' + colorHtml + '</td>' +
-        '<td>' + activeHtml + '</td>' +
-        '<td class="cell-actions">' +
-          '<button class="tbl-btn" data-act="info" title="Show details">ℹ️</button>' +
-          '<button class="tbl-btn" data-act="reset" title="Reset range to point">↺</button>' +
-          '<button class="tbl-btn" data-act="select" title="Select for button editing">🎯</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori">🗑</button>' +
+        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
+        '<td data-label="Type">' + typeBadge + '</td>' +
+        '<td class="cell-mono" data-label="Samples">' + o.samples + '</td>' +
+        '<td data-label="Color">' + colorHtml + '</td>' +
+        '<td data-label="Active">' + activeHtml + '</td>' +
+        '<td class="cell-actions" data-label="Actions">' +
+          '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">ℹ️</button>' +
+          '<button class="tbl-btn" data-act="reset" title="Reset range to point" aria-label="Reset">↺</button>' +
+          '<button class="tbl-btn" data-act="select" title="Select for button editing" aria-label="Select">🎯</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">🗑</button>' +
         '</td>';
       tr.querySelector(".cell-name").addEventListener("click", function () {
         /* Populate color form with this ori's name */
@@ -1043,7 +1186,31 @@
     rateCounter++;
     appendToFeed(entry);
     /* Auto-parse replies into registry */
+    var prevMsgCount = 0, prevPatchCount = 0;
+    var matchedDevId = "";
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      if (!entry.address) return;
+      var seg = "/" + d.name + "/";
+      var tail = "/" + d.name;
+      if (entry.address.indexOf(seg) !== -1 || entry.address.slice(-tail.length) === tail) matchedDevId = id;
+    });
+    if (!matchedDevId) matchedDevId = activeDeviceId;
+    if (matchedDevId && devices[matchedDevId] && /\/list\/(all|msgs|messages)/i.test(entry.address || "")) {
+      var preDev = devices[matchedDevId];
+      prevMsgCount = Object.keys(preDev.messages || {}).length;
+      prevPatchCount = Object.keys(preDev.patches || {}).length;
+    }
     parseReplyIntoRegistry(entry);
+    /* Show query feedback toast after list/all replies add new data */
+    if (matchedDevId && devices[matchedDevId] && /\/list\/(all|msgs|messages)/i.test(entry.address || "")) {
+      var postDev = devices[matchedDevId];
+      var newMsgCount = Object.keys(postDev.messages || {}).length;
+      var newPatchCount = Object.keys(postDev.patches || {}).length;
+      if ((newMsgCount > 0 || newPatchCount > 0) && (newMsgCount !== prevMsgCount || newPatchCount !== prevPatchCount)) {
+        showToast("Loaded " + newMsgCount + " message" + (newMsgCount !== 1 ? "s" : "") + " and " + newPatchCount + " patch" + (newPatchCount !== 1 ? "es" : "") + " from device.", "success");
+      }
+    }
   });
 
   /* ═══════════════════════════════════════════
@@ -1056,15 +1223,23 @@
     var btn = e.target.closest(".qbtn[data-cmd]");
     if (!btn) return;
     var confirmMsg = btn.dataset.confirm;
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
     var cmd = btn.dataset.cmd;
     var template = CMD_ADDRESSES[cmd];
     if (!template) return;
     var address = addr(template);
     var payload = btn.dataset.payload || null;
-    sendCmd(address, payload).then(function (res) {
-      if (res.status === "ok") toast("Sent: " + cmd, "success");
-    });
+    var doSend = function () {
+      withLoading(btn, function () {
+        return sendCmd(address, payload).then(function (res) {
+          if (res.status === "ok") toast("Sent: " + cmd, "success");
+        });
+      });
+    };
+    if (confirmMsg) {
+      showConfirm("Confirm Action", confirmMsg, doSend, "OK", true);
+    } else {
+      doSend();
+    }
   });
 
   /* Status config */
@@ -1926,10 +2101,16 @@
   sendCmd = function (address, payload) {
     var dbg = $("#debugMode");
     if (dbg && dbg.checked) {
-      var msg = "DEBUG — Send OSC?\n\nAddress: " + address + "\nPayload: " + (payload || "(none)");
-      if (!window.confirm(msg)) {
-        return Promise.resolve({ status: "cancelled" });
-      }
+      return new Promise(function (resolve) {
+        var msgText = "Address: " + address + "\nPayload: " + (payload || "(none)");
+        showConfirm("DEBUG — Send OSC?", msgText, function () {
+          resolve(_origSendCmd(address, payload));
+        }, "Send", false);
+        /* If cancelled, resolve with cancelled status */
+        document.getElementById("confirmCancel").addEventListener("click", function () {
+          resolve({ status: "cancelled" });
+        }, { once: true });
+      });
     }
     return _origSendCmd(address, payload);
   };
@@ -1939,10 +2120,15 @@
     if (endpoint === "send" && data) {
       var dbg = $("#debugMode");
       if (dbg && dbg.checked) {
-        var msg = "DEBUG — Send OSC?\n\nAddress: " + (data.address || "") + "\nArgs: " + JSON.stringify(data.args || "") + "\nHost: " + (data.host || "") + ":" + (data.port || "");
-        if (!window.confirm(msg)) {
-          return Promise.resolve({ status: "cancelled" });
-        }
+        return new Promise(function (resolve) {
+          var msgText = "Address: " + (data.address || "") + "\nArgs: " + JSON.stringify(data.args || "") + "\nHost: " + (data.host || "") + ":" + (data.port || "");
+          showConfirm("DEBUG — Send OSC?", msgText, function () {
+            resolve(_origApi(endpoint, data, method));
+          }, "Send", false);
+          document.getElementById("confirmCancel").addEventListener("click", function () {
+            resolve({ status: "cancelled" });
+          }, { once: true });
+        });
       }
     }
     return _origApi(endpoint, data, method);
@@ -2086,14 +2272,15 @@
       sendCmd(addr("/annieData/{device}/ori/delete"), name);
     },
     btnOriClear: function () {
-      if (!window.confirm("Clear all saved orientations?")) return;
-      sendCmd(addr("/annieData/{device}/ori/clear"), null).then(function (res) {
-        if (res.status === "ok") {
-          var dev = getActiveDev();
-          if (dev) { dev.oris = {}; renderOriTable(); refreshAllDropdowns(); }
-          toast("All oris cleared", "success");
-        }
-      });
+      showConfirm("Clear All Orientations", "Clear all saved orientations from the device?", function () {
+        sendCmd(addr("/annieData/{device}/ori/clear"), null).then(function (res) {
+          if (res.status === "ok") {
+            var dev = getActiveDev();
+            if (dev) { dev.oris = {}; renderOriTable(); refreshAllDropdowns(); }
+            toast("All oris cleared", "success");
+          }
+        });
+      }, "Clear All", true);
     },
     btnOriThreshold: function () {
       var val = ($("#oriThreshold").value || "").trim();
@@ -2175,5 +2362,207 @@
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateOriColorPreview);
   });
+
+  /* ═══════════════════════════════════════════
+     INLINE FIELD VALIDATION
+     ═══════════════════════════════════════════ */
+
+  function validateField(input, isValid, msg) {
+    var hint;
+    if (!isValid) {
+      input.classList.add("field-error");
+      hint = input.parentElement.querySelector(".field-hint");
+      if (!hint) { hint = document.createElement("div"); hint.className = "field-hint"; input.parentElement.appendChild(hint); }
+      hint.textContent = msg;
+      return false;
+    } else {
+      input.classList.remove("field-error");
+      hint = input.parentElement.querySelector(".field-hint");
+      if (hint) hint.remove();
+      return true;
+    }
+  }
+
+  /* Port validation */
+  ["statusPort", "msgPort", "patchPort", "directPort", "rawPort", "bridgeInPort", "bridgeOutPort", "replyPort"].forEach(function (fieldId) {
+    var el = $("#" + fieldId);
+    if (!el) return;
+    el.addEventListener("blur", function () {
+      var v = parseInt(el.value, 10);
+      validateField(el, v >= 1 && v <= 65535, "Port must be 1–65535");
+    });
+  });
+
+  /* IP validation */
+  ["statusIP", "msgIP", "patchIP", "directIP", "rawHost", "bridgeOutHost"].forEach(function (fieldId) {
+    var el = $("#" + fieldId);
+    if (!el) return;
+    el.addEventListener("blur", function () {
+      var v = el.value.trim();
+      if (!v) return; /* allow empty */
+      validateField(el, /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v), "Enter a valid IP address");
+    });
+  });
+
+  /* Name validation */
+  ["msgName", "patchName"].forEach(function (fieldId) {
+    var el = $("#" + fieldId);
+    if (!el) return;
+    el.addEventListener("blur", function () {
+      var v = el.value.trim();
+      if (!v) validateField(el, false, "Name is required");
+      else validateField(el, true, "");
+    });
+  });
+
+  /* ═══════════════════════════════════════════
+     COLUMN PICKER (message table)
+     ═══════════════════════════════════════════ */
+
+  var COL_PREF_KEY = "gooey_col_prefs";
+
+  function loadColPrefs() {
+    try {
+      var raw = localStorage.getItem(COL_PREF_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function saveColPrefs() {
+    var prefs = {};
+    $$('#colPickerMenu input[data-col]').forEach(function (cb) {
+      prefs[cb.dataset.col] = cb.checked;
+    });
+    try { localStorage.setItem(COL_PREF_KEY, JSON.stringify(prefs)); } catch (e) {}
+  }
+
+  function applyColVisibility() {
+    var prefs = loadColPrefs();
+    if (!prefs) return;
+    Object.keys(prefs).forEach(function (col) {
+      var visible = prefs[col];
+      /* Toggle header th */
+      $$('[data-col="' + col + '"]').forEach(function (el) {
+        el.style.display = visible ? "" : "none";
+      });
+    });
+  }
+
+  /* Init column picker checkboxes from localStorage */
+  var savedPrefs = loadColPrefs();
+  if (savedPrefs) {
+    $$('#colPickerMenu input[data-col]').forEach(function (cb) {
+      if (savedPrefs[cb.dataset.col] !== undefined) {
+        cb.checked = savedPrefs[cb.dataset.col];
+      }
+    });
+  }
+  applyColVisibility();
+
+  /* Toggle column picker menu */
+  var btnColPicker = $("#btnColPicker");
+  var colPickerMenu = $("#colPickerMenu");
+  if (btnColPicker && colPickerMenu) {
+    btnColPicker.addEventListener("click", function (e) {
+      e.stopPropagation();
+      colPickerMenu.classList.toggle("hidden");
+    });
+    colPickerMenu.querySelectorAll("input[type='checkbox']").forEach(function (cb) {
+      cb.addEventListener("change", function () {
+        saveColPrefs();
+        applyColVisibility();
+      });
+    });
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest(".col-picker-wrap")) {
+        colPickerMenu.classList.add("hidden");
+      }
+    });
+  }
+
+  /* ═══════════════════════════════════════════
+     ONBOARDING BANNER
+     ═══════════════════════════════════════════ */
+
+  var ONBOARD_DISMISSED_KEY = "gooey_onboard_dismissed";
+
+  function updateOnboarding() {
+    var banner = $("#onboardBanner");
+    if (!banner) return;
+    /* If permanently dismissed, keep hidden */
+    try { if (localStorage.getItem(ONBOARD_DISMISSED_KEY)) { banner.classList.add("hidden"); return; } } catch (e) {}
+
+    var devCount = Object.keys(devices).length;
+    var hasMsgs = false;
+    var hasPatches = false;
+    Object.keys(devices).forEach(function (id) {
+      var d = devices[id];
+      if (Object.keys(d.messages || {}).length > 0) hasMsgs = true;
+      if (Object.keys(d.patches || {}).length > 0) hasPatches = true;
+    });
+
+    /* Show banner if incomplete */
+    if (!hasPatches) {
+      banner.classList.remove("hidden");
+    } else {
+      banner.classList.add("hidden");
+    }
+
+    /* Mark completed steps */
+    var s1 = $("#onboard1"), s2 = $("#onboard2"), s3 = $("#onboard3"), s4 = $("#onboard4");
+    if (s1) { if (devCount > 0) s1.classList.add("done"); else s1.classList.remove("done"); }
+    if (s2) { if (hasMsgs || hasPatches) s2.classList.add("done"); else s2.classList.remove("done"); }
+    if (s3) { if (hasMsgs) s3.classList.add("done"); else s3.classList.remove("done"); }
+    if (s4) { if (hasPatches) s4.classList.add("done"); else s4.classList.remove("done"); }
+  }
+
+  var onboardDismiss = $("#onboardDismiss");
+  if (onboardDismiss) {
+    onboardDismiss.addEventListener("click", function () {
+      try { localStorage.setItem(ONBOARD_DISMISSED_KEY, "1"); } catch (e) {}
+      var banner = $("#onboardBanner");
+      if (banner) banner.classList.add("hidden");
+    });
+  }
+
+  /* Initial onboarding check */
+  updateOnboarding();
+
+  /* ═══════════════════════════════════════════
+     QUICK REF CARD dismiss + open panel link
+     ═══════════════════════════════════════════ */
+
+  var QR_DISMISSED_KEY = "gooey_qr_dismissed";
+  var quickRefCard = $("#quickRefCard");
+  if (quickRefCard) {
+    try { if (localStorage.getItem(QR_DISMISSED_KEY)) quickRefCard.style.display = "none"; } catch (e) {}
+    var qrDismiss = $("#quickRefDismiss");
+    if (qrDismiss) {
+      qrDismiss.addEventListener("click", function () {
+        quickRefCard.style.display = "none";
+        try { localStorage.setItem(QR_DISMISSED_KEY, "1"); } catch (e) {}
+      });
+    }
+    var openRefPanel = $("#openRefPanel");
+    if (openRefPanel) {
+      openRefPanel.addEventListener("click", function (e) {
+        e.preventDefault();
+        showPanel("reference");
+      });
+    }
+  }
+
+  /* ═══════════════════════════════════════════
+     REFERENCE PANEL — open by default first visit
+     ═══════════════════════════════════════════ */
+
+  var REF_SEEN_KEY = "gooey_refPanelSeen";
+  try {
+    if (!localStorage.getItem(REF_SEEN_KEY)) {
+      /* First visit: show reference panel instead of feed */
+      showPanel("reference");
+      localStorage.setItem(REF_SEEN_KEY, "1");
+    }
+  } catch (e) {}
 
 })();

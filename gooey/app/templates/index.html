@@ -27,21 +27,23 @@
 
       <!-- ② Docs — seamless full-height buttons -->
       <div class="hdr-box hdr-box-seamless">
-        <button class="hdr-seamless-btn" id="btnRefToggle" title="Toggle command reference panel">📖 Reference</button>
+        <button class="hdr-seamless-btn" id="btnRefToggle" title="Toggle command reference panel" aria-label="Toggle reference panel">📖 Reference</button>
         <a class="hdr-seamless-btn" href="/docs/" target="_blank" rel="noopener" title="Open user guide">📚 User Guide</a>
       </div>
 
       <!-- ③ All Devices — seamless full-height buttons -->
       <div class="hdr-box hdr-box-seamless">
-        <button class="hdr-seamless-btn hdr-seamless-danger" id="btnBlackoutAll" title="Immediately stop all outputs on every device">⚫ Blackout</button>
-        <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device">🟢 Restore</button>
+        <button class="hdr-seamless-btn hdr-seamless-danger" id="btnBlackoutAll" title="Immediately stop all outputs on every device" aria-label="Blackout all">⚫ Blackout</button>
+        <button class="hdr-seamless-btn hdr-seamless-success" id="btnRestoreAll" title="Restore previous output state on every device" aria-label="Restore all">🟢 Restore</button>
       </div>
 
       <!-- ④ Listen port -->
-      <div class="hdr-box hdr-box-listen">
+      <div class="hdr-box hdr-box-listen" style="position:relative">
         <div class="hdr-listen-status">
           <span class="listen-dot" id="listenDot"></span>
           <span class="hdr-listen-label">Listening on port <strong id="listenPortDisplay">9000</strong></span>
+          <button id="btnNotifToggle" class="hdr-btn" title="Recent notifications" aria-label="Recent notifications" style="margin-left:8px">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
+          <div id="notifDropdown" class="notif-dropdown hidden"></div>
         </div>
         <div class="hdr-listen-change">
           <input type="number" class="hdr-input-sm" id="replyPort" value="9000" min="1" max="65535" title="Listen port for device replies">
@@ -74,9 +76,9 @@
       <div class="hdr-box hdr-devices" id="hdrDevices">
         <!-- Device tab buttons inserted here by JS (before hdrDevActions) -->
         <div class="hdr-dev-actions" id="hdrDevActions">
-          <button id="btnAddDevice" class="hdr-btn hdr-btn-add" title="Add device">+</button>
-          <button id="btnSaveDevices" class="hdr-btn" title="Save devices to file">💾</button>
-          <label id="btnLoadDevices" class="hdr-btn" title="Load devices from file" style="cursor:pointer;display:flex;align-items:center;">
+          <button id="btnAddDevice" class="hdr-btn hdr-btn-add" title="Add device" aria-label="Add device">+</button>
+          <button id="btnSaveDevices" class="hdr-btn" title="Save devices to file" aria-label="Save devices to file">💾</button>
+          <label id="btnLoadDevices" class="hdr-btn" title="Load devices from file" aria-label="Load devices from file" style="cursor:pointer;display:flex;align-items:center;">
             📂<input type="file" id="deviceFileInput" accept=".json" style="display:none">
           </label>
           <button id="btnFeedToggle" class="hdr-btn" title="Show/hide live feed">Feed</button>
@@ -109,6 +111,30 @@
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
 
+  <!-- Onboarding banner (hidden until shown by JS) -->
+  <div id="onboardBanner" class="onboard-banner hidden">
+    <button class="onboard-dismiss" id="onboardDismiss" aria-label="Dismiss onboarding">✕</button>
+    <div class="onboard-title">🎭 Getting started with Gooey</div>
+    <div class="onboard-steps">
+      <div class="onboard-step" id="onboard1">
+        <span class="onboard-num">1</span>
+        <span><strong>Add a device</strong> — click <strong>+</strong> in the header to enter your device's IP and port.</span>
+      </div>
+      <div class="onboard-step" id="onboard2">
+        <span class="onboard-num">2</span>
+        <span><strong>Query it</strong> — click the device tab, then go to Dashboard → Query Verbose to load its configuration.</span>
+      </div>
+      <div class="onboard-step" id="onboard3">
+        <span class="onboard-num">3</span>
+        <span><strong>Create messages</strong> — map sensor streams to OSC addresses in the Messages section.</span>
+      </div>
+      <div class="onboard-step" id="onboard4">
+        <span class="onboard-num">4</span>
+        <span><strong>Start a patch</strong> — group messages into a patch and hit Start to begin streaming.</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Main Split Layout ===== -->
   <div class="app-layout">
 
@@ -133,19 +159,46 @@
 
         <!-- ===== DASHBOARD ===== -->
         <section class="section active" id="sec-dashboard">
+
+          <!-- Welcome banner (shown when no devices added yet) -->
+          <div id="welcomeBanner" class="welcome-banner" style="display:none">
+            <div class="welcome-title">👋 Welcome to Gooey</div>
+            <div class="welcome-steps">
+              <div class="welcome-step"><span class="step-num">1</span> Add a device using the <strong>+</strong> button above</div>
+              <div class="welcome-step"><span class="step-num">2</span> Query it to load its configuration</div>
+              <div class="welcome-step"><span class="step-num">3</span> Create messages and patches to start sending OSC</div>
+            </div>
+          </div>
+
+          <!-- Quick Reference card -->
+          <div class="card quick-ref-card" id="quickRefCard" data-card-id="quick-ref">
+            <div class="card-title-row">
+              <span class="card-title">⚡ Quick Reference</span>
+              <button class="card-dismiss" id="quickRefDismiss" aria-label="Dismiss quick reference">✕</button>
+            </div>
+            <div class="quick-ref-list">
+              <div class="qr-row"><code>/annieData/{dev}/msg/add</code> <span>Create a message</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/patch/start/{name}</code> <span>Start a patch</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/list/verbose</code> <span>List all messages &amp; patches</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/tare</code> <span>Zero Euler angles</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/blackout</code> <span>Stop all output</span></div>
+            </div>
+            <a href="#" id="openRefPanel" class="qr-link">See full command reference →</a>
+          </div>
+
           <div class="card" data-card-id="device-control">
             <h2>Device Control</h2>
             <div class="quick-grid">
               <button class="qbtn" data-cmd="save" title="Save all messages, patches, and settings to NVS flash">Save All</button>
               <button class="qbtn" data-cmd="load" title="Load messages, patches, and settings from NVS flash">Load All</button>
-              <button class="qbtn qbtn-warn" data-cmd="nvs_clear" data-confirm="Are you sure? This will erase all saved settings from flash memory." title="Erase all saved data from NVS flash">NVS Clear</button>
+              <button class="qbtn qbtn-warn" data-cmd="nvs_clear" data-confirm="Are you sure? This will erase all saved settings from flash memory." title="Erase all saved data from NVS flash" id="btnNvsClearDash">NVS Clear</button>
             </div>
           </div>
           <div class="card" data-card-id="query-device">
             <h2>Query Device</h2>
             <p class="hint-text">Refresh the local registry by querying the active device. Results appear in the live feed and automatically update the Messages/Patches tables. Use the header Query controls to target multiple devices at once.</p>
             <div class="quick-grid">
-              <button class="qbtn" data-cmd="list_all" data-payload="verbose" title="Query all messages and patches with full details (verbose)">Query Verbose</button>
+              <button class="qbtn" id="btnQueryVerbose" data-cmd="list_all" data-payload="verbose" title="Query all messages and patches with full details (verbose)">Query Verbose</button>
             </div>
           </div>
           <div class="card" data-card-id="status-config">
@@ -197,7 +250,18 @@
         <!-- ===== MESSAGES ===== -->
         <section class="section" id="sec-messages">
           <div class="card">
-            <h2>Messages</h2>
+            <div class="tbl-toolbar">
+              <span class="tbl-toolbar-label">Messages</span>
+              <div class="col-picker-wrap" style="position:relative">
+                <button id="btnColPicker" class="btn btn-sm" aria-label="Choose visible columns">Columns ▾</button>
+                <div id="colPickerMenu" class="col-picker-menu hidden">
+                  <label><input type="checkbox" data-col="low" checked> Low</label>
+                  <label><input type="checkbox" data-col="high" checked> High</label>
+                  <label><input type="checkbox" data-col="patch" checked> Patch</label>
+                  <label><input type="checkbox" data-col="ori" checked> Ori</label>
+                </div>
+              </div>
+            </div>
             <p class="hint-text">Click "Query" on the Dashboard to populate from device, or add manually below. Select a row to edit.</p>
             <div style="overflow-x:auto">
               <table class="data-table" id="msgTable">
@@ -208,16 +272,21 @@
                     <th>IP</th>
                     <th>Port</th>
                     <th>Address</th>
-                    <th>Low</th>
-                    <th>High</th>
-                    <th>Patch</th>
-                    <th class="ori-section">Ori</th>
+                    <th data-col="low">Low</th>
+                    <th data-col="high">High</th>
+                    <th data-col="patch">Patch</th>
+                    <th class="ori-section" data-col="ori">Ori</th>
                     <th>Enabled</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="msgTableBody">
-                  <tr><td colspan="11" class="empty-state">No messages tracked. Query the device or add one below.</td></tr>
+                  <tr><td colspan="11"><div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-text">No messages tracked yet.</div>
+                    <div class="empty-sub">Query the device to load existing messages, or create one below.</div>
+                    <button class="btn btn-sm" onclick="document.getElementById('btnQueryVerbose').click()">⚡ Query Device Now</button>
+                  </div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -298,7 +367,7 @@
                 <input type="text" id="msgOriNot" placeholder="e.g. light2" list="oriNameList">
               </div>
               <div class="form-group">
-                <label for="msgTernori">Ternori <span class="hint">(high when active, low when not)</span></label>
+                <label for="msgTernori">Toggle <span class="hint">(ternori — high when active, low when not)</span></label>
                 <input type="text" id="msgTernori" placeholder="e.g. spotlight" list="oriNameList">
               </div>
             </div>
@@ -351,7 +420,12 @@
                   </tr>
                 </thead>
                 <tbody id="patchTableBody">
-                  <tr><td colspan="6" class="empty-state">No patches tracked. Query the device or create one below.</td></tr>
+                  <tr><td colspan="6"><div class="empty-state">
+                    <div class="empty-icon">📦</div>
+                    <div class="empty-text">No patches tracked yet.</div>
+                    <div class="empty-sub">Query the device or create a patch below.</div>
+                    <button class="btn btn-sm" onclick="document.getElementById('btnQueryVerbose').click()">⚡ Query Device Now</button>
+                  </div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -370,7 +444,16 @@
                 <input type="number" id="patchPeriod" value="50" min="1">
               </div>
               <div class="form-group">
-                <label for="patchAdrMode">Adr Mode</label>
+                <label for="patchAdrMode">
+                  Address Mode
+                  <button class="help-btn" aria-label="Help: Address modes" title="Address modes" onclick="toggleHelp('adrModeHelp'); return false;">?</button>
+                </label>
+                <div id="adrModeHelp" class="help-box hidden">
+                  <strong>fallback</strong> — use message's own address; patch value only if message has none.<br>
+                  <strong>override</strong> — always use patch's address instead of message's.<br>
+                  <strong>prepend</strong> — prepend patch address to message address.<br>
+                  <strong>append</strong> — append patch address after message address.
+                </div>
                 <select id="patchAdrMode">
                   <option value="fallback">fallback</option>
                   <option value="override">override</option>
@@ -404,7 +487,13 @@
               </div>
             </div>
             <div class="form-group">
-              <label>Override Flags</label>
+              <label>
+                Override Flags
+                <button class="help-btn" aria-label="Help: Override flags" title="Override flags" onclick="toggleHelp('overrideFlagsHelp'); return false;">?</button>
+              </label>
+              <div id="overrideFlagsHelp" class="help-box hidden">
+                Check each field that this patch should <strong>override</strong> in messages. When overridden, the patch's value replaces the message's value for that field when sending.
+              </div>
               <div class="cb-row">
                 <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
                 <label class="cb-label"><input type="checkbox" id="ovPort"> port</label>
@@ -488,6 +577,25 @@
 
         <!-- ===== ORI ===== -->
         <section class="section" id="sec-ori">
+
+          <div class="ori-explainer card">
+            <div class="card-title-row">
+              <span class="card-title">🧭 How Orientations (Oris) Work</span>
+              <button class="help-btn" id="oriExplainerToggle" aria-label="Toggle explainer" onclick="this.closest('.ori-explainer').querySelector('.ori-explainer-body').classList.toggle('hidden'); this.textContent = this.textContent === '?' ? '−' : '?'">?</button>
+            </div>
+            <div class="ori-explainer-body hidden">
+              <p>An <strong>ori</strong> is a saved device orientation. You can save multiple oris and the device continuously reports which one it's currently closest to.</p>
+              <p><strong>Point ori</strong> — saved once. Matches when the device is closest to that exact orientation (geodesic distance).</p>
+              <p><strong>Range ori</strong> — saved 2+ times. Expands into an angular sphere in quaternion space. Matches when the device is within the range radius + tolerance.</p>
+              <p>Use the <strong>Ori Only / Ori Not / Toggle</strong> conditions on messages to send different values depending on which ori is active.</p>
+              <div class="ori-conditions-table">
+                <div class="oc-row"><span class="oc-name">Ori Only</span><span class="oc-desc">Message sends only when this ori is active</span></div>
+                <div class="oc-row"><span class="oc-name">Ori Not</span><span class="oc-desc">Message sends only when this ori is NOT active</span></div>
+                <div class="oc-row"><span class="oc-name">Toggle</span><span class="oc-desc">Sends the high value when active, low value when not</span></div>
+              </div>
+            </div>
+          </div>
+
           <div class="card" data-card-id="ori-list">
             <h2>Saved Orientations</h2>
             <p class="hint-text">Oris saved on the device. Click "List Oris" to refresh.</p>
@@ -504,7 +612,11 @@
                   </tr>
                 </thead>
                 <tbody id="oriTableBody">
-                  <tr><td colspan="6" class="empty-state">No oris tracked. Query the device or save one below.</td></tr>
+                  <tr><td colspan="6"><div class="empty-state">
+                    <div class="empty-icon">🧭</div>
+                    <div class="empty-text">No orientations tracked yet.</div>
+                    <div class="empty-sub">Save an orientation below or query the device.</div>
+                  </div></td></tr>
                 </tbody>
               </table>
             </div>
@@ -811,6 +923,18 @@
 
   <!-- Toast container -->
   <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Confirmation modal -->
+  <div id="confirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-box">
+      <div class="modal-title" id="confirmTitle">Confirm Action</div>
+      <div class="modal-body" id="confirmBody"></div>
+      <div class="modal-actions">
+        <button id="confirmCancel" class="btn">Cancel</button>
+        <button id="confirmOk" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
