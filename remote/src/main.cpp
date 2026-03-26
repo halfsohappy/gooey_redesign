@@ -3,14 +3,12 @@
 // ============================================================================
 //
 //  Hardware:
-//    - Olimex ESP32-C3-DevKit-Lipo (or any ESP32-C3 board)
-//    - SSD1306 128×64 OLED display  (I2C 0x3C)
-//    - Adafruit Seesaw ANO Rotary Navigation Encoder  (I2C 0x49)
+//    - ESP32-S3 with built-in 1.3" ST7789V2 240×240 color LCD
+//    - Adafruit Mini I2C Gamepad QT  (I2C 0x50, SDA=IO1, SCL=IO2)
 //
-//  This handheld remote connects to the same WiFi as your TheaterGWD
-//  devices and sends OSC commands to create/edit messages, manage patches,
-//  save/reset oris, start/stop sending, and monitor status — all from a
-//  tiny screen and a rotary encoder.
+//  On first boot the device enters WiFi provisioning mode — a captive
+//  portal lets the user configure WiFi credentials and target device
+//  info from any browser.  On subsequent boots it connects directly.
 //
 //  Build:
 //    cd remote && pio run            # compile
@@ -37,30 +35,39 @@ void setup() {
     delay(500);
     Serial.println("\n=== TheaterGWD Setup Remote ===");
 
-    // ── I2C bus ─────────────────────────────────────────────────────────
-    Wire.begin(PIN_SDA, PIN_SCL);
-
-    // ── OLED display ────────────────────────────────────────────────────
+    // ── TFT display ─────────────────────────────────────────────────────
     if (!disp_init()) {
-        Serial.println("SSD1306 init failed — check wiring / address");
+        Serial.println("TFT init failed");
         while (true) delay(1000);
     }
     disp_clear();
     disp_message("Setup Remote", "starting...");
-    disp_show();
 
-    // ── Seesaw ANO input ────────────────────────────────────────────────
+    // ── I2C bus (for Gamepad QT) ────────────────────────────────────────
+    Wire.begin(PIN_SDA, PIN_SCL);
+
+    // ── Gamepad QT input ────────────────────────────────────────────────
     if (!input_init()) {
-        Serial.println("Seesaw init failed — check wiring / address");
+        Serial.println("Gamepad QT init failed — check wiring / address");
         disp_clear();
-        disp_message("Seesaw FAIL", "check wiring");
-        disp_show();
+        disp_message("Gamepad FAIL", "check wiring");
         while (true) delay(1000);
     }
-    led_set(0, 0, 40);  // blue = booting
 
     // ── Load saved settings ─────────────────────────────────────────────
     net_load();
+
+    // ── WiFi provisioning or connect ────────────────────────────────────
+    if (!net_is_provisioned()) {
+        Serial.println("Not provisioned — starting captive portal");
+        disp_clear();
+        disp_message("WiFi Setup", "Connect to AP:");
+        disp_clear();
+        disp_message("annieData Remote", "then open browser");
+        net_provision();   // blocks until complete, then restarts
+        return;            // never reached
+    }
+
     Serial.printf("SSID : %s\n", net_ssid);
     Serial.printf("Target: %s @ %d.%d.%d.%d:%d\n",
                   target_name,
@@ -72,12 +79,10 @@ void setup() {
         net_connect();
         disp_clear();
         disp_message("Connecting WiFi...", net_ssid);
-        disp_show();
 
-        // Wait up to 10 s for connection (non-blocking afterwards)
+        // Wait up to 10 s for connection
         unsigned long t0 = millis();
         while (net_update() == NET_CONNECTING && millis() - t0 < 10000) {
-            led_spin(0, 0, 60, ((millis() - t0) / 150) % SS_NEOPIX_NUM);
             delay(50);
         }
 

@@ -2,26 +2,22 @@
 #define INPUT_H
 
 // ============================================================================
-//  TheaterGWD Setup Remote — Adafruit Seesaw ANO Input Handler
+//  TheaterGWD Setup Remote — Adafruit Mini I2C Gamepad QT Input Handler
 // ============================================================================
 //
-//  Reads the five directional buttons, the rotary encoder (position +
-//  push-button), and drives the 8-pixel NeoPixel ring for status feedback.
+//  Reads the six face buttons (A, B, X, Y, Select, Start) and the 2-axis
+//  thumb-stick via the seesaw I2C interface on the Gamepad QT breakout.
 //
 //  Public API
 //  ----------
-//  input_init()            initialise seesaw + NeoPixels
+//  input_init()            initialise seesaw gamepad
 //  input_read()            poll; returns InputEvent (call once per loop)
-//  led_set(r, g, b)       fill all NeoPixels with a solid colour
-//  led_off()               turn off all NeoPixels
-//  led_spin(r, g, b, pos) light one pixel at `pos` in the given colour
 //
 // ============================================================================
 
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_seesaw.h>
-#include <seesaw_neopixel.h>
 #include "config.h"
 
 // ── Event type ──────────────────────────────────────────────────────────────
@@ -32,50 +28,35 @@ enum InputEvent {
     EVT_DOWN,
     EVT_LEFT,
     EVT_RIGHT,
-    EVT_SELECT,       // centre button
-    EVT_ENC_PRESS,    // encoder push-button
-    EVT_ENC_CW,       // encoder clockwise tick
-    EVT_ENC_CCW        // encoder counter-clockwise tick
+    EVT_SELECT,       // A button (primary confirm)
+    EVT_ENC_PRESS,    // Start button (secondary action)
+    EVT_ENC_CW,       // X button (cycle forward / increment)
+    EVT_ENC_CCW        // Y button (cycle backward / decrement)
 };
 
 // ── Internal state ──────────────────────────────────────────────────────────
 
 static Adafruit_seesaw _ss;
-static seesaw_NeoPixel _pixels(SS_NEOPIX_NUM, SS_NEOPIX_PIN, NEO_GRB + NEO_KHZ800);
 
-static int32_t _enc_pos = 0;
 static unsigned long _last_btn_time = 0;
+static bool _joy_active = false;   // true while stick is deflected
 
 // Bit mask of button pins for digitalReadBulk
 static const uint32_t _BTN_MASK =
-    (1UL << SS_BTN_SELECT) |
-    (1UL << SS_BTN_UP)     |
-    (1UL << SS_BTN_LEFT)   |
-    (1UL << SS_BTN_DOWN)   |
-    (1UL << SS_BTN_RIGHT)  |
-    (1UL << SS_ENC_SWITCH);
+    (1UL << GP_BTN_A)      |
+    (1UL << GP_BTN_B)      |
+    (1UL << GP_BTN_X)      |
+    (1UL << GP_BTN_Y)      |
+    (1UL << GP_BTN_SELECT) |
+    (1UL << GP_BTN_START);
 
 // ── Init ────────────────────────────────────────────────────────────────────
 
 static bool input_init() {
-    if (!_ss.begin(SEESAW_ADDR)) return false;
+    if (!_ss.begin(GAMEPAD_ADDR)) return false;
 
-    // Enable internal pull-ups on all button pins
-    _ss.pinMode(SS_BTN_SELECT, INPUT_PULLUP);
-    _ss.pinMode(SS_BTN_UP,     INPUT_PULLUP);
-    _ss.pinMode(SS_BTN_LEFT,   INPUT_PULLUP);
-    _ss.pinMode(SS_BTN_DOWN,   INPUT_PULLUP);
-    _ss.pinMode(SS_BTN_RIGHT,  INPUT_PULLUP);
-    _ss.pinMode(SS_ENC_SWITCH, INPUT_PULLUP);
-
-    // Encoder — read initial position
-    _enc_pos = _ss.getEncoderPosition();
-    _ss.enableEncoderInterrupt();
-
-    // NeoPixel ring
-    _pixels.begin(SEESAW_ADDR);
-    _pixels.setBrightness(30);
-    _pixels.show();
+    // Enable internal pull-ups on button pins
+    _ss.pinModeBulk(_BTN_MASK, INPUT_PULLUP);
 
     return true;
 }
@@ -85,45 +66,40 @@ static bool input_init() {
 static InputEvent input_read() {
     unsigned long now = millis();
 
-    // ── Encoder rotation (no debounce — already tick-based) ─────────────
-    int32_t pos = _ss.getEncoderPosition();
-    if (pos != _enc_pos) {
-        InputEvent ev = (pos > _enc_pos) ? EVT_ENC_CW : EVT_ENC_CCW;
-        _enc_pos = pos;
-        return ev;
+    // ── Joystick (analog → digital direction) ──────────────────────────
+    int jx = 1023 - _ss.analogRead(GP_JOY_X);
+    int jy = 1023 - _ss.analogRead(GP_JOY_Y);
+
+    bool deflected = (jx < JOY_LO || jx > JOY_HI ||
+                      jy < JOY_LO || jy > JOY_HI);
+
+    if (deflected && !_joy_active && (now - _last_btn_time >= DEBOUNCE_MS)) {
+        _joy_active = true;
+        _last_btn_time = now;
+        // Determine dominant axis
+        int dx = jx - 512;
+        int dy = jy - 512;
+        if (abs(dx) > abs(dy)) {
+            return (dx > 0) ? EVT_RIGHT : EVT_LEFT;
+        } else {
+            return (dy > 0) ? EVT_DOWN : EVT_UP;
+        }
     }
+    if (!deflected) _joy_active = false;
 
     // ── Buttons (with debounce) ─────────────────────────────────────────
     if (now - _last_btn_time < DEBOUNCE_MS) return EVT_NONE;
 
     uint32_t btns = _ss.digitalReadBulk(_BTN_MASK);
     // Buttons are active-low (pressed = 0)
-    if (!(btns & (1UL << SS_ENC_SWITCH))) { _last_btn_time = now; return EVT_ENC_PRESS; }
-    if (!(btns & (1UL << SS_BTN_SELECT))) { _last_btn_time = now; return EVT_SELECT; }
-    if (!(btns & (1UL << SS_BTN_UP)))     { _last_btn_time = now; return EVT_UP; }
-    if (!(btns & (1UL << SS_BTN_DOWN)))   { _last_btn_time = now; return EVT_DOWN; }
-    if (!(btns & (1UL << SS_BTN_LEFT)))   { _last_btn_time = now; return EVT_LEFT; }
-    if (!(btns & (1UL << SS_BTN_RIGHT)))  { _last_btn_time = now; return EVT_RIGHT; }
+    if (!(btns & (1UL << GP_BTN_A)))      { _last_btn_time = now; return EVT_SELECT; }
+    if (!(btns & (1UL << GP_BTN_B)))      { _last_btn_time = now; return EVT_LEFT; }      // B = back
+    if (!(btns & (1UL << GP_BTN_X)))      { _last_btn_time = now; return EVT_ENC_CW; }    // X = cycle fwd
+    if (!(btns & (1UL << GP_BTN_Y)))      { _last_btn_time = now; return EVT_ENC_CCW; }   // Y = cycle bwd
+    if (!(btns & (1UL << GP_BTN_START)))  { _last_btn_time = now; return EVT_ENC_PRESS; }
+    if (!(btns & (1UL << GP_BTN_SELECT))) { _last_btn_time = now; return EVT_SELECT; }
 
     return EVT_NONE;
-}
-
-// ── NeoPixel helpers ────────────────────────────────────────────────────────
-
-static void led_set(uint8_t r, uint8_t g, uint8_t b) {
-    for (int i = 0; i < SS_NEOPIX_NUM; i++)
-        _pixels.setPixelColor(i, _pixels.Color(r, g, b));
-    _pixels.show();
-}
-
-static void led_off() { led_set(0, 0, 0); }
-
-// Light a single pixel (for spinning animation).
-static void led_spin(uint8_t r, uint8_t g, uint8_t b, int pos) {
-    for (int i = 0; i < SS_NEOPIX_NUM; i++)
-        _pixels.setPixelColor(i, 0);
-    _pixels.setPixelColor(pos % SS_NEOPIX_NUM, _pixels.Color(r, g, b));
-    _pixels.show();
 }
 
 #endif // INPUT_H
