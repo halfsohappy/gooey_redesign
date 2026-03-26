@@ -57,6 +57,7 @@
           <div class="hdr-notif-bar">
             <span class="hdr-notif-label">Notifications</span>
             <button id="btnNotifToggle" class="hdr-btn hdr-notif-clear" title="Clear notifications" aria-label="Clear notifications">🔔 <span id="notifBadge" class="notif-badge" style="display:none">0</span></button>
+            <button id="btnSerialToggle" class="hdr-btn hdr-serial-btn" title="Toggle serial monitor">⬛ Serial</button>
           </div>
           <div id="notifDropdown" class="notif-feed"></div>
         </div>
@@ -945,6 +946,33 @@
         <button id="confirmCancel" class="btn">Cancel</button>
         <button id="confirmOk" class="btn btn-danger">Confirm</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Serial monitor drawer -->
+  <div id="serialDrawer" class="serial-drawer hidden">
+    <div class="serial-drawer-bar">
+      <span class="serial-drawer-title">⬛ Serial Monitor</span>
+      <div class="serial-drawer-controls">
+        <select id="serialPortSelect" class="hdr-select-sm serial-select" title="Serial port"></select>
+        <button id="btnSerialRefreshPorts" class="hdr-btn" title="Refresh port list">↻</button>
+        <select id="serialBaudSelect" class="hdr-select-sm serial-select" title="Baud rate">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200" selected>115200</option>
+          <option value="230400">230400</option>
+          <option value="460800">460800</option>
+          <option value="921600">921600</option>
+        </select>
+        <button id="btnSerialConnect" class="hdr-btn serial-connect-btn">Connect</button>
+        <button id="btnSerialClear" class="hdr-btn" title="Clear terminal">Clear</button>
+        <button id="btnSerialClose" class="hdr-btn" title="Close serial monitor">✕</button>
+      </div>
+    </div>
+    <div class="serial-terminal" id="serialTerminal">
+      <div class="serial-placeholder">No port connected — select a port and click Connect</div>
     </div>
   </div>
 

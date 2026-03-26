@@ -2565,4 +2565,110 @@
     }
   } catch (e) {}
 
+  /* ═══════════════════════════════════════════
+     SERIAL MONITOR
+     ═══════════════════════════════════════════ */
+
+  (function () {
+    var drawer      = $("#serialDrawer");
+    var terminal    = $("#serialTerminal");
+    var portSelect  = $("#serialPortSelect");
+    var baudSelect  = $("#serialBaudSelect");
+    var btnToggle   = $("#btnSerialToggle");
+    var btnConnect  = $("#btnSerialConnect");
+    var btnClear    = $("#btnSerialClear");
+    var btnClose    = $("#btnSerialClose");
+    var btnRefresh  = $("#btnSerialRefreshPorts");
+    var _connected  = false;
+
+    if (!drawer) return;
+
+    function openDrawer() {
+      drawer.classList.remove("hidden");
+      document.body.classList.add("serial-open");
+      btnToggle.classList.add("active");
+      refreshPorts();
+    }
+    function closeDrawer() {
+      drawer.classList.add("hidden");
+      document.body.classList.remove("serial-open");
+      btnToggle.classList.remove("active");
+    }
+
+    function refreshPorts() {
+      socket.emit("serial_list_ports");
+    }
+
+    socket.on("serial_ports", function (data) {
+      portSelect.innerHTML = "";
+      if (!data.ports || data.ports.length === 0) {
+        portSelect.innerHTML = '<option value="">No ports found</option>';
+        return;
+      }
+      data.ports.forEach(function (p) {
+        var opt = document.createElement("option");
+        opt.value = p.device;
+        opt.textContent = p.device + (p.description && p.description !== p.device ? " — " + p.description : "");
+        portSelect.appendChild(opt);
+      });
+    });
+
+    function appendLine(text, cls) {
+      var placeholder = terminal.querySelector(".serial-placeholder");
+      if (placeholder) placeholder.remove();
+      var line = document.createElement("div");
+      line.className = "serial-line" + (cls ? " " + cls : "");
+      line.textContent = text;
+      terminal.appendChild(line);
+      // keep last 500 lines
+      while (terminal.children.length > 500) terminal.removeChild(terminal.firstChild);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    socket.on("serial_data", function (data) {
+      (data.data || "").split(/\r?\n/).forEach(function (line) {
+        if (line) appendLine(line);
+      });
+    });
+
+    socket.on("serial_connected", function (data) {
+      _connected = true;
+      btnConnect.textContent = "Disconnect";
+      btnConnect.classList.add("connected");
+      appendLine("── Connected: " + data.port + " @ " + data.baud + " baud ──");
+    });
+
+    socket.on("serial_disconnected", function () {
+      _connected = false;
+      btnConnect.textContent = "Connect";
+      btnConnect.classList.remove("connected");
+      appendLine("── Disconnected ──");
+    });
+
+    socket.on("serial_error", function (data) {
+      appendLine("Error: " + (data.message || "unknown"), "stderr");
+    });
+
+    btnToggle.addEventListener("click", function () {
+      if (drawer.classList.contains("hidden")) openDrawer(); else closeDrawer();
+    });
+    btnClose.addEventListener("click", closeDrawer);
+
+    btnConnect.addEventListener("click", function () {
+      if (_connected) {
+        socket.emit("serial_disconnect_port");
+      } else {
+        var port = portSelect.value;
+        if (!port) { toast("Select a serial port first", "warn"); return; }
+        socket.emit("serial_connect", { port: port, baud: parseInt(baudSelect.value, 10) });
+      }
+    });
+
+    btnRefresh.addEventListener("click", refreshPorts);
+
+    btnClear.addEventListener("click", function () {
+      terminal.innerHTML = "";
+    });
+  }());
+
 })();

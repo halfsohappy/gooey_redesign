@@ -5,6 +5,8 @@ import re
 import threading
 
 import markdown as md_lib
+import serial
+import serial.tools.list_ports
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, join_room, leave_room
 
@@ -67,6 +69,10 @@ def _get_device(device_id):
             }
         return _device_registry[device_id]
 
+
+# ── Serial connection registry ──
+# {sid: {"ser": Serial, "stop": Event}}
+_serial_connections = {}
 
 # ── Remote session registry ──
 # {sid: {"host": str, "port": int, "device": str, "listen_port": int}}
@@ -370,6 +376,63 @@ def handle_disconnect():
             pass
         if not _remote_sessions:
             engine.stop_receiver("remote-recv")
+    _close_serial(sid)
+
+
+def _close_serial(sid):
+    conn = _serial_connections.pop(sid, None)
+    if conn:
+        conn["stop"].set()
+        try:
+            conn["ser"].close()
+        except Exception:
+            pass
+
+
+@socketio.on("serial_list_ports")
+def handle_serial_list_ports():
+    ports = [
+        {"device": p.device, "description": p.description or p.device}
+        for p in serial.tools.list_ports.comports()
+    ]
+    socketio.emit("serial_ports", {"ports": ports}, to=request.sid)
+
+
+@socketio.on("serial_connect")
+def handle_serial_connect(data):
+    sid = request.sid
+    port = data.get("port", "")
+    baud = int(data.get("baud", 115200))
+    _close_serial(sid)
+    try:
+        ser = serial.Serial(port, baud, timeout=0.1)
+    except Exception as e:
+        socketio.emit("serial_error", {"message": str(e)}, to=sid)
+        return
+    stop_event = threading.Event()
+
+    def _read():
+        while not stop_event.is_set():
+            try:
+                line = ser.readline()
+                if line:
+                    socketio.emit("serial_data",
+                                  {"data": line.decode("utf-8", errors="replace")},
+                                  to=sid)
+            except Exception:
+                break
+
+    t = threading.Thread(target=_read, daemon=True)
+    t.start()
+    _serial_connections[sid] = {"ser": ser, "stop": stop_event}
+    socketio.emit("serial_connected", {"port": port, "baud": baud}, to=sid)
+
+
+@socketio.on("serial_disconnect_port")
+def handle_serial_disconnect_port():
+    sid = request.sid
+    _close_serial(sid)
+    socketio.emit("serial_disconnected", {}, to=sid)
 
 
 @socketio.on("ping_server")
