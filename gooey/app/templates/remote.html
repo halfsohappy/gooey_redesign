@@ -187,6 +187,7 @@
     <div class="card">
       <div class="row" id="menuMessages"><div class="row-icon">📨</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
       <div class="row" id="menuPatches"><div class="row-icon">🗂</div><div class="row-text"><div class="row-title">Patches</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuOris"><div class="row-icon">🧭</div><div class="row-text"><div class="row-title">Orientations</div><div class="row-sub">Save, list, reset, delete oris</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
       <div class="row" id="menuQuick"><div class="row-icon">⚡</div><div class="row-text"><div class="row-title">Quick Actions</div><div class="row-sub">Blackout, restore, save, load</div></div><div class="row-chev">›</div></div>
@@ -238,6 +239,53 @@
     <div class="hdr-title" id="patchDetailTitle">Patch</div>
   </div>
   <div class="body" id="patchDetailBody"></div>
+</div>
+
+<!-- ══ ORIS LIST ════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenOris">
+  <div class="hdr">
+    <button class="hdr-back" id="backOris">‹</button>
+    <div class="hdr-title">Orientations</div>
+    <button class="hdr-action" id="btnRefreshOris">↻</button>
+  </div>
+  <div class="body">
+    <div class="card">
+      <div class="card-label">Global Settings</div>
+      <div class="row" id="qOriStrict"><div class="row-icon">🔒</div><div class="row-text"><div class="row-title">Toggle Strict Mode</div><div class="row-sub">Only one ori active at a time</div></div></div>
+      <div class="row" id="qOriClear"><div class="row-icon">🗑</div><div class="row-text"><div class="row-title danger" style="color:var(--danger)">Clear All Oris</div><div class="row-sub">Delete every saved orientation</div></div></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Threshold &amp; Tolerance</div>
+      <div style="display:flex;gap:8px;padding:10px 14px">
+        <div class="field" style="flex:1"><label>Threshold</label><input type="number" id="oriThreshInput" step="0.01" min="0" placeholder="0.10"></div>
+        <div class="field" style="flex:1"><label>Tolerance</label><input type="number" id="oriTolInput" step="0.01" min="0" placeholder="0.05"></div>
+      </div>
+      <div style="padding:0 14px 12px;display:flex;gap:8px">
+        <button class="btn btn-outline" id="btnSetThresh" style="flex:1">Set Threshold</button>
+        <button class="btn btn-outline" id="btnSetTol" style="flex:1">Set Tolerance</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Save Current Orientation As</div>
+      <div style="padding:10px 14px;display:flex;gap:8px;align-items:flex-end">
+        <div class="field" style="flex:1"><label>Name</label><input type="text" id="oriNewName" placeholder="e.g. upright"></div>
+        <button class="btn btn-lavender" id="btnSaveOri" style="flex:0 0 auto;min-width:80px">Save</button>
+      </div>
+    </div>
+    <div class="section-label">Saved Oris — tap to manage</div>
+    <div id="oriListBody">
+      <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Tap ↻ to load</div></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ORI DETAIL ════════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenOriDetail">
+  <div class="hdr">
+    <button class="hdr-back" id="backOriDetail">‹</button>
+    <div class="hdr-title" id="oriDetailTitle">Orientation</div>
+  </div>
+  <div class="body" id="oriDetailBody"></div>
 </div>
 
 <!-- ══ QUICK ACTIONS ════════════════════════════════════════════════════════ -->

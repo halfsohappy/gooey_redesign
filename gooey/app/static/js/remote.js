@@ -292,6 +292,51 @@ const App = (() => {
     go("screenPatchDetail");
   }
 
+  /* ── Oris screen ─────────────────────────────────────────────────────────── */
+  function loadOris() {
+    const body = document.getElementById("oriListBody");
+    body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
+    showLoading("Fetching oris…");
+    osc("ori/list").then(reply => {
+      hideLoading();
+      const names = parseNames(reply);
+      if (!names.length) {
+        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No oris found</div></div></div></div>`;
+        return;
+      }
+      body.innerHTML = "";
+      const card = document.createElement("div"); card.className = "card";
+      names.forEach(name => {
+        const row = document.createElement("div"); row.className = "row";
+        row.innerHTML = `<div class="row-icon">🧭</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
+        row.addEventListener("click", () => openOriDetail(name));
+        card.appendChild(row);
+      });
+      body.appendChild(card);
+    });
+  }
+
+  function openOriDetail(name) {
+    document.getElementById("oriDetailTitle").textContent = name;
+    const body = document.getElementById("oriDetailBody");
+    body.innerHTML = "";
+    const card = document.createElement("div"); card.className = "card";
+    const actions = [
+      { label: "Info",           icon: "ℹ️",              fn: () => _sendAndShow(`ori/info/${name}`, null, `${name} info`) },
+      { label: "Save Again",     icon: "📍",              fn: () => { _sendNoReply(`ori/save/${name}`); toast("Saved again — extends to range"); } },
+      { label: "Reset to Point", icon: "🔄", cls: "warn", fn: () => confirm(`Reset "${name}" to point ori?`, () => { _sendNoReply(`ori/reset/${name}`); toast("Reset"); back(); }) },
+      { label: "Delete",         icon: "🗑", cls: "danger", fn: () => confirm(`Delete ori "${name}"?`, () => { _sendNoReply(`ori/delete/${name}`); toast("Deleted"); back(); }) },
+    ];
+    actions.forEach(a => {
+      const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
+      row.innerHTML = `<div class="row-icon">${a.icon}</div><div class="row-text"><div class="row-title">${a.label}</div></div>`;
+      row.addEventListener("click", a.fn);
+      card.appendChild(row);
+    });
+    body.appendChild(card);
+    go("screenOriDetail");
+  }
+
   /* ── Settings screen ─────────────────────────────────────────────────────── */
   function openSettings() {
     document.getElementById("sHost").value        = config.host;
@@ -336,18 +381,44 @@ const App = (() => {
     });
     document.getElementById("menuMessages").addEventListener("click", () => { go("screenMessages"); loadMessages(); });
     document.getElementById("menuPatches").addEventListener("click",  () => { go("screenPatches");  loadPatches();  });
+    document.getElementById("menuOris").addEventListener("click",     () => { go("screenOris"); });
     document.getElementById("menuQuick").addEventListener("click",    () => go("screenQuick"));
     document.getElementById("menuMonitor").addEventListener("click",  () => go("screenMonitor"));
     document.getElementById("menuSettings").addEventListener("click", () => openSettings());
 
     /* ── Back buttons ── */
     ["backMessages","backPatches","backMsgDetail","backPatchDetail",
+     "backOris","backOriDetail",
      "backQuick","backMonitor","backSettings","backResult"].forEach(id => {
       document.getElementById(id).addEventListener("click", back);
     });
 
     /* ── Messages ── */
     document.getElementById("btnRefreshMsgs").addEventListener("click", loadMessages);
+
+    /* ── Oris ── */
+    document.getElementById("btnRefreshOris").addEventListener("click", loadOris);
+    document.getElementById("qOriStrict").addEventListener("click", () => { _sendNoReply("ori/strict"); toast("Strict mode toggled"); });
+    document.getElementById("qOriClear").addEventListener("click", () =>
+      confirm("Delete ALL saved oris?", () => { _sendNoReply("ori/clear"); toast("All oris cleared"); loadOris(); }));
+    document.getElementById("btnSetThresh").addEventListener("click", () => {
+      const v = document.getElementById("oriThreshInput").value.trim();
+      if (!v) { toast("Enter a threshold value"); return; }
+      _sendNoReply("ori/threshold", v); toast(`Threshold set to ${v}`);
+    });
+    document.getElementById("btnSetTol").addEventListener("click", () => {
+      const v = document.getElementById("oriTolInput").value.trim();
+      if (!v) { toast("Enter a tolerance value"); return; }
+      _sendNoReply("ori/tolerance", v); toast(`Tolerance set to ${v}`);
+    });
+    document.getElementById("btnSaveOri").addEventListener("click", () => {
+      const name = document.getElementById("oriNewName").value.trim();
+      if (!name) { toast("Enter a name for the orientation"); return; }
+      _sendNoReply(`ori/save/${name}`);
+      toast(`Saved ori "${name}"`);
+      document.getElementById("oriNewName").value = "";
+      loadOris();
+    });
 
     /* ── Patches ── */
     document.getElementById("btnRefreshPatches").addEventListener("click", loadPatches);
