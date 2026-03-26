@@ -2094,11 +2094,23 @@ input.field-error {
 /* right-half drawer doesn't need body padding-bottom */
 body.serial-open .app-layout { padding-bottom: 0; }
 
-/* ── Pending ori (pre-registration) ── */
+/* ── Pending / pre-registered ori states ── */
+
+/* Gooey-side pending: defined here, not yet pushed to device */
 .ori-badge-pending {
   background: #2a2229;
   color: #b8a8cc;
   border: 1px dashed #7a6a8a;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+/* Device-side registered: on device, not yet sampled — use slightly different color */
+.ori-badge-registered {
+  background: #1a2230;
+  color: #88aed0;
+  border: 1px dashed #4a6a8a;
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 3px;

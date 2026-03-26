@@ -483,55 +483,86 @@ void loop() {
 
     OriTracker& ot = ori_tracker();
 
-    // Button A (GPIO 0): Add range point to selected ori.
+    // Button A (GPIO 0): Capture orientation into the selected ori slot.
+    //   • If the slot is pre-registered (sample_count == 0): first capture —
+    //     LED flashes WHITE (solid, 150 ms) then shows the ori's color.
+    //   • If already sampled (range expansion): LED flashes BLUE briefly
+    //     then returns to the ori's color.
     if (digitalRead(BTN_A) == LOW && millis() - btn_a_last > BTN_DEBOUNCE_MS) {
         btn_a_last = millis();
         const SavedOri* sel = ot.selected_ori();
         if (sel) {
+            bool was_empty = (sel->sample_count == 0);
             int idx = ot.save(sel->name, cur_qi, cur_qj, cur_qk, cur_qr);
             if (idx >= 0) {
-                Serial.println("[BTN_A] Added point to ori '" + sel->name
-                    + "' (samples: " + String(ot.oris[idx].sample_count) + ")");
-                status_reporter().info("ori", "Button added point to '" + sel->name + "'");
-
-                // Flash white briefly then return to the ori's color.
-                leds[0] = CRGB(80, 80, 80);
-                FastLED.show();
-                delay(100);
-                leds[0] = CRGB(sel->color_r / 4, sel->color_g / 4, sel->color_b / 4);
+                uint8_t sc = ot.oris[idx].sample_count;
+                if (was_empty) {
+                    Serial.println("[BTN_A] First capture: ori '" + sel->name + "' now a point ori");
+                    status_reporter().info("ori", "Captured ori '" + sel->name + "'");
+                    // Long white flash — signals first-time capture.
+                    leds[0] = CRGB(100, 100, 100);
+                    FastLED.show();
+                    delay(200);
+                } else {
+                    Serial.println("[BTN_A] Range expand: ori '" + sel->name
+                        + "' now " + String(sc) + " samples");
+                    status_reporter().info("ori", "Expanded range of '" + sel->name
+                        + "' (" + String(sc) + " samples)");
+                    // Short blue flash — signals range expansion.
+                    leds[0] = CRGB(0, 0, 80);
+                    FastLED.show();
+                    delay(80);
+                }
+                // Return to ori color (dimmed).
+                leds[0] = CRGB(ot.oris[idx].color_r / 4,
+                                ot.oris[idx].color_g / 4,
+                                ot.oris[idx].color_b / 4);
                 FastLED.show();
             }
         } else {
-            Serial.println(F("[BTN_A] No ori selected. Create oris via OSC, then press BTN_B to select."));
-            // Flash red to indicate error.
-            leds[0] = CRGB(80, 0, 0);
-            FastLED.show();
-            delay(100);
-            leds[0] = CRGB(0, 40, 0);
-            FastLED.show();
+            Serial.println(F("[BTN_A] No ori selected. "
+                             "Pre-register oris via Gooey, then press BTN_B to select."));
+            // Double red flash — no slot selected.
+            leds[0] = CRGB(80, 0, 0); FastLED.show(); delay(80);
+            leds[0] = CRGB(0,  0, 0); FastLED.show(); delay(60);
+            leds[0] = CRGB(80, 0, 0); FastLED.show(); delay(80);
+            leds[0] = CRGB(0, 20, 0); FastLED.show();
         }
     }
 
-    // Button B (GPIO 14): Cycle to the next ori.
+    // Button B (GPIO 14): Cycle to the next ori (including unsampled slots).
+    //   • Unsampled (pre-registered) slots: LED double-blinks the color to
+    //     signal "not yet captured — press A to sample now".
+    //   • Sampled slots: LED shows the color steadily (dimmed).
     if (digitalRead(BTN_B) == LOW && millis() - btn_b_last > BTN_DEBOUNCE_MS) {
         btn_b_last = millis();
         int idx = ot.select_next();
         if (idx >= 0) {
             const SavedOri& o = ot.oris[idx];
-            Serial.println("[BTN_B] Selected ori: " + o.name
-                + " (" + String(o.sample_count) + " samples)"
-                + " color=(" + String(o.color_r) + "," + String(o.color_g) + "," + String(o.color_b) + ")");
-            // Show the ori's color on the LED (dimmed to 1/4 brightness).
-            leds[0] = CRGB(o.color_r / 4, o.color_g / 4, o.color_b / 4);
-            FastLED.show();
+            if (o.sample_count == 0) {
+                Serial.println("[BTN_B] Selected PENDING ori: '" + o.name
+                    + "' (pre-registered, not yet sampled) — press A to capture");
+                // Double-blink: signals "needs sampling".
+                CRGB col(o.color_r / 4, o.color_g / 4, o.color_b / 4);
+                leds[0] = col;  FastLED.show(); delay(100);
+                leds[0] = CRGB(0, 0, 0); FastLED.show(); delay(80);
+                leds[0] = col;  FastLED.show();
+            } else {
+                Serial.println("[BTN_B] Selected ori: '" + o.name
+                    + "' (" + String(o.sample_count) + " samples)"
+                    + " color=(" + String(o.color_r) + ","
+                    + String(o.color_g) + "," + String(o.color_b) + ")");
+                // Steady dimmed color.
+                leds[0] = CRGB(o.color_r / 4, o.color_g / 4, o.color_b / 4);
+                FastLED.show();
+            }
         } else {
-            Serial.println(F("[BTN_B] No oris saved. Create oris via OSC first."));
-            // Flash red to indicate no oris.
-            leds[0] = CRGB(80, 0, 0);
-            FastLED.show();
-            delay(100);
-            leds[0] = CRGB(0, 40, 0);
-            FastLED.show();
+            Serial.println(F("[BTN_B] No oris. Pre-register via Gooey first."));
+            // Double red flash.
+            leds[0] = CRGB(80, 0, 0); FastLED.show(); delay(80);
+            leds[0] = CRGB(0,  0, 0); FastLED.show(); delay(60);
+            leds[0] = CRGB(80, 0, 0); FastLED.show(); delay(80);
+            leds[0] = CRGB(0, 20, 0); FastLED.show();
         }
     }
 #endif // AB7_BUILD

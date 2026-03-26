@@ -39,6 +39,7 @@
 
 #include <Preferences.h>
 #include "osc_registry.h"
+#include "ori_tracker.h"
 
 // ---------------------------------------------------------------------------
 // Serialisation helpers — convert objects to/from storable strings
@@ -278,6 +279,134 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
 // Save / load all — writes/reads the entire registry to/from NVS
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Ori NVS persistence
+// ---------------------------------------------------------------------------
+// Namespace: "ori_store"
+// Keys: "o_count", "o_0" .. "o_31"
+// Format per ori:
+//   "name:xxx,sc:N,r:R,g:G,b:B,qi:F,qj:F,qk:F,qr:F,hw:F"
+//   sc (sample_count) == 0 means pre-registered, not yet sampled.
+
+/// Serialise one SavedOri to a storable string.
+static inline String ori_to_save_string(const SavedOri& o) {
+    String s;
+    s  = "name:" + o.name;
+    s += ",sc:"  + String(o.sample_count);
+    s += ",r:"   + String(o.color_r);
+    s += ",g:"   + String(o.color_g);
+    s += ",b:"   + String(o.color_b);
+    s += ",qi:"  + String(o.qi, 6);
+    s += ",qj:"  + String(o.qj, 6);
+    s += ",qk:"  + String(o.qk, 6);
+    s += ",qr:"  + String(o.qr, 6);
+    s += ",hw:"  + String(o.angular_half_width, 6);
+    return s;
+}
+
+/// Parse an ori from a save string back into the tracker.
+static inline void ori_from_save_string(OriTracker& ot, const String& s) {
+    if (s.length() == 0) return;
+
+    auto extract = [&](const char* key) -> String {
+        String k = String(key) + ":";
+        int start = s.indexOf(k);
+        if (start < 0) return "";
+        start += k.length();
+        int end = s.indexOf(',', start);
+        return (end < 0) ? s.substring(start) : s.substring(start, end);
+    };
+
+    String name = extract("name");
+    if (name.length() == 0) return;
+
+    uint8_t sc = (uint8_t)extract("sc").toInt();
+    uint8_t r  = (uint8_t)extract("r").toInt();
+    uint8_t g  = (uint8_t)extract("g").toInt();
+    uint8_t b  = (uint8_t)extract("b").toInt();
+
+    if (sc == 0) {
+        // Pre-registered slot — restore name + color only.
+        ot.register_ori(name, r, g, b);
+        return;
+    }
+
+    float qi = extract("qi").toFloat();
+    float qj = extract("qj").toFloat();
+    float qk = extract("qk").toFloat();
+    float qr = extract("qr").toFloat();
+    float hw = extract("hw").toFloat();
+
+    int idx = ot.save(name, qi, qj, qk, qr);
+    if (idx < 0) return;
+
+    // Restore exact sample count and half-width (save() incremented sc to 1).
+    ot.oris[idx].sample_count       = sc;
+    ot.oris[idx].angular_half_width = hw;
+    ot.oris[idx].color_r = r;
+    ot.oris[idx].color_g = g;
+    ot.oris[idx].color_b = b;
+}
+
+/// Save the ori tracker to NVS.  Returns number of oris saved.
+static inline int nvs_save_oris() {
+    OriTracker& ot = ori_tracker();
+    Preferences prefs;
+    prefs.begin("ori_store", false);
+    prefs.clear();
+
+    uint8_t saved = 0;
+    for (uint8_t i = 0; i < ot.ori_count; i++) {
+        if (!ot.oris[i].used) continue;
+        String key = "o_" + String(saved);
+        prefs.putString(key.c_str(), ori_to_save_string(ot.oris[i]));
+        saved++;
+    }
+    prefs.putUChar("o_count", saved);
+    // Also persist global settings.
+    prefs.putFloat("o_thr",  ot.motion_threshold);
+    prefs.putFloat("o_tol",  ot.ori_tolerance);
+    prefs.putBool ("o_str",  ot.strict_matching);
+    prefs.end();
+    return saved;
+}
+
+/// Load oris from NVS into the tracker.  Clears existing oris first.
+/// Returns number of oris loaded.
+static inline int nvs_load_oris() {
+    OriTracker& ot = ori_tracker();
+    Preferences prefs;
+    prefs.begin("ori_store", true);  // read-only
+
+    uint8_t count = prefs.getUChar("o_count", 0);
+    if (count == 0) { prefs.end(); return 0; }
+
+    ot.clear();
+
+    int loaded = 0;
+    for (uint8_t i = 0; i < count && i < MAX_ORIS; i++) {
+        String key = "o_" + String(i);
+        String saved = prefs.getString(key.c_str(), "");
+        if (saved.length() == 0) continue;
+        ori_from_save_string(ot, saved);
+        loaded++;
+    }
+    // Restore global settings.
+    ot.motion_threshold = prefs.getFloat("o_thr", 1.5f);
+    ot.ori_tolerance    = prefs.getFloat("o_tol", 10.0f);
+    ot.strict_matching  = prefs.getBool ("o_str", false);
+    prefs.end();
+    return loaded;
+}
+
+/// Clear all ori data from NVS.
+static inline void nvs_clear_oris() {
+    Preferences prefs;
+    prefs.begin("ori_store", false);
+    prefs.clear();
+    prefs.end();
+}
+
 /// Save all patches and messages to NVS.  Returns the number of objects saved.
 static inline int nvs_save_all() {
     OscRegistry& reg = osc_registry();
@@ -302,6 +431,8 @@ static inline int nvs_save_all() {
     }
 
     prefs.end();
+    // Also save oris.
+    nvs_save_oris();
     return (int)(reg.patch_count + reg.msg_count);
 }
 
@@ -458,6 +589,8 @@ static inline int nvs_load_all() {
     }
 
     prefs.end();
+    // Also load oris.
+    nvs_load_oris();
     return (int)(p_count + m_count);
 }
 
@@ -544,6 +677,7 @@ static inline void nvs_clear_osc_data() {
     prefs.begin("osc_store", false);
     prefs.clear();
     prefs.end();
+    nvs_clear_oris();
 }
 
 #endif // OSC_STORAGE_H

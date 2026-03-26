@@ -644,7 +644,10 @@
 
     /* ── Parse ori list reply ──
        Address contains /ori/list.  Payload format:
-       "light1, spot [R3] (*), light2"  or  "(none)" */
+       "light1, spot [R3] (*), pending1 [P], light2"  or  "(none)"
+       [P]    = pre-registered on device, not yet sampled (unsampled slot)
+       [R<N>] = range ori with N samples
+       (*)    = currently active match */
     if (/\/ori\/list/i.test(listAddr)) {
       dev.oris = {};
       if (text !== "(none)") {
@@ -652,17 +655,24 @@
         oriParts.forEach(function (part) {
           part = part.trim();
           if (!part) return;
-          var om = part.match(/^(\S+)\s*(?:\[R(\d+)\])?\s*(\(\*\))?/);
+          /* Match: name [P]? [R<N>]? (*)? */
+          var om = part.match(/^(\S+)\s*(?:\[P\])?\s*(?:\[R(\d+)\])?\s*(\(\*\))?/);
+          var isPending = /\[P\]/.test(part);
           if (om) {
             var oName = om[1];
-            var samples = om[2] ? parseInt(om[2], 10) : 1;
+            var samples = isPending ? 0 : (om[2] ? parseInt(om[2], 10) : 1);
             dev.oris[oName] = {
               name: oName,
-              type: samples >= 2 ? "range" : "point",
+              type: isPending ? "pending" : (samples >= 2 ? "range" : "point"),
               samples: samples,
               color: null,
               active: !!om[3]
             };
+            /* If the device now has this slot, remove it from Gooey pending list. */
+            if (isPending) {
+              _pendingOris = _pendingOris.filter(function (p) { return p.name !== oName; });
+              _persistPendingOris();
+            }
           }
         });
       }
@@ -996,9 +1006,31 @@
       if (nameInput) nameInput.value = "";
     }
 
+    var btnPushAll = $("#btnPushAllPendingOris");
+
     if (btnAdd)   btnAdd.addEventListener("click", doAdd);
     if (nameInput) nameInput.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); doAdd(); }
+    });
+    if (btnPushAll) btnPushAll.addEventListener("click", function () {
+      if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+      var toPush = _pendingOris.slice();  // copy so we can iterate while removing
+      if (toPush.length === 0) { toast("Nothing pending to push", "warn"); return; }
+      var sent = 0;
+      toPush.forEach(function (p) {
+        var rgb = _hexToRgb(p.color);
+        var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
+        sendCmd(addr("/annieData/{device}/ori/register/" + p.name), colorStr).then(function (res) {
+          if (res && res.status === "ok") {
+            removePendingOri(p.name);
+            sent++;
+            if (sent === toPush.length) {
+              toast("Pushed " + sent + " ori" + (sent > 1 ? "s" : "") + " to device", "success");
+              sendCmd(addr("/annieData/{device}/ori/list"), null);
+            }
+          }
+        });
+      });
     });
     if (btnClear) btnClear.addEventListener("click", function () {
       showConfirm("Clear Pending Oris", "Remove all pre-registered (unsaved) oris from this list?", function () {
@@ -1014,6 +1046,25 @@
      ORI TABLE
      ═══════════════════════════════════════════ */
 
+  /* Push a pending ori to the device as a named slot (no orientation data).
+     The user then uses Button B to select it and Button A to capture on-site. */
+  function pushToDevice(name) {
+    var pending = _pendingOris.find(function (p) { return p.name === name; });
+    if (!pending) return;
+    if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+    var rgb = _hexToRgb(pending.color);
+    var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
+    sendCmd(addr("/annieData/{device}/ori/register/" + name), colorStr).then(function (res) {
+      if (res && res.status === "ok") {
+        removePendingOri(name);
+        toast("Pushed to device: " + name + " — use buttons to capture orientation", "success");
+        sendCmd(addr("/annieData/{device}/ori/list"), null);
+      } else {
+        toast("Push failed" + (res && res.message ? ": " + res.message : ""), "error");
+      }
+    });
+  }
+
   function renderOriTable() {
     var dev = getActiveDev();
     var tbody = $("#oriTableBody");
@@ -1021,18 +1072,18 @@
     tbody.innerHTML = "";
 
     var devOriNames = dev ? Object.keys(dev.oris) : [];
-    /* Pending oris whose names don't exist on the device yet */
-    var unsampled = _pendingOris.filter(function (p) {
+    /* Gooey-side pending: not yet pushed to device */
+    var gooeySide = _pendingOris.filter(function (p) {
       return devOriNames.indexOf(p.name) === -1;
     });
 
-    if (devOriNames.length === 0 && unsampled.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Pre-register names above, then Save Now once pointing.</div></div></td></tr>';
+    if (devOriNames.length === 0 && gooeySide.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Pre-register names above, then Push to Device for button capture.</div></div></td></tr>';
       return;
     }
 
-    /* ── Pending rows first ── */
-    unsampled.forEach(function (pending) {
+    /* ── 1. Gooey-side pending (not yet on device) ── */
+    gooeySide.forEach(function (pending) {
       var dotHtml = '<span class="ori-color-dot" style="background:' + esc(pending.color) + '" title="' + esc(pending.color) + '"></span>';
       var tr = document.createElement("tr");
       tr.className = "ori-row-pending";
@@ -1044,26 +1095,31 @@
         '<td data-label="Color">' + dotHtml + '</td>' +
         '<td data-label="Active">—</td>' +
         '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn tbl-btn-primary" data-act="save-now" title="Capture current device orientation into this slot">↓ Save Now</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="remove" title="Remove from pre-registered list" aria-label="Remove">×</button>' +
+          '<button class="tbl-btn tbl-btn-primary" data-act="push" title="Register slot on device — capture orientation with buttons on-site">→ Push</button>' +
+          '<button class="tbl-btn" data-act="save-now" title="Capture current device orientation into this slot now">↓ Now</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="remove" title="Remove from list" aria-label="Remove">×</button>' +
         '</td>';
       (function (p) {
         tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            if (btn.dataset.act === "save-now") saveNowPendingOri(p.name);
-            else if (btn.dataset.act === "remove") removePendingOri(p.name);
+            if (btn.dataset.act === "push")     pushToDevice(p.name);
+            else if (btn.dataset.act === "save-now") saveNowPendingOri(p.name);
+            else if (btn.dataset.act === "remove")   removePendingOri(p.name);
           });
         });
       }(pending));
       tbody.appendChild(tr);
     });
 
-    /* ── Device oris ── */
+    /* ── 2. Device oris (sampled and unsampled registered) ── */
     devOriNames.forEach(function (name) {
       var o = dev.oris[name];
-      var typeBadge = o.type === "range"
-        ? '<span class="ori-badge ori-badge-range">Range [R' + o.samples + ']</span>'
-        : '<span class="ori-badge ori-badge-point">Point</span>';
+      var isDevPending = (o.type === "pending");  // registered on device but not yet sampled
+      var typeBadge = isDevPending
+        ? '<span class="ori-badge ori-badge-registered">Registered</span>'
+        : (o.type === "range"
+            ? '<span class="ori-badge ori-badge-range">Range [R' + o.samples + ']</span>'
+            : '<span class="ori-badge ori-badge-point">Point</span>');
       var colorHtml = "—";
       if (o.color) {
         var rgb = "rgb(" + o.color[0] + "," + o.color[1] + "," + o.color[2] + ")";
@@ -1071,21 +1127,23 @@
       }
       var activeHtml = o.active ? '<span class="ori-badge ori-badge-active">Active</span>' : "—";
       var tr = document.createElement("tr");
+      if (isDevPending) tr.className = "ori-row-pending";
       tr.dataset.oriName = name;
+      var actionHtml = isDevPending
+        ? '<button class="tbl-btn tbl-btn-primary" data-act="save-now" title="Capture current device orientation into this slot">↓ Save Now</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete slot" aria-label="Delete">×</button>'
+        : '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">i</button>' +
+          '<button class="tbl-btn" data-act="reset" title="Reset range to point" aria-label="Reset">↺</button>' +
+          '<button class="tbl-btn" data-act="select" title="Select for button editing" aria-label="Select">◎</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">×</button>';
       tr.innerHTML =
         '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
         '<td data-label="Type">' + typeBadge + '</td>' +
-        '<td class="cell-mono" data-label="Samples">' + o.samples + '</td>' +
+        '<td class="cell-mono" data-label="Samples">' + (isDevPending ? "—" : o.samples) + '</td>' +
         '<td data-label="Color">' + colorHtml + '</td>' +
         '<td data-label="Active">' + activeHtml + '</td>' +
-        '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">i</button>' +
-          '<button class="tbl-btn" data-act="reset" title="Reset range to point" aria-label="Reset">↺</button>' +
-          '<button class="tbl-btn" data-act="select" title="Select for button editing" aria-label="Select">◎</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">×</button>' +
-        '</td>';
+        '<td class="cell-actions" data-label="Actions">' + actionHtml + '</td>';
       tr.querySelector(".cell-name").addEventListener("click", function () {
-        /* Populate color form with this ori's name */
         var colorNameEl = $("#oriColorName");
         if (colorNameEl) colorNameEl.value = name;
         var oriNameEl = $("#oriName");
@@ -1099,7 +1157,17 @@
       });
       tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          oriAction(btn.dataset.act, name);
+          if (btn.dataset.act === "save-now") {
+            /* Capture current device orientation into this registered slot. */
+            sendCmd(addr("/annieData/{device}/ori/save"), name).then(function (res) {
+              if (res && res.status === "ok") {
+                toast("Captured ori: " + name, "success");
+                sendCmd(addr("/annieData/{device}/ori/list"), null);
+              }
+            });
+          } else {
+            oriAction(btn.dataset.act, name);
+          }
         });
       });
       tbody.appendChild(tr);

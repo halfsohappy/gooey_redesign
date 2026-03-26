@@ -46,9 +46,12 @@
 //
 // SETTING ORIS:
 //   Oris can be saved in two ways:
-//     1. Press Button A (GPIO 0) — saves the current orientation as the
-//        next numbered ori (ori_0, ori_1, ...).
+//     1. Press Button A (GPIO 0) — saves the current orientation into the
+//        currently selected ori slot (selected with Button B).
 //     2. OSC command:
+//          /annieData{dev}/ori/register/{name} — pre-register a named slot
+//                                               (color in payload "r,g,b";
+//                                                no orientation data yet)
 //          /annieData{dev}/ori/save         — auto-named (or expand if exists)
 //          /annieData{dev}/ori/save/{name}   — user-named (or expand if exists)
 //          /annieData{dev}/ori/reset/{name}  — reset range to current point
@@ -59,6 +62,16 @@
 //          /annieData{dev}/ori/threshold     — set motion gate threshold
 //          /annieData{dev}/ori/tolerance     — set angular match tolerance
 //          /annieData{dev}/ori/strict        — toggle strict matching mode
+//
+// PRE-REGISTRATION WORKFLOW:
+//   1. Gooey sends /ori/register/{name} with "r,g,b" payload for each ori.
+//      The device stores the slot (name + color) but NOT any orientation.
+//   2. User takes the device on-site.  Button B cycles through all slots
+//      (including unsampled ones — LED shows the assigned color).
+//   3. User points device at the desired direction and presses Button A.
+//      The current IMU quaternion is captured into the selected slot.
+//      (Pressing Button A again adds a range sample.)
+//   This workflow requires no computer after step 1.
 //
 // CONDITIONAL MESSAGING:
 //   Messages can be tagged with an ori condition via config string keys:
@@ -102,15 +115,21 @@ struct SavedOri {
     bool    used = false;
 
     // Range data — updated from multiple save() calls on the same name.
-    // sample_count == 0 or 1  →  point mode (geodesic match, half-width = 0)
-    // sample_count >= 2       →  range mode (angular sphere in quaternion space)
+    // sample_count == 0  →  registered (pre-registered via /ori/register or
+    //                        pushed from Gooey) but not yet sampled on-device.
+    //                        Appears in the button-cycling list so the user
+    //                        can select it and press Button A to capture.
+    // sample_count == 1  →  point mode (geodesic match, half-width = 0)
+    // sample_count >= 2  →  range mode (angular sphere in quaternion space)
     uint8_t sample_count = 0;
     float   angular_half_width = 0.0f;  // max angular distance from center (radians)
 
     // LED color for on-device ori editing workflow.
-    // Auto-assigned from a default palette when an ori is created; can be
-    // changed via /ori/color/{name} command.
+    // Set via /ori/register or /ori/color; auto-assigned from palette otherwise.
     uint8_t color_r = 0, color_g = 0, color_b = 0;
+
+    // Returns true if this slot has orientation data (sample_count > 0).
+    bool is_sampled() const { return sample_count > 0; }
 };
 
 // Default color palette for auto-assigning ori colors.
@@ -185,12 +204,22 @@ public:
     ///
     /// If the name is new, a single-point ori is created.
     int save(const String& name, float qi, float qj, float qk, float qr) {
-        // --- Existing name: expand range ---
+        // --- Existing name ---
         for (uint8_t i = 0; i < ori_count; i++) {
             if (oris[i].used && oris[i].name.equalsIgnoreCase(name)) {
-                // Expand angular_half_width to cover the new sample from the
-                // current center.  The center stays fixed (first saved pose);
-                // use reset() to reposition it.
+                if (oris[i].sample_count == 0) {
+                    // Pre-registered slot receiving its first orientation sample.
+                    oris[i].qi = qi;
+                    oris[i].qj = qj;
+                    oris[i].qk = qk;
+                    oris[i].qr = qr;
+                    oris[i].sample_count = 1;
+                    oris[i].angular_half_width = 0.0f;
+                    return i;
+                }
+                // Already sampled: expand angular_half_width to cover the new
+                // sample from the current center.  The center stays fixed
+                // (first saved pose); use reset() to reposition it.
                 float ang = quat_angle_between(qi, qj, qk, qr,
                                                oris[i].qi, oris[i].qj,
                                                oris[i].qk, oris[i].qr);
@@ -222,6 +251,41 @@ public:
             }
         }
         return -1;  // full
+    }
+
+    /// Pre-register a named ori slot with a color but no orientation data.
+    ///
+    /// The slot appears in the Button B cycle immediately so the user can
+    /// select it and press Button A to capture the orientation on-site.
+    ///
+    /// If the name already exists, only the color is updated (no data lost).
+    /// Returns the slot index, or -1 if the tracker is full.
+    int register_ori(const String& name, uint8_t r, uint8_t g, uint8_t b) {
+        // Existing slot — just update color.
+        int existing = find(name);
+        if (existing >= 0) {
+            oris[existing].color_r = r;
+            oris[existing].color_g = g;
+            oris[existing].color_b = b;
+            return existing;
+        }
+        // Allocate a new empty slot.
+        for (uint8_t i = 0; i < MAX_ORIS; i++) {
+            if (!oris[i].used) {
+                oris[i].name               = name;
+                oris[i].used               = true;
+                oris[i].sample_count       = 0;      // not yet sampled
+                oris[i].angular_half_width = 0.0f;
+                oris[i].qi = 0.0f; oris[i].qj = 0.0f;
+                oris[i].qk = 0.0f; oris[i].qr = 1.0f;
+                oris[i].color_r = r;
+                oris[i].color_g = g;
+                oris[i].color_b = b;
+                if (i >= ori_count) ori_count = i + 1;
+                return i;
+            }
+        }
+        return -1;  // slots full
     }
 
     /// Save with auto-generated name: ori_0, ori_1, ...
@@ -295,7 +359,7 @@ public:
         return -1;
     }
 
-    /// Return number of saved oris.
+    /// Return total number of registered oris (including unsampled).
     uint8_t count() const {
         uint8_t c = 0;
         for (uint8_t i = 0; i < ori_count; i++) {
@@ -304,15 +368,30 @@ public:
         return c;
     }
 
+    /// Return number of oris that have at least one orientation sample.
+    /// Unsampled (pre-registered) slots are excluded.
+    uint8_t sampled_count() const {
+        uint8_t c = 0;
+        for (uint8_t i = 0; i < ori_count; i++) {
+            if (oris[i].used && oris[i].sample_count > 0) c++;
+        }
+        return c;
+    }
+
     /// Build a list of ori names (comma-separated).
-    /// Range oris are annotated with [R<N>] showing the sample count.
+    /// Annotations:
+    ///   [P]    — pre-registered, no orientation sampled yet
+    ///   [R<N>] — range ori with N samples
+    ///   (*)    — currently active match
     String list() const {
         String s;
         for (uint8_t i = 0; i < ori_count; i++) {
             if (!oris[i].used) continue;
             if (s.length() > 0) s += ", ";
             s += oris[i].name;
-            if (oris[i].sample_count >= 2) {
+            if (oris[i].sample_count == 0) {
+                s += " [P]";            // pending / pre-registered
+            } else if (oris[i].sample_count >= 2) {
                 s += " [R" + String(oris[i].sample_count) + "]";
             }
             if (active_ori_index == i) s += " (*)";
@@ -326,12 +405,18 @@ public:
         if (idx < 0) return "Ori '" + name + "' not found";
         const SavedOri& o = oris[idx];
         String s = o.name + ": samples=" + String(o.sample_count);
+        if (o.sample_count == 0) {
+            s += " (pre-registered, not yet sampled)";
+            s += " color=(" + String(o.color_r) + "," + String(o.color_g) + "," + String(o.color_b) + ")";
+            return s;
+        }
         s += " q=(" + String(o.qi, 3) + "," + String(o.qj, 3) + ","
              + String(o.qk, 3) + "," + String(o.qr, 3) + ")";
         if (o.sample_count >= 2) {
             float hw_deg = o.angular_half_width * (180.0f / (float)M_PI);
             s += " half_w=" + String(hw_deg, 1) + "deg";
         }
+        s += " color=(" + String(o.color_r) + "," + String(o.color_g) + "," + String(o.color_b) + ")";
         if (active_ori_index == idx) s += " (ACTIVE)";
         return s;
     }
@@ -346,7 +431,9 @@ public:
         // Motion gate: if spinning fast, keep the last match.
         if (gyro_mag > motion_threshold) return;
 
-        if (count() == 0) {
+        // Only match against oris that have at least one orientation sample.
+        // Pre-registered (unsampled) slots are invisible to the matcher.
+        if (sampled_count() == 0) {
             active_ori_index = -1;
             active_ori_name = "";
             return;
@@ -388,6 +475,7 @@ public:
 
         for (uint8_t i = 0; i < ori_count; i++) {
             if (!oris[i].used) continue;
+            if (oris[i].sample_count == 0) continue;  // skip unsampled slots
             if (strict_matching && oris[i].sample_count >= 2) continue;
             float angle = quat_angle_between(qi, qj, qk, qr,
                                              oris[i].qi, oris[i].qj,

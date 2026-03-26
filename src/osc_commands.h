@@ -740,6 +740,83 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         OriTracker& ot = ori_tracker();
 
+        // /ori/register/{name}  — pre-register a named slot with color.
+        //   Payload: "r,g,b"  (optional; defaults to auto-palette color)
+        //   Creates the slot on the device so it appears in the Button B
+        //   cycle immediately.  Button A captures the orientation later.
+        if (ori_rest.startsWith("/register")) {
+            String ori_name;
+            if (ori_rest.length() > 9 && ori_rest.charAt(9) == '/') {
+                ori_name = ori_rest_orig.length() > 10 ? ori_rest_orig.substring(10) : String("");
+                ori_name.trim();
+            }
+            const char* typetags = osc_msg.getTypeTags();
+            if (ori_name.length() == 0 && typetags && typetags[0] == 's') {
+                ori_name = String(osc_msg.nextAsString());
+                ori_name.trim();
+            }
+            if (ori_name.length() == 0) {
+                status_reporter().warning("ori", "register: no name given");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/register", "ERROR: no name");
+                return;
+            }
+
+            // Parse optional "r,g,b" color from payload.
+            uint8_t cr = 255, cg = 255, cb = 255;
+            bool have_color = false;
+            if (typetags) {
+                // Find the string arg for RGB (may be first or second arg).
+                const char* tt = typetags;
+                const char* rgb_str = nullptr;
+                if (tt[0] == 's') {
+                    // If name came from address, this is the color string.
+                    // If name came from payload, there may be a second arg.
+                    if (ori_rest.length() > 10) {
+                        rgb_str = osc_msg.nextAsString();  // first arg = color
+                    } else {
+                        // name came from first string arg — peek second
+                        osc_msg.nextAsString();  // skip name
+                        if (tt[1] == 's') rgb_str = osc_msg.nextAsString();
+                    }
+                }
+                if (rgb_str) {
+                    String rs = String(rgb_str);
+                    int c1 = rs.indexOf(',');
+                    if (c1 > 0) {
+                        int c2 = rs.indexOf(',', c1 + 1);
+                        if (c2 > 0) {
+                            cr = (uint8_t)rs.substring(0, c1).toInt();
+                            cg = (uint8_t)rs.substring(c1 + 1, c2).toInt();
+                            cb = (uint8_t)rs.substring(c2 + 1).toInt();
+                            have_color = true;
+                        }
+                    }
+                }
+            }
+
+            int idx;
+            if (have_color) {
+                idx = ot.register_ori(ori_name, cr, cg, cb);
+            } else {
+                // Auto-assign palette color.
+                uint8_t ci = ot.next_color_index % ORI_PALETTE_SIZE;
+                idx = ot.register_ori(ori_name,
+                                      ORI_PALETTE[ci][0],
+                                      ORI_PALETTE[ci][1],
+                                      ORI_PALETTE[ci][2]);
+                if (idx >= 0) ot.next_color_index++;
+            }
+
+            if (idx >= 0) {
+                status_reporter().info("ori", "Registered ori '" + ori_name + "' (slot " + String(idx) + ")");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/register", "Registered: " + ori_name);
+            } else {
+                status_reporter().warning("ori", "Could not register ori '" + ori_name + "' (full?)");
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/register", "ERROR: ori slots full");
+            }
+            return;
+        }
+
         // /ori/save  or  /ori/save/{name}
         if (ori_rest.startsWith("/save")) {
             String ori_name;
@@ -992,14 +1069,18 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                     }
                 }
             }
-            if (ot.set_color(ori_name, r, g, b)) {
+            if (!ot.set_color(ori_name, r, g, b)) {
+                // Ori not found — auto-register it so /ori/color can be used
+                // as a shorthand for /ori/register + /ori/color in one step.
+                ot.register_ori(ori_name, r, g, b);
+                status_reporter().info("ori", "Auto-registered ori '" + ori_name + "' with color ("
+                    + String(r) + "," + String(g) + "," + String(b) + ")");
+            } else {
                 status_reporter().info("ori", "Set color of '" + ori_name + "' to ("
                     + String(r) + "," + String(g) + "," + String(b) + ")");
-                osc_reply(sender_ip, sender_port, reply_adr + "/ori/color",
-                          ori_name + ": " + String(r) + "," + String(g) + "," + String(b));
-            } else {
-                status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
             }
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/color",
+                      ori_name + ": " + String(r) + "," + String(g) + "," + String(b));
             return;
         }
 
