@@ -206,7 +206,7 @@ body {
   margin-bottom: 8px;
 }
 
-.fg-narrow { flex: 0 0 100px; min-width: 90px; }
+.fg-narrow { flex: 0 0 120px; min-width: 110px; }
 
 label {
   display: block;
