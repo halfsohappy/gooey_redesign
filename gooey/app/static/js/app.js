@@ -26,15 +26,21 @@
   });
 
   /* ── Section nav ── */
-  $$(".nav-btn").forEach(function (btn) {
+  $$(".nav-btn[data-section]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      $$(".nav-btn").forEach(function (b) { b.classList.remove("active"); });
+      $$(".nav-btn[data-section]").forEach(function (b) { b.classList.remove("active"); });
       $$(".section").forEach(function (s) { s.classList.remove("active"); });
       btn.classList.add("active");
       var sec = $("#sec-" + btn.dataset.section);
       if (sec) sec.classList.add("active");
+      /* Auto-refresh shows panel when navigated to */
+      if (btn.dataset.section === "shows") {
+        if (getActiveDev()) sendCmd(addr("/annieData/{device}/show/list"), null);
+        _refreshShowLibrary();
+      }
     });
   });
+
 
   /* ── withLoading helper ── */
   function withLoading(btn, fn) {
@@ -49,89 +55,43 @@
 
   /* ── Toast history + notification system ── */
   var _toastHistory = [];
-  var _unseenNotifs = 0;
 
-  function updateNotifBadge() {
-    var badge = $("#notifBadge");
-    if (!badge) return;
-    if (_unseenNotifs > 0) {
-      badge.textContent = _unseenNotifs;
-      badge.style.display = "";
-    } else {
-      badge.style.display = "none";
-    }
-  }
-
-  function renderNotifDropdown() {
-    var dd = $("#notifDropdown");
-    if (!dd) return;
-    dd.innerHTML = "";
+  function renderNotifHistory() {
+    var container = $("#notifHistory");
+    if (!container) return;
+    container.innerHTML = "";
     if (_toastHistory.length === 0) {
-      dd.innerHTML = '<div class="notif-item"><span class="notif-msg" style="color:var(--text-light)">No recent notifications</span></div>';
+      container.innerHTML = '<div class="notif-history-item"><span class="notif-history-msg" style="color:var(--text-light)">No notifications yet</span></div>';
       return;
     }
     _toastHistory.slice().reverse().forEach(function (item) {
       var div = document.createElement("div");
-      div.className = "notif-item";
-      div.innerHTML = '<span class="notif-time">' + item.time + '</span><span class="notif-msg notif-type-' + item.type + '">' + item.msg + '</span>';
-      dd.appendChild(div);
+      div.className = "notif-history-item";
+      div.innerHTML = '<span class="notif-history-time">' + item.time + '</span><span class="notif-history-msg notif-type-' + item.type + '">' + item.msg + '</span>';
+      container.appendChild(div);
     });
   }
 
-  // Render feed on load
-  renderNotifDropdown();
-
-  // Bell = clear all notifications
-  var btnNotifToggle = $("#btnNotifToggle");
-  if (btnNotifToggle) {
-    btnNotifToggle.addEventListener("click", function () {
-      _toastHistory = [];
-      _unseenNotifs = 0;
-      updateNotifBadge();
-      renderNotifDropdown();
-    });
-  }
+  // Render on load
+  renderNotifHistory();
 
   /* ── showToast (public alias: toast) ── */
-  function showToast(msg, type, duration) {
+  function showToast(msg, type) {
     type = type || "info";
-    /* Add to history (max 10) */
+    /* Add to history (max 100) */
     var now = new Date();
     var timeStr = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0") + ":" + now.getSeconds().toString().padStart(2, "0");
     _toastHistory.push({ msg: msg, type: type, time: timeStr });
-    if (_toastHistory.length > 10) _toastHistory.shift();
-    _unseenNotifs++;
-    updateNotifBadge();
-    renderNotifDropdown();
-
-    var el = document.createElement("div");
-    el.className = "toast toast-" + type;
-    /* For errors: show close button, no auto-dismiss */
-    if (type === "error") {
-      var closeBtn = document.createElement("button");
-      closeBtn.className = "toast-close";
-      closeBtn.textContent = "✕";
-      closeBtn.addEventListener("click", function () {
-        el.style.opacity = "0";
-        el.style.transform = "translateX(20px)";
-        el.style.transition = "all 0.2s ease-out";
-        setTimeout(function () { el.remove(); }, 250);
-      });
-      el.appendChild(closeBtn);
-      el.appendChild(document.createTextNode(msg));
-    } else {
-      el.textContent = msg;
-      var dismissAfter = (duration !== undefined && duration > 0) ? duration : 3000;
-      if (dismissAfter > 0) {
-        setTimeout(function () {
-          el.style.opacity = "0";
-          el.style.transform = "translateX(20px)";
-          el.style.transition = "all 0.2s ease-out";
-          setTimeout(function () { el.remove(); }, 250);
-        }, dismissAfter);
-      }
+    if (_toastHistory.length > 100) _toastHistory.shift();
+    renderNotifHistory();
+    /* Update + flash latest notification in header */
+    var latest = $("#notifLatest");
+    if (latest) {
+      latest.textContent = msg;
+      latest.classList.remove("notif-flash");
+      void latest.offsetWidth; // force reflow to restart animation
+      latest.classList.add("notif-flash");
     }
-    $("#toastContainer").appendChild(el);
   }
 
   /* Backward-compatible alias */
@@ -227,16 +187,16 @@
 
   /* ── Device tab rendering ── */
   function renderDeviceTabs() {
-    var container = $("#hdrDevices");
+    var container = $("#devTabsWrap") || $("#hdrDevices");
     var devActions = $("#hdrDevActions");
     /* Remove existing tabs */
-    $$(".hdr-dev-tab").forEach(function (t) { t.remove(); });
+    $$(".dev-tab[data-device-id]").forEach(function (t) { t.remove(); });
     var devCount = Object.keys(devices).length;
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
       var isActive = (id === activeDeviceId);
       var btn = document.createElement("button");
-      btn.className = "hdr-dev-tab" + (isActive ? " active" : "");
+      btn.className = "dev-tab" + (isActive ? " active" : "");
       btn.dataset.deviceId = id;
       /* Build button content: status dot + sanitised device name + caret */
       var dot = document.createElement("span");
@@ -248,8 +208,8 @@
       caret.className = "tab-caret";
       caret.textContent = "▾";
       btn.appendChild(caret);
+      /* Plain click: just select the device, no dropdown */
       btn.addEventListener("click", function (e) {
-        /* Select device as active */
         activeDeviceId = id;
         renderDeviceTabs();
         renderMsgTable();
@@ -257,8 +217,17 @@
         renderOriTable();
         refreshAllDropdowns();
         refreshQueryDeviceSelect();
-        /* Show per-device dropdown menu */
-        openDevDropdown(btn, id);
+      });
+      /* Caret click: open the per-device dropdown without re-triggering selection logic */
+      caret.addEventListener("click", function (e) {
+        e.stopPropagation();
+        /* Make sure this device is active first */
+        activeDeviceId = id;
+        renderDeviceTabs();
+        refreshAllDropdowns();
+        refreshQueryDeviceSelect();
+        var freshBtn = document.querySelector('.dev-tab[data-device-id="' + id + '"]');
+        if (freshBtn) openDevDropdown(freshBtn, id);
       });
       container.insertBefore(btn, devActions);
     });
@@ -305,42 +274,84 @@
     });
   });
 
+  /* ── Device config modal (add / edit) ── */
+  var _deviceConfigMode = "add";
+  var _deviceConfigEditId = "";
+
+  function openDeviceConfigModal(mode, deviceId) {
+    _deviceConfigMode = mode || "add";
+    _deviceConfigEditId = deviceId || "";
+    var titleEl = $("#deviceConfigTitle");
+    var saveBtn = $("#deviceConfigSave");
+    var ipEl    = $("#deviceConfigIP");
+    var portEl  = $("#deviceConfigPort");
+    var nameEl  = $("#deviceConfigName");
+    if (mode === "edit" && deviceId && devices[deviceId]) {
+      var d = devices[deviceId];
+      if (titleEl) titleEl.textContent = "Edit Device";
+      if (saveBtn) saveBtn.textContent = "Update";
+      if (ipEl)   ipEl.value   = d.host;
+      if (portEl) portEl.value = d.port;
+      if (nameEl) nameEl.value = d.name;
+    } else {
+      if (titleEl) titleEl.textContent = "Add Device";
+      if (saveBtn) saveBtn.textContent = "Add Device";
+      if (ipEl)   ipEl.value   = "192.168.1.100";
+      if (portEl) portEl.value = "8000";
+      if (nameEl) nameEl.value = "";
+    }
+    $("#deviceConfigModal").classList.remove("hidden");
+    setTimeout(function () { if (nameEl) nameEl.focus(); }, 50);
+  }
+
+  (function () {
+    var modal  = $("#deviceConfigModal");
+    var saveBtn = $("#deviceConfigSave");
+    var cancelBtn = $("#deviceConfigCancel");
+
+    if (cancelBtn) cancelBtn.addEventListener("click", function () {
+      modal.classList.add("hidden");
+    });
+    if (modal) modal.addEventListener("click", function (e) {
+      if (e.target === modal) modal.classList.add("hidden");
+    });
+
+    if (saveBtn) saveBtn.addEventListener("click", function () {
+      var host = ($("#deviceConfigIP").value || "").trim();
+      var port = ($("#deviceConfigPort").value || "").trim();
+      var name = ($("#deviceConfigName").value || "").trim();
+      if (!host) { toast("IP required", "error"); return; }
+      if (!port) { toast("Port required", "error"); return; }
+      if (!name) { toast("Name required", "error"); return; }
+      modal.classList.add("hidden");
+      resolveIp(host, function (resolvedHost) {
+        if (_deviceConfigMode === "edit" && _deviceConfigEditId) {
+          var wasActive = (activeDeviceId === _deviceConfigEditId);
+          delete devices[_deviceConfigEditId];
+          if (wasActive) activeDeviceId = "";
+        }
+        addDevice(resolvedHost, parseInt(port, 10), name);
+        renderMsgTable(); renderPatchTable(); renderOriTable();
+        toast("Device " + (_deviceConfigMode === "edit" ? "updated" : "added") + ": " + name, "success");
+      });
+    });
+
+    /* Enter key submits */
+    [$("#deviceConfigIP"), $("#deviceConfigPort"), $("#deviceConfigName")].forEach(function (el) {
+      if (el) el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") { e.preventDefault(); saveBtn && saveBtn.click(); }
+      });
+    });
+  }());
+
   /* ── Edit existing device ── */
   function editDevice(id) {
-    var d = devices[id];
-    var host = prompt("Device IP (enter 'me' for this computer):", d.host);
-    if (host === null) return;
-    var port = prompt("Device port:", d.port);
-    if (port === null) return;
-    var name = prompt("Device name:", d.name);
-    if (name === null) return;
-    resolveIp(host, function (resolvedHost) {
-      var wasActive = (activeDeviceId === id);
-      delete devices[id];
-      if (wasActive) activeDeviceId = "";
-      addDevice(resolvedHost, parseInt(port, 10), name.trim());
-      renderMsgTable();
-      renderPatchTable();
-      renderOriTable();
-      toast("Device updated: " + name.trim(), "success");
-    });
+    openDeviceConfigModal("edit", id);
   }
 
   /* ── Add-device button ── */
   $("#btnAddDevice").addEventListener("click", function () {
-    var host = prompt("Device IP address (enter 'me' for this computer):", "192.168.1.100");
-    if (!host) return;
-    var port = prompt("Device port:", "8000");
-    if (!port) return;
-    var name = prompt("Device name (unique identifier):", "");
-    if (!name) return;
-    resolveIp(host, function (resolvedHost) {
-      addDevice(resolvedHost, parseInt(port, 10), name.trim());
-      renderMsgTable();
-      renderPatchTable();
-      renderOriTable();
-      toast("Device added: " + name.trim(), "success");
-    });
+    openDeviceConfigModal("add");
   });
 
   /* ═══════════════════════════════════════════
@@ -369,7 +380,7 @@
 
   /* Close when clicking outside the dropdown or a device tab */
   document.addEventListener("click", function (e) {
-    if (!e.target.closest("#devDropdown") && !e.target.closest(".hdr-dev-tab")) {
+    if (!e.target.closest("#devDropdown") && !e.target.closest(".dev-tab")) {
       closeDevDropdown();
     }
   });
@@ -394,12 +405,42 @@
     closeDevDropdown();
   });
 
-  $("#devDdStatusConfig").addEventListener("click", function () {
-    closeDevDropdown();
-    /* Switch to dashboard tab and scroll to status config card */
-    $(".nav-btn[data-section='dashboard']").click();
-    var card = $('[data-card-id="status-config"]');
-    if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+  /* ── Status config modal helpers ── */
+  function openDevSettingsModal() {
+    /* Populate target device dropdown */
+    var sel = $("#statusConfigTarget");
+    if (sel) {
+      sel.innerHTML = '<option value="__all__">All devices</option>';
+      Object.keys(devices).forEach(function (id) {
+        var d = devices[id];
+        var opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = d.name;
+        if (id === activeDeviceId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+    $("#devSettingsModal").classList.remove("hidden");
+  }
+
+  function getStatusConfigTargets() {
+    var sel = $("#statusConfigTarget");
+    if (!sel) return activeDeviceId ? [activeDeviceId] : [];
+    var val = sel.value;
+    if (val === "__all__") return Object.keys(devices);
+    return val ? [val] : [];
+  }
+
+  var btnStatusConfigHeader = $("#btnStatusConfigHeader");
+  if (btnStatusConfigHeader) btnStatusConfigHeader.addEventListener("click", openDevSettingsModal);
+
+  $("#devSettingsClose").addEventListener("click", function () {
+    $("#devSettingsModal").classList.add("hidden");
+  });
+
+  /* Close modal on backdrop click */
+  $("#devSettingsModal").addEventListener("click", function (e) {
+    if (e.target === this) this.classList.add("hidden");
   });
 
   $("#devDdSave").addEventListener("click", function () {
@@ -643,11 +684,12 @@
     }
 
     /* ── Parse ori list reply ──
-       Address contains /ori/list.  Payload format:
-       "light1, spot [R3] (*), pending1 [P], light2"  or  "(none)"
-       [P]    = pre-registered on device, not yet sampled (unsampled slot)
-       [R<N>] = range ori with N samples
-       (*)    = currently active match */
+       Address contains /ori/list.  Payload format (firmware v2):
+       "light1 [3] (AX) (*), zone1 [5], pending1 [P]"  or  "(none)"
+       [P]    = unsampled slot (registered but no samples captured)
+       [N]    = N samples in cloud
+       (AX)   = axis-aware matching (pointing mode)
+       (*)    = currently active */
     if (/\/ori\/list/i.test(listAddr)) {
       dev.oris = {};
       if (text !== "(none)") {
@@ -655,29 +697,39 @@
         oriParts.forEach(function (part) {
           part = part.trim();
           if (!part) return;
-          /* Match: name [P]? [R<N>]? (*)? */
-          var om = part.match(/^(\S+)\s*(?:\[P\])?\s*(?:\[R(\d+)\])?\s*(\(\*\))?/);
+          /* Match: name followed by optional tags */
+          var om = part.match(/^(\S+)/);
+          if (!om) return;
+          var oName = om[1];
           var isPending = /\[P\]/.test(part);
-          if (om) {
-            var oName = om[1];
-            var samples = isPending ? 0 : (om[2] ? parseInt(om[2], 10) : 1);
-            dev.oris[oName] = {
-              name: oName,
-              type: isPending ? "pending" : (samples >= 2 ? "range" : "point"),
-              samples: samples,
-              color: null,
-              active: !!om[3]
-            };
-            /* If the device now has this slot, remove it from Gooey pending list. */
-            if (isPending) {
-              _pendingOris = _pendingOris.filter(function (p) { return p.name !== oName; });
-              _persistPendingOris();
-            }
-          }
+          var sampleMatch = part.match(/\[(\d+)\]/);
+          var samples = isPending ? 0 : (sampleMatch ? parseInt(sampleMatch[1], 10) : 1);
+          dev.oris[oName] = {
+            name: oName,
+            samples: samples,
+            useAxis: /\(AX\)/.test(part),
+            color: null,
+            active: /\(\*\)/.test(part)
+          };
         });
       }
       renderOriTable();
       refreshAllDropdowns();
+      return;
+    }
+
+    /* ── Parse show list reply ──
+       Address contains /show/list. Payload: CSV of show names or "(none)" */
+    if (/\/show\/list/i.test(listAddr)) {
+      var showNames = (text && text !== "(none)") ? text.split(/,\s*/) : [];
+      renderShowDeviceTable(showNames);
+      /* Populate the datalist for show name input */
+      var showDl = $("#showNameList");
+      if (showDl) {
+        showDl.innerHTML = showNames.map(function (n) {
+          return '<option value="' + esc(n.trim()) + '">';
+        }).join("");
+      }
       return;
     }
 
@@ -759,7 +811,7 @@
     var tbody = $("#msgTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.messages).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Query the device to load existing messages, or create one below.</div><button class="btn btn-sm" onclick="document.getElementById(\'btnQueryVerbose\').click()">→ Query Device Now</button></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
       updateOnboarding();
       return;
     }
@@ -783,11 +835,11 @@
         '<td class="cell-mono ori-section" data-label="Ori" data-col="ori">' + esc(oriStr || "—") + '</td>' +
         '<td data-label="Enabled">' + (m.enabled === "false" ? "×" : "✓") + '</td>' +
         '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn" data-act="info" aria-label="Info">i</button>' +
-          '<button class="tbl-btn tbl-btn-success" data-act="enable" aria-label="Toggle enabled">✓</button>' +
-          '<button class="tbl-btn" data-act="disable" aria-label="Mute">○</button>' +
-          '<button class="tbl-btn" data-act="save" aria-label="Save to device">↓</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" aria-label="Delete">×</button>' +
+          '<button class="tbl-btn" data-act="info" title="Show message info" aria-label="Info">i</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="enable" title="Enable message" aria-label="Enable">✓</button>' +
+          '<button class="tbl-btn" data-act="disable" title="Disable message" aria-label="Disable">×</button>' +
+          '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete message" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
         '</td>';
       /* Row click → populate edit form */
       tr.querySelector(".cell-name").addEventListener("click", function () {
@@ -834,7 +886,13 @@
       default: return;
     }
     sendCmd(addr(template, name), null).then(function (res) {
-      if (res.status === "ok") toast(act + ": " + name, "success");
+      if (res.status === "ok") {
+        toast(act + ": " + name, "success");
+        if (act === "delete") {
+          var dev = getActiveDev();
+          if (dev) { delete dev.messages[name]; renderMsgTable(); refreshAllDropdowns(); }
+        }
+      }
     });
   }
 
@@ -847,7 +905,7 @@
     var tbody = $("#patchTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.patches).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No patches tracked yet.</div><div class="empty-sub">Query the device or create a patch below.</div><button class="btn btn-sm" onclick="document.getElementById(\'btnQueryVerbose\').click()">→ Query Device Now</button></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No patches tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
       return;
     }
     Object.keys(dev.patches).forEach(function (name) {
@@ -863,13 +921,13 @@
         '<td class="cell-mono" data-label="Overrides">' + esc(p.override || "—") + '</td>' +
         '<td class="cell-mono" data-label="Messages" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
         '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn tbl-btn-success" data-act="start" aria-label="Start patch">▶</button>' +
-          '<button class="tbl-btn tbl-btn-stop" data-act="stop" aria-label="Stop patch">■</button>' +
-          '<button class="tbl-btn" data-act="info" aria-label="Info">i</button>' +
-          '<button class="tbl-btn" data-act="enableAll" aria-label="Enable all messages">✓</button>' +
-          '<button class="tbl-btn" data-act="unsolo" aria-label="Unsolo">▸</button>' +
-          '<button class="tbl-btn" data-act="save" aria-label="Save to device">↓</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" aria-label="Delete">×</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="start" title="Start patch" aria-label="Start patch">▶</button>' +
+          '<button class="tbl-btn tbl-btn-stop" data-act="stop" title="Stop patch" aria-label="Stop patch">■</button>' +
+          '<button class="tbl-btn" data-act="info" title="Show patch info" aria-label="Info">i</button>' +
+          '<button class="tbl-btn" data-act="enableAll" title="Enable all messages" aria-label="Enable all">✓</button>' +
+          '<button class="tbl-btn" data-act="unsolo" title="Unsolo all messages" aria-label="Unsolo">▸</button>' +
+          '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete patch" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
         '</td>';
       tr.querySelector(".cell-name").addEventListener("click", function () {
         populatePatchForm(name, p);
@@ -917,7 +975,13 @@
       default: return;
     }
     sendCmd(addr(template, name), null).then(function (res) {
-      if (res.status === "ok") toast(act + ": " + name, "success");
+      if (res.status === "ok") {
+        toast(act + ": " + name, "success");
+        if (act === "delete") {
+          var dev = getActiveDev();
+          if (dev) { delete dev.patches[name]; renderPatchTable(); refreshAllDropdowns(); }
+        }
+      }
     });
   }
 
@@ -935,16 +999,10 @@
     });
   }());
 
-  /* ── Pending Ori pre-registration ──
-     Oris are defined (name + color) client-side before the device
-     orientation is sampled. "Save Now" captures the current device
-     orientation into that named slot.
+  /* ── Ori Registration (immediate send) ──
+     Sends /ori/register/{name} with color directly to the device.
+     No local pending list — same pattern as messages and patches.
   ─────────────────────────────────────────────────────────────── */
-  var _pendingOris = JSON.parse(localStorage.getItem("gooey_pending_oris") || "[]");
-
-  function _persistPendingOris() {
-    localStorage.setItem("gooey_pending_oris", JSON.stringify(_pendingOris));
-  }
 
   function _hexToRgb(hex) {
     return {
@@ -954,116 +1012,125 @@
     };
   }
 
-  function addPendingOri(name, colorHex) {
-    if (_pendingOris.some(function (p) { return p.name === name; })) {
-      toast("Already pre-registered: " + name, "warn");
-      return;
-    }
-    _pendingOris.push({ name: name, color: colorHex });
-    _persistPendingOris();
-    renderOriTable();
-    toast("Pre-registered: " + name, "info");
-  }
-
-  function removePendingOri(name) {
-    _pendingOris = _pendingOris.filter(function (p) { return p.name !== name; });
-    _persistPendingOris();
-    renderOriTable();
-  }
-
-  function saveNowPendingOri(name) {
-    var pending = _pendingOris.find(function (p) { return p.name === name; });
-    if (!getActiveDev()) { toast("Select a device first", "error"); return; }
-    sendCmd(addr("/annieData/{device}/ori/save"), name).then(function (res) {
-      if (res && res.status === "ok") {
-        if (pending && pending.color) {
-          var rgb = _hexToRgb(pending.color);
-          sendCmd(addr("/annieData/{device}/ori/color/" + name),
-                  '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"');
-        }
-        removePendingOri(name);
-        toast("Saved ori: " + name, "success");
-        /* Refresh the device ori list */
-        sendCmd(addr("/annieData/{device}/ori/list"), null);
-      } else {
-        toast("Save failed" + (res && res.message ? ": " + res.message : ""), "error");
-      }
-    });
-  }
-
-  /* Wire up the pre-register UI */
   (function () {
-    var nameInput  = $("#pendingOriName");
-    var colorInput = $("#pendingOriColorPicker");
-    var btnAdd     = $("#btnAddPendingOri");
-    var btnClear   = $("#btnClearPendingOris");
+    var nameInput  = $("#regOriName");
+    var colorInput = $("#regOriColorPicker");
+    var btnReg     = $("#btnRegisterOri");
 
-    function doAdd() {
+    function doRegister() {
       var name = (nameInput ? nameInput.value : "").trim();
       if (!name) { toast("Ori name required", "error"); return; }
-      var color = colorInput ? colorInput.value : "#ffffff";
-      addPendingOri(name, color);
-      if (nameInput) nameInput.value = "";
+      if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+      var hex = colorInput ? colorInput.value : "#cc44ff";
+      var rgb = _hexToRgb(hex);
+      var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
+      sendCmd(addr("/annieData/{device}/ori/register/" + name), colorStr).then(function (res) {
+        if (res && res.status === "ok") {
+          toast("Registered: " + name, "success");
+          if (nameInput) nameInput.value = "";
+          sendCmd(addr("/annieData/{device}/ori/list"), null);
+        } else {
+          toast("Register failed: " + (res && res.message ? res.message : "unknown"), "error");
+        }
+      });
     }
 
-    var btnPushAll = $("#btnPushAllPendingOris");
-
-    if (btnAdd)   btnAdd.addEventListener("click", doAdd);
+    if (btnReg) btnReg.addEventListener("click", doRegister);
     if (nameInput) nameInput.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); doAdd(); }
+      if (e.key === "Enter") { e.preventDefault(); doRegister(); }
     });
-    if (btnPushAll) btnPushAll.addEventListener("click", function () {
+  }());
+
+  /* ── Ori Recording UI ──
+     Start/Stop/Cancel recording session with live sample counter.
+     Polls /ori/record/status every 500ms while active.
+  ─────────────────────────────────────────────────────────────── */
+
+  var _recPollInterval = null;
+
+  function _stopRecordingPoll() {
+    if (_recPollInterval) { clearInterval(_recPollInterval); _recPollInterval = null; }
+  }
+
+  function _setRecordingUI(active, name) {
+    var startBtn   = $("#btnRecordStart");
+    var stopBtn    = $("#btnRecordStop");
+    var cancelBtn  = $("#btnRecordCancel");
+    var recStatus  = $("#recStatus");
+    var nameInput  = $("#recOriName");
+    if (active) {
+      if (startBtn)  startBtn.style.display = "none";
+      if (recStatus) recStatus.style.display = "";
+      if (nameInput) nameInput.disabled = true;
+    } else {
+      if (startBtn)  startBtn.style.display = "";
+      if (recStatus) recStatus.style.display = "none";
+      if (nameInput) nameInput.disabled = false;
+      var counter = $("#recCounter");
+      if (counter) counter.textContent = "0 samples";
+      _stopRecordingPoll();
+    }
+  }
+
+  (function () {
+    var nameInput = $("#recOriName");
+    var startBtn  = $("#btnRecordStart");
+    var stopBtn   = $("#btnRecordStop");
+    var cancelBtn = $("#btnRecordCancel");
+
+    if (startBtn) startBtn.addEventListener("click", function () {
+      var name = (nameInput ? nameInput.value : "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
       if (!getActiveDev()) { toast("Select a device first", "error"); return; }
-      var toPush = _pendingOris.slice();  // copy so we can iterate while removing
-      if (toPush.length === 0) { toast("Nothing pending to push", "warn"); return; }
-      var sent = 0;
-      toPush.forEach(function (p) {
-        var rgb = _hexToRgb(p.color);
-        var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
-        sendCmd(addr("/annieData/{device}/ori/register/" + p.name), colorStr).then(function (res) {
-          if (res && res.status === "ok") {
-            removePendingOri(p.name);
-            sent++;
-            if (sent === toPush.length) {
-              toast("Pushed " + sent + " ori" + (sent > 1 ? "s" : "") + " to device", "success");
-              sendCmd(addr("/annieData/{device}/ori/list"), null);
-            }
-          }
-        });
+      sendCmd(addr("/annieData/{device}/ori/record/start/" + name), null).then(function (res) {
+        if (res && res.status === "ok") {
+          toast("Recording: " + name, "info");
+          _setRecordingUI(true, name);
+          /* Poll for sample count every 500ms */
+          _recPollInterval = setInterval(function () {
+            sendCmd(addr("/annieData/{device}/ori/record/status"), null).then(function (r) {
+              if (!r || r.status !== "ok") return;
+              /* Reply: "active:true,name:X,count:N,elapsed:M" */
+              var msg = r.message || "";
+              if (/active:false/.test(msg)) {
+                _setRecordingUI(false);
+                sendCmd(addr("/annieData/{device}/ori/list"), null);
+                return;
+              }
+              var cm = msg.match(/count:(\d+)/);
+              var counter = $("#recCounter");
+              if (cm && counter) counter.textContent = cm[1] + " samples";
+            });
+          }, 500);
+        } else {
+          toast("Start failed: " + (res && res.message ? res.message : ""), "error");
+        }
       });
     });
-    if (btnClear) btnClear.addEventListener("click", function () {
-      showConfirm("Clear Pending Oris", "Remove all pre-registered (unsaved) oris from this list?", function () {
-        _pendingOris = [];
-        _persistPendingOris();
-        renderOriTable();
-        toast("Pending oris cleared", "info");
-      }, "Clear", true);
+
+    if (stopBtn) stopBtn.addEventListener("click", function () {
+      if (!getActiveDev()) return;
+      sendCmd(addr("/annieData/{device}/ori/record/stop"), null).then(function (res) {
+        _setRecordingUI(false);
+        if (res && res.status === "ok") {
+          toast("Saved: " + (res.message || ""), "success");
+        }
+        sendCmd(addr("/annieData/{device}/ori/list"), null);
+      });
+    });
+
+    if (cancelBtn) cancelBtn.addEventListener("click", function () {
+      if (!getActiveDev()) return;
+      sendCmd(addr("/annieData/{device}/ori/record/cancel"), null).then(function () {
+        _setRecordingUI(false);
+        toast("Recording cancelled", "info");
+      });
     });
   }());
 
   /* ═══════════════════════════════════════════
      ORI TABLE
      ═══════════════════════════════════════════ */
-
-  /* Push a pending ori to the device as a named slot (no orientation data).
-     The user then uses Button B to select it and Button A to capture on-site. */
-  function pushToDevice(name) {
-    var pending = _pendingOris.find(function (p) { return p.name === name; });
-    if (!pending) return;
-    if (!getActiveDev()) { toast("Select a device first", "error"); return; }
-    var rgb = _hexToRgb(pending.color);
-    var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
-    sendCmd(addr("/annieData/{device}/ori/register/" + name), colorStr).then(function (res) {
-      if (res && res.status === "ok") {
-        removePendingOri(name);
-        toast("Pushed to device: " + name + " — use buttons to capture orientation", "success");
-        sendCmd(addr("/annieData/{device}/ori/list"), null);
-      } else {
-        toast("Push failed" + (res && res.message ? ": " + res.message : ""), "error");
-      }
-    });
-  }
 
   function renderOriTable() {
     var dev = getActiveDev();
@@ -1072,99 +1139,72 @@
     tbody.innerHTML = "";
 
     var devOriNames = dev ? Object.keys(dev.oris) : [];
-    /* Gooey-side pending: not yet pushed to device */
-    var gooeySide = _pendingOris.filter(function (p) {
-      return devOriNames.indexOf(p.name) === -1;
-    });
 
-    if (devOriNames.length === 0 && gooeySide.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Pre-register names above, then Push to Device for button capture.</div></div></td></tr>';
+    if (devOriNames.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Register an ori above, then use Record Ori or Button A to capture.</div></div></td></tr>';
       return;
     }
 
-    /* ── 1. Gooey-side pending (not yet on device) ── */
-    gooeySide.forEach(function (pending) {
-      var dotHtml = '<span class="ori-color-dot" style="background:' + esc(pending.color) + '" title="' + esc(pending.color) + '"></span>';
-      var tr = document.createElement("tr");
-      tr.className = "ori-row-pending";
-      tr.dataset.oriName = pending.name;
-      tr.innerHTML =
-        '<td class="cell-name" data-label="Name">' + esc(pending.name) + '</td>' +
-        '<td data-label="Type"><span class="ori-badge ori-badge-pending">Pending</span></td>' +
-        '<td class="cell-mono" data-label="Samples">—</td>' +
-        '<td data-label="Color">' + dotHtml + '</td>' +
-        '<td data-label="Active">—</td>' +
-        '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn tbl-btn-primary" data-act="push" title="Register slot on device — capture orientation with buttons on-site">→ Push</button>' +
-          '<button class="tbl-btn" data-act="save-now" title="Capture current device orientation into this slot now">↓ Now</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="remove" title="Remove from list" aria-label="Remove">×</button>' +
-        '</td>';
-      (function (p) {
-        tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            if (btn.dataset.act === "push")     pushToDevice(p.name);
-            else if (btn.dataset.act === "save-now") saveNowPendingOri(p.name);
-            else if (btn.dataset.act === "remove")   removePendingOri(p.name);
-          });
-        });
-      }(pending));
-      tbody.appendChild(tr);
-    });
-
-    /* ── 2. Device oris (sampled and unsampled registered) ── */
     devOriNames.forEach(function (name) {
       var o = dev.oris[name];
-      var isDevPending = (o.type === "pending");  // registered on device but not yet sampled
-      var typeBadge = isDevPending
-        ? '<span class="ori-badge ori-badge-registered">Registered</span>'
-        : (o.type === "range"
-            ? '<span class="ori-badge ori-badge-range">Range [R' + o.samples + ']</span>'
-            : '<span class="ori-badge ori-badge-point">Point</span>');
+      var isUnsampled = (o.samples === 0);
+
+      /* Mode badge */
+      var modeBadge;
+      if (isUnsampled) {
+        modeBadge = '<span class="ori-badge ori-badge-registered">No samples</span>';
+      } else if (o.useAxis) {
+        modeBadge = '<span class="ori-badge ori-badge-axis" title="Axis-aware: wrist rotation ignored">Axis</span>';
+      } else {
+        modeBadge = '<span class="ori-badge ori-badge-fullq" title="Full quaternion matching">Full</span>';
+      }
+
       var colorHtml = "—";
       if (o.color) {
         var rgb = "rgb(" + o.color[0] + "," + o.color[1] + "," + o.color[2] + ")";
         colorHtml = '<span class="ori-color-dot" style="background:' + rgb + '" title="' + o.color.join(",") + '"></span>';
       }
       var activeHtml = o.active ? '<span class="ori-badge ori-badge-active">Active</span>' : "—";
+
+      var actionHtml =
+        '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">i</button>' +
+        '<button class="tbl-btn tbl-btn-primary" data-act="rerecord" title="Start new recording session for this ori" aria-label="Re-record">▶</button>' +
+        '<button class="tbl-btn" data-act="select" title="Select for on-device button editing" aria-label="Select">◎</button>' +
+        '<button class="tbl-btn" data-act="reset" title="Clear samples (ready to re-record)" aria-label="Reset">↺</button>' +
+        '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">×</button>';
+
       var tr = document.createElement("tr");
-      if (isDevPending) tr.className = "ori-row-pending";
+      if (isUnsampled) tr.className = "ori-row-pending";
       tr.dataset.oriName = name;
-      var actionHtml = isDevPending
-        ? '<button class="tbl-btn tbl-btn-primary" data-act="save-now" title="Capture current device orientation into this slot">↓ Save Now</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete slot" aria-label="Delete">×</button>'
-        : '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">i</button>' +
-          '<button class="tbl-btn" data-act="reset" title="Reset range to point" aria-label="Reset">↺</button>' +
-          '<button class="tbl-btn" data-act="select" title="Select for button editing" aria-label="Select">◎</button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">×</button>';
       tr.innerHTML =
         '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
-        '<td data-label="Type">' + typeBadge + '</td>' +
-        '<td class="cell-mono" data-label="Samples">' + (isDevPending ? "—" : o.samples) + '</td>' +
+        '<td class="cell-mono" data-label="Samples">' + (isUnsampled ? "—" : o.samples) + '</td>' +
+        '<td data-label="Mode">' + modeBadge + '</td>' +
         '<td data-label="Color">' + colorHtml + '</td>' +
         '<td data-label="Active">' + activeHtml + '</td>' +
         '<td class="cell-actions" data-label="Actions">' + actionHtml + '</td>';
+
       tr.querySelector(".cell-name").addEventListener("click", function () {
         var colorNameEl = $("#oriColorName");
         if (colorNameEl) colorNameEl.value = name;
         var oriNameEl = $("#oriName");
         if (oriNameEl) oriNameEl.value = name;
+        var recNameEl = $("#recOriName");
+        if (recNameEl) recNameEl.value = name;
         if (o.color) {
-          $("#oriColorR").value = o.color[0];
-          $("#oriColorG").value = o.color[1];
-          $("#oriColorB").value = o.color[2];
-          updateOriColorPreview();
+          var hex = "#" + ((1 << 24) + (o.color[0] << 16) + (o.color[1] << 8) + o.color[2]).toString(16).slice(1);
+          var picker = $("#oriColorPicker");
+          if (picker) picker.value = hex;
         }
       });
       tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          if (btn.dataset.act === "save-now") {
-            /* Capture current device orientation into this registered slot. */
-            sendCmd(addr("/annieData/{device}/ori/save"), name).then(function (res) {
-              if (res && res.status === "ok") {
-                toast("Captured ori: " + name, "success");
-                sendCmd(addr("/annieData/{device}/ori/list"), null);
-              }
-            });
+          if (btn.dataset.act === "rerecord") {
+            /* Pre-fill the recording form and scroll to it */
+            var recNameEl = $("#recOriName");
+            if (recNameEl) recNameEl.value = name;
+            var recCard = document.querySelector('[data-card-id="ori-record"]');
+            if (recCard) recCard.scrollIntoView({ behavior: "smooth" });
           } else {
             oriAction(btn.dataset.act, name);
           }
@@ -1181,11 +1221,12 @@
         break;
       case "reset":
         sendCmd(addr("/annieData/{device}/ori/reset/" + name), null).then(function (res) {
-          if (res.status === "ok") {
-            toast("Reset: " + name, "success");
-            if (getActiveDev() && getActiveDev().oris[name]) {
-              getActiveDev().oris[name].type = "point";
-              getActiveDev().oris[name].samples = 1;
+          if (res && res.status === "ok") {
+            toast("Samples cleared: " + name, "success");
+            var dev = getActiveDev();
+            if (dev && dev.oris[name]) {
+              dev.oris[name].samples = 0;
+              dev.oris[name].useAxis = false;
               renderOriTable();
             }
           }
@@ -1213,21 +1254,22 @@
     var content = $("#oriDetailsContent");
     if (!card || !content) return;
     card.style.display = "block";
-    /* Parse: "name: samples=N center=[...] half_w=[...] (ACTIVE)" or
-       "name: samples=1 point q=(...) euler=[...]" */
+    /* Parse v2 format:
+       "name: samples=N axis=(x,y,z) tol=10.0deg q0=(...) ... color=(r,g,b) (ACTIVE)"
+       or unsampled: "name: samples=0 (unsampled) color=(r,g,b)" */
     var html = "";
     var nm = text.match(/^(\S+):/);
     if (nm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Name</span><span>' + esc(nm[1]) + '</span></div>';
     var sm = text.match(/samples=(\d+)/);
     if (sm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Samples</span><span>' + esc(sm[1]) + '</span></div>';
-    var cm = text.match(/center=\[([^\]]+)\]/);
-    if (cm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Center</span><span class="cell-mono">[' + esc(cm[1]) + ']</span></div>';
-    var hw = text.match(/half_w=\[([^\]]+)\]/);
-    if (hw) html += '<div class="ori-detail-row"><span class="ori-detail-label">Half Width</span><span class="cell-mono">[' + esc(hw[1]) + ']</span></div>';
-    var qm = text.match(/q=\(([^)]+)\)/);
-    if (qm) html += '<div class="ori-detail-row"><span class="ori-detail-label">Quaternion</span><span class="cell-mono">(' + esc(qm[1]) + ')</span></div>';
-    var em = text.match(/euler=\[([^\]]+)\]/);
-    if (em) html += '<div class="ori-detail-row"><span class="ori-detail-label">Euler</span><span class="cell-mono">[' + esc(em[1]) + ']</span></div>';
+    var axM = text.match(/axis=\(([^)]+)\)/);
+    if (axM) html += '<div class="ori-detail-row"><span class="ori-detail-label">Axis</span><span class="cell-mono">(' + esc(axM[1]) + ')</span></div>';
+    if (/axis=fullQ/.test(text)) html += '<div class="ori-detail-row"><span class="ori-detail-label">Axis</span><span class="cell-mono">full quaternion</span></div>';
+    var tolM = text.match(/tol=([\d.]+)deg/);
+    if (tolM) html += '<div class="ori-detail-row"><span class="ori-detail-label">Tolerance</span><span>' + esc(tolM[1]) + '°</span></div>';
+    /* Show first sample quaternion if present */
+    var q0 = text.match(/q0=\(([^)]+)\)/);
+    if (q0) html += '<div class="ori-detail-row"><span class="ori-detail-label">Sample q0</span><span class="cell-mono">(' + esc(q0[1]) + ')</span></div>';
     if (/\(ACTIVE\)/i.test(text)) html += '<div class="ori-detail-row"><span class="ori-detail-label">Status</span><span class="ori-badge ori-badge-active">Active</span></div>';
     if (!html) html = '<p class="cell-mono">' + esc(text) + '</p>';
     content.innerHTML = html;
@@ -1439,17 +1481,25 @@
     if (!ip || !port) { toast("IP and port are required", "error"); return; }
     var cfg = "ip:" + ip + ", port:" + port;
     if (adr) cfg += ", adr:" + adr;
-    sendCmd(addr("/annieData/{device}/status/config"), cfg).then(function (res) {
-      if (res.status === "ok") toast("Status config applied", "success");
+    var targets = getStatusConfigTargets();
+    if (!targets.length) { toast("No device selected", "error"); return; }
+    targets.forEach(function (id) {
+      var d = devices[id];
+      if (d) sendToDevice(id, "/annieData/" + d.name + "/status/config", cfg);
     });
+    toast("Status config applied" + (targets.length > 1 ? " (" + targets.length + " devices)" : ""), "success");
   });
 
   $("#btnStatusLevel").addEventListener("click", function () {
     var lvl = $("#statusLevel").value;
     if (!lvl) return;
-    sendCmd(addr("/annieData/{device}/status/level"), lvl).then(function (res) {
-      if (res.status === "ok") toast("Level set: " + lvl, "success");
+    var targets = getStatusConfigTargets();
+    if (!targets.length) { toast("No device selected", "error"); return; }
+    targets.forEach(function (id) {
+      var d = devices[id];
+      if (d) sendToDevice(id, "/annieData/" + d.name + "/status/level", lvl);
     });
+    toast("Level set: " + lvl, "success");
   });
 
   /* ═══════════════════════════════════════════
@@ -1829,37 +1879,156 @@
   }
 
   /* ═══════════════════════════════════════════
-     PANEL STATE MANAGEMENT  (hidden / feed / reference)
+     MULTI-VIEW PANEL STATE MANAGEMENT
      ═══════════════════════════════════════════ */
 
-  var _panelState = "hidden"; // "hidden" | "feed" | "reference"
+  var _activeViews = {}; // { feed: true, serial: true, reference: true, notifications: true }
+  var _viewElements = {
+    feed:          "viewFeed",
+    serial:        "viewSerial",
+    reference:     "viewReference",
+    notifications: "viewNotifications"
+  };
+  var _viewToggleButtons = {
+    feed:          "btnFeedToggle",
+    serial:        "btnSerialToggle",
+    reference:     "btnRefToggle",
+    notifications: "btnNotifToggle"
+  };
 
-  function showPanel(view) {
-    _panelState = view;
+  function updatePanelLayout() {
     var panel = $("#panelRight");
-    if (view === "hidden") {
+    var keys = Object.keys(_viewElements);
+    var activeCount = 0;
+    keys.forEach(function (k) { if (_activeViews[k]) activeCount++; });
+
+    if (activeCount === 0) {
       panel.classList.add("panel-hidden");
-      panel.classList.remove("ref-mode");
-    } else if (view === "feed") {
+    } else {
       panel.classList.remove("panel-hidden");
-      panel.classList.remove("ref-mode");
-    } else if (view === "reference") {
-      panel.classList.remove("panel-hidden");
-      panel.classList.add("ref-mode");
     }
+
+    var heightPct = activeCount > 0 ? (100 / activeCount) + "%" : "0";
+    keys.forEach(function (k) {
+      var el = $("#" + _viewElements[k]);
+      if (!el) return;
+      if (_activeViews[k]) {
+        el.style.display = "flex";
+        el.style.height = heightPct;
+      } else {
+        el.style.display = "none";
+        el.style.height = "";
+      }
+    });
+
+    /* Update toggle button active states */
+    Object.keys(_viewToggleButtons).forEach(function (k) {
+      var btn = $("#" + _viewToggleButtons[k]);
+      if (btn) {
+        if (_activeViews[k]) btn.classList.add("panel-active");
+        else btn.classList.remove("panel-active");
+      }
+    });
+  }
+
+  function toggleView(name) {
+    if (_activeViews[name]) {
+      delete _activeViews[name];
+    } else {
+      _activeViews[name] = true;
+      /* Auto-refresh serial ports when showing serial */
+      if (name === "serial") {
+        socket.emit("serial_list_ports");
+      }
+    }
+    updatePanelLayout();
   }
 
   /* Feed toggle button */
-  $("#btnFeedToggle").addEventListener("click", function () {
-    if (_panelState === "feed") showPanel("hidden");
-    else showPanel("feed");
-  });
+  $("#btnFeedToggle").addEventListener("click", function () { toggleView("feed"); });
+
+  /* Serial toggle button */
+  $("#btnSerialToggle").addEventListener("click", function () { toggleView("serial"); });
 
   /* Reference toggle button */
-  $("#btnRefToggle").addEventListener("click", function () {
-    if (_panelState === "reference") showPanel("hidden");
-    else showPanel("reference");
+  $("#btnRefToggle").addEventListener("click", function () { toggleView("reference"); });
+
+  /* Notification history toggle — bell button */
+  $("#btnNotifToggle").addEventListener("click", function () {
+    toggleView("notifications");
   });
+
+  /* Collapsible reference section blocks */
+  (function () {
+    var refContent = $("#viewReference");
+    if (!refContent) return;
+    refContent.addEventListener("click", function (e) {
+      var title = e.target.closest(".ref-section-title");
+      if (!title) return;
+      var block = title.closest(".ref-section-block");
+      if (block) block.classList.toggle("collapsed");
+    });
+  }());
+
+  /* Click on latest notif text also toggles notifications panel */
+  var notifLatestEl = $("#notifLatest");
+  if (notifLatestEl) {
+    notifLatestEl.addEventListener("click", function () {
+      toggleView("notifications");
+    });
+  }
+
+  /* Clear button inside notifications panel */
+  var btnNotifClearPanel = $("#btnNotifClear");
+  if (btnNotifClearPanel) {
+    btnNotifClearPanel.addEventListener("click", function () {
+      _toastHistory = [];
+      renderNotifHistory();
+      var latest = $("#notifLatest");
+      if (latest) latest.textContent = "No notifications";
+    });
+  }
+
+  /* ═══════════════════════════════════════════
+     HORIZONTAL PANEL RESIZE
+     ═══════════════════════════════════════════ */
+  (function () {
+    var handle = $("#panelResizeHandle");
+    var panel  = $("#panelRight");
+    if (!handle || !panel) return;
+
+    var STORAGE_KEY = "gooey_panel_width";
+    var MIN_PX = 200;
+
+    /* Restore persisted width */
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) panel.style.width = saved + "px";
+    } catch (e) {}
+
+    handle.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      var startX = e.clientX;
+      var startW = panel.offsetWidth;
+
+      function onMove(ev) {
+        var delta = startX - ev.clientX;
+        var newW = Math.max(MIN_PX, startW + delta);
+        var maxW = window.innerWidth * 0.7;
+        newW = Math.min(newW, maxW);
+        panel.style.width = newW + "px";
+      }
+
+      function onUp() {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        try { localStorage.setItem(STORAGE_KEY, panel.offsetWidth); } catch (e) {}
+      }
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    });
+  }());
 
   /* ═══════════════════════════════════════════
      LISTEN  (auto-starts on page load; port is always active)
@@ -1907,7 +2076,8 @@
 
   /* Auto-start listening on page load, show feed */
   startListen(9000);
-  showPanel("feed");
+  _activeViews.feed = true;
+  updatePanelLayout();
 
   /* ═══════════════════════════════════════════
      FEED CONTROLS
@@ -1984,35 +2154,16 @@
      QUERY DEVICE SELECT  (header dropdown)
      ═══════════════════════════════════════════ */
 
-  /** Rebuild the header query-device <select> from current device list. */
-  function refreshQueryDeviceSelect() {
-    var sel = $("#queryDeviceSelect");
-    var cur = sel.value;
-    sel.innerHTML = '<option value="">all devices</option>';
-    Object.keys(devices).forEach(function (id) {
-      var d = devices[id];
-      var opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = d.name;
-      sel.appendChild(opt);
-    });
-    if (cur && devices[cur]) sel.value = cur;
-  }
+  /** No-op — query target is now controlled by #queryAllDevices checkbox. */
+  function refreshQueryDeviceSelect() {}
 
   /* ═══════════════════════════════════════════
      QUERY BUTTON  (header — always verbose)
      ═══════════════════════════════════════════ */
 
   $("#btnQueryDevice").addEventListener("click", function () {
-    var selectedId = ($("#queryDeviceSelect").value || "").trim();
-    if (selectedId) {
-      /* Query one specific device */
-      var d = devices[selectedId];
-      if (!d) { toast("Device not found", "error"); return; }
-      sendToDevice(selectedId, "/annieData/" + d.name + "/list/all", "verbose").then(function (res) {
-        if (res.status === "ok") toast("Querying " + d.name + "…", "info");
-      });
-    } else {
+    var allChecked = $("#queryAllDevices") ? $("#queryAllDevices").checked : true;
+    if (allChecked) {
       /* Query all configured devices */
       var ids = Object.keys(devices);
       if (!ids.length) { toast("No devices configured", "error"); return; }
@@ -2021,69 +2172,18 @@
         sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose");
       });
       toast("Querying " + ids.length + " device(s)…", "info");
+    } else {
+      /* Query active device only */
+      if (!activeDeviceId || !devices[activeDeviceId]) { toast("No active device", "error"); return; }
+      var d = devices[activeDeviceId];
+      sendToDevice(activeDeviceId, "/annieData/" + d.name + "/list/all", "verbose").then(function (res) {
+        if (res.status === "ok") toast("Querying " + d.name + "…", "info");
+      });
     }
     showPanel("feed");
   });
 
-  /* ═══════════════════════════════════════════
-     AUTO QUERY  (float period; tracks active query in header)
-     ═══════════════════════════════════════════ */
-
-  var _autoQueryTimer = null;
-  var _autoQueryDeviceId = ""; // "" = all devices
-
-  /** Show a compact summary of the active auto-query in the header. */
-  function updateAutoQueryList() {
-    var container = $("#autoQueryList");
-    if (!container) return;
-    if (!_autoQueryTimer) { container.textContent = ""; return; }
-    var period = parseFloat($("#autoQueryPeriod").value) || 5;
-    var label = _autoQueryDeviceId && devices[_autoQueryDeviceId]
-      ? devices[_autoQueryDeviceId].name
-      : "all devices";
-    container.textContent = "▶ " + label + " every " + period + "s (verbose)";
-  }
-
-  function startAutoQuery() {
-    stopAutoQuery();
-    var period = parseFloat($("#autoQueryPeriod").value) || 5;
-    /* Clamp to at least 100 ms — prevents hammering the device on very
-       small decimal inputs while still allowing sub-second periods. */
-    var intervalMs = Math.max(100, period * 1000);
-    _autoQueryDeviceId = ($("#queryDeviceSelect").value || "").trim();
-
-    _autoQueryTimer = setInterval(function () {
-      if (_autoQueryDeviceId) {
-        var d = devices[_autoQueryDeviceId];
-        if (!d) return;
-        sendToDevice(_autoQueryDeviceId, "/annieData/" + d.name + "/list/all", "verbose");
-      } else {
-        Object.keys(devices).forEach(function (id) {
-          var d = devices[id];
-          if (!d) return;
-          sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose");
-        });
-      }
-    }, intervalMs);
-    updateAutoQueryList();
-  }
-
-  function stopAutoQuery() {
-    if (_autoQueryTimer) { clearInterval(_autoQueryTimer); _autoQueryTimer = null; }
-    updateAutoQueryList();
-  }
-
-  $("#autoQueryEnabled").addEventListener("change", function () {
-    if (this.checked) startAutoQuery(); else stopAutoQuery();
-  });
-
-  /* Restart auto-query when period or device changes */
-  ["autoQueryPeriod", "queryDeviceSelect"].forEach(function (id) {
-    var el = $("#" + id);
-    if (el) el.addEventListener("change", function () {
-      if ($("#autoQueryEnabled").checked) startAutoQuery();
-    });
-  });
+  /* Auto-query removed — use the Query button manually. */
 
   /* ═══════════════════════════════════════════
      REFERENCE — populate from presets
@@ -2095,10 +2195,12 @@
       var presets = data.presets;
       if (!presets) return;
 
+      /* Shared search input */
+      var refSearch = $("#refSearch");
+
       /* Command list */
       var cmdContainer = $("#cmdList");
       var cmds = presets.commands || {};
-      var cmdSearch = $("#cmdSearch");
 
       function renderCmds(filter) {
         cmdContainer.innerHTML = "";
@@ -2115,16 +2217,48 @@
         });
       }
       renderCmds("");
-      cmdSearch.addEventListener("input", function () { renderCmds(cmdSearch.value.trim().toLowerCase()); });
 
-      /* Keywords */
+      /* Keywords — grouped by category */
       var kwContainer = $("#keywordList");
       var kws = presets.keywords || {};
-      var kwSearch = $("#keywordSearch");
+
+      var kwCategories = [
+        { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
+        { title: "Sensors \u2014 Orientation", keys: ["eulerX","eulerY","eulerZ","quatI","quatJ","quatK","quatR"] },
+        { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
+        { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
+        { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
+        { title: "Patch Commands", keys: ["patch","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/patch"] },
+        { title: "Address Modes", keys: ["fallback","prepend","append"] },
+        { title: "Other", keys: ["config string"] }
+      ];
 
       function renderKWs(filter) {
         kwContainer.innerHTML = "";
+        var allCatKeys = [];
+        kwCategories.forEach(function (cat) {
+          var filtered = cat.keys.filter(function (key) {
+            if (!kws[key]) return false;
+            if (filter && key.toLowerCase().indexOf(filter) === -1 && kws[key].toLowerCase().indexOf(filter) === -1) return false;
+            return true;
+          });
+          if (filtered.length === 0) return;
+          var heading = document.createElement("div");
+          heading.className = "ref-category-title";
+          heading.textContent = cat.title;
+          kwContainer.appendChild(heading);
+          filtered.forEach(function (key) {
+            allCatKeys.push(key);
+            var div = document.createElement("div");
+            div.className = "ref-item";
+            div.innerHTML = '<span class="ref-term">' + esc(key) + '</span> <span class="ref-def">' + esc(kws[key]) + '</span>';
+            kwContainer.appendChild(div);
+          });
+        });
+        /* Uncategorized keywords */
+        kwCategories.forEach(function (cat) { cat.keys.forEach(function (k) { if (allCatKeys.indexOf(k) === -1) allCatKeys.push(k); }); });
         Object.keys(kws).sort().forEach(function (key) {
+          if (allCatKeys.indexOf(key) !== -1) return;
           if (filter && key.toLowerCase().indexOf(filter) === -1 && kws[key].toLowerCase().indexOf(filter) === -1) return;
           var div = document.createElement("div");
           div.className = "ref-item";
@@ -2133,7 +2267,13 @@
         });
       }
       renderKWs("");
-      kwSearch.addEventListener("input", function () { renderKWs(kwSearch.value.trim().toLowerCase()); });
+
+      /* Single input drives all section renders */
+      if (refSearch) refSearch.addEventListener("input", function () {
+        var f = refSearch.value.trim().toLowerCase();
+        renderCmds(f);
+        renderKWs(f);
+      });
 
       /* Config keys */
       var ckContainer = $("#configKeyList");
@@ -2160,89 +2300,20 @@
      DRAGGABLE CARD LAYOUT  (localStorage)
      ═══════════════════════════════════════════ */
 
-  var CARD_ORDER_KEY = "gooey_card_order";
-
-  function saveCardOrder() {
-    var order = {};
-    $$(".section").forEach(function (sec) {
-      var ids = [];
-      sec.querySelectorAll(".card[data-card-id]").forEach(function (c) {
-        ids.push(c.dataset.cardId);
-      });
-      if (ids.length) order[sec.id] = ids;
-    });
-    try { localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(order)); } catch (e) { /* ignore */ }
-  }
-
-  function restoreCardOrder() {
-    var raw;
-    try { raw = localStorage.getItem(CARD_ORDER_KEY); } catch (e) { return; }
-    if (!raw) return;
-    var order;
-    try { order = JSON.parse(raw); } catch (e) { return; }
-    Object.keys(order).forEach(function (secId) {
-      var sec = $("#" + secId);
-      if (!sec) return;
-      var ids = order[secId];
-      ids.forEach(function (id) {
-        var card = sec.querySelector('.card[data-card-id="' + id + '"]');
-        if (card) sec.appendChild(card);
+  function initCollapsibleCards() {
+    $$(".section .card").forEach(function (card) {
+      if (card.id === "oriDetailsCard" || card.id === "quickRefCard") return;
+      var headers = card.querySelectorAll("h2, .card-title-row, .tbl-toolbar");
+      headers.forEach(function (hdr) {
+        hdr.addEventListener("click", function (e) {
+          if (e.target.closest("button, input, select, textarea, a")) return;
+          card.classList.toggle("card-collapsed");
+        });
       });
     });
   }
 
-  function initDraggableCards() {
-    var dragCard = null;
-
-    $$(".card[data-card-id]").forEach(function (card) {
-      card.setAttribute("draggable", "true");
-
-      card.addEventListener("dragstart", function (e) {
-        dragCard = card;
-        card.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", card.dataset.cardId);
-      });
-
-      card.addEventListener("dragend", function () {
-        card.classList.remove("dragging");
-        $$(".card.drag-over").forEach(function (c) { c.classList.remove("drag-over"); });
-        dragCard = null;
-      });
-
-      card.addEventListener("dragover", function (e) {
-        if (!dragCard || dragCard === card) return;
-        if (dragCard.parentElement !== card.parentElement) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        card.classList.add("drag-over");
-      });
-
-      card.addEventListener("dragleave", function () {
-        card.classList.remove("drag-over");
-      });
-
-      card.addEventListener("drop", function (e) {
-        e.preventDefault();
-        card.classList.remove("drag-over");
-        if (!dragCard || dragCard === card) return;
-        if (dragCard.parentElement !== card.parentElement) return;
-        var parent = card.parentElement;
-        var allCards = Array.from(parent.querySelectorAll(".card[data-card-id]"));
-        var srcIdx = allCards.indexOf(dragCard);
-        var tgtIdx = allCards.indexOf(card);
-        if (srcIdx < tgtIdx) {
-          parent.insertBefore(dragCard, card.nextSibling);
-        } else {
-          parent.insertBefore(dragCard, card);
-        }
-        saveCardOrder();
-      });
-    });
-  }
-
-  restoreCardOrder();
-  initDraggableCards();
+  initCollapsibleCards();
 
   /* ═══════════════════════════════════════════
      PATCH PREVIEW
@@ -2324,106 +2395,6 @@
   };
 
   /* ═══════════════════════════════════════════
-     STAR TAB LOGIC
-     ═══════════════════════════════════════════ */
-
-  var STAR_KEY = "gooey_starred_cards";
-
-  function getStarred() {
-    try {
-      var raw = localStorage.getItem(STAR_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) { return []; }
-  }
-
-  function setStarred(arr) {
-    try { localStorage.setItem(STAR_KEY, JSON.stringify(arr)); } catch (e) { /* ignore */ }
-  }
-
-  function isStarred(cardId) {
-    return getStarred().indexOf(cardId) !== -1;
-  }
-
-  function toggleStar(cardId) {
-    var starred = getStarred();
-    var idx = starred.indexOf(cardId);
-    if (idx !== -1) {
-      starred.splice(idx, 1);
-    } else {
-      starred.push(cardId);
-    }
-    setStarred(starred);
-    refreshStarIcons();
-    renderStarredSection();
-  }
-
-  function refreshStarIcons() {
-    $$(".card[data-card-id] .card-star").forEach(function (star) {
-      var card = star.closest(".card");
-      if (!card) return;
-      var cardId = card.dataset.cardId;
-      if (isStarred(cardId)) {
-        star.textContent = "★";
-        star.classList.add("starred");
-      } else {
-        star.textContent = "☆";
-        star.classList.remove("starred");
-      }
-    });
-  }
-
-  function renderStarredSection() {
-    var sec = $("#sec-starred");
-    if (!sec) return;
-    var starred = getStarred();
-    sec.innerHTML = "";
-    if (starred.length === 0) {
-      sec.innerHTML = '<p class="hint-text" style="padding: 20px; text-align: center;">Star cards from any tab to pin them here. Click the ☆ icon in the top-right of any card.</p>';
-      return;
-    }
-    starred.forEach(function (cardId) {
-      var orig = document.querySelector('.card[data-card-id="' + cardId + '"]');
-      if (!orig) return;
-      var clone = orig.cloneNode(true);
-      clone.removeAttribute("draggable");
-      clone.classList.remove("dragging", "drag-over");
-      /* Remove the star icon from clone to avoid duplication confusion */
-      var cloneStar = clone.querySelector(".card-star");
-      if (cloneStar) cloneStar.remove();
-      /* Strip all id attributes from the clone and its descendants to
-         prevent duplicate IDs in the DOM.  Without this, querySelector("#id")
-         finds the clone (which appears earlier in the DOM) instead of the
-         original, breaking handlers bound by ID. */
-      clone.removeAttribute("id");
-      clone.querySelectorAll("[id]").forEach(function (el) {
-        el.removeAttribute("id");
-      });
-      sec.appendChild(clone);
-    });
-  }
-
-  /* Add star icons to all cards with data-card-id */
-  function addStarIcons() {
-    $$(".card[data-card-id]").forEach(function (card) {
-      if (card.querySelector(".card-star")) return;
-      var star = document.createElement("span");
-      star.className = "card-star";
-      star.title = "Star this card";
-      star.textContent = isStarred(card.dataset.cardId) ? "★" : "☆";
-      if (isStarred(card.dataset.cardId)) star.classList.add("starred");
-      star.addEventListener("click", function (e) {
-        e.stopPropagation();
-        toggleStar(card.dataset.cardId);
-      });
-      card.insertBefore(star, card.firstChild);
-    });
-  }
-
-  addStarIcons();
-  refreshStarIcons();
-  renderStarredSection();
-
-  /* ═══════════════════════════════════════════
      ORI CONTROLS
      ═══════════════════════════════════════════ */
 
@@ -2488,15 +2459,14 @@
     btnOriColor: function () {
       var name = ($("#oriColorName").value || "").trim();
       if (!name) { toast("Ori name required", "error"); return; }
-      var r = parseInt($("#oriColorR").value || "0", 10);
-      var g = parseInt($("#oriColorG").value || "0", 10);
-      var b = parseInt($("#oriColorB").value || "0", 10);
-      sendCmd(addr("/annieData/{device}/ori/color/" + name), '"' + r + "," + g + "," + b + '"').then(function (res) {
+      var hex = ($("#oriColorPicker") ? $("#oriColorPicker").value : "#ffffff");
+      var rgb = _hexToRgb(hex);
+      sendCmd(addr("/annieData/{device}/ori/color/" + name), '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"').then(function (res) {
         if (res.status === "ok") {
           toast("Color set: " + name, "success");
           var dev = getActiveDev();
           if (dev && dev.oris[name]) {
-            dev.oris[name].color = [r, g, b];
+            dev.oris[name].color = [rgb.r, rgb.g, rgb.b];
             renderOriTable();
           }
         }
@@ -2520,37 +2490,219 @@
     }
   });
 
-  /* ── Ori color picker sync ── */
-  function updateOriColorPreview() {
-    var r = parseInt($("#oriColorR").value || "0", 10);
-    var g = parseInt($("#oriColorG").value || "0", 10);
-    var b = parseInt($("#oriColorB").value || "0", 10);
-    var hex = "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-    var picker = $("#oriColorPicker");
-    if (picker) picker.value = hex;
-    var preview = $("#oriColorPreview");
-    if (preview) preview.style.background = hex;
-  }
 
-  var colorPicker = $("#oriColorPicker");
-  if (colorPicker) {
-    colorPicker.addEventListener("input", function () {
-      var hex = colorPicker.value;
-      var r = parseInt(hex.substr(1, 2), 16);
-      var g = parseInt(hex.substr(3, 2), 16);
-      var b = parseInt(hex.substr(5, 2), 16);
-      $("#oriColorR").value = r;
-      $("#oriColorG").value = g;
-      $("#oriColorB").value = b;
-      var preview = $("#oriColorPreview");
-      if (preview) preview.style.background = hex;
+  /* ═══════════════════════════════════════════
+     SHOW MANAGEMENT
+     ═══════════════════════════════════════════ */
+
+  function renderShowDeviceTable(names) {
+    var tbody = $("#showDeviceTableBody");
+    if (!tbody) return;
+    if (!names || names.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="2"><div class="empty-state"><div class="empty-icon">◑</div><div class="empty-text">No shows saved on device.</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = "";
+    names.forEach(function (name) {
+      name = name.trim();
+      if (!name) return;
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' + esc(name) + '</td>' +
+        '<td class="cell-actions">' +
+          '<button class="tbl-btn tbl-btn-primary" data-act="load" title="Load this show (requires confirm)">Load</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete show from device">×</button>' +
+        '</td>';
+      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (btn.dataset.act === "load") {
+            if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+            showConfirm(
+              "Load Show '" + name + "'",
+              "Loading replaces all current messages, patches, and oris on the device. Continue?",
+              function () {
+                /* Two-step: first send load, then confirm */
+                sendCmd(addr("/annieData/{device}/show/load/" + name), null).then(function () {
+                  sendCmd(addr("/annieData/{device}/show/load/confirm"), null).then(function (res) {
+                    if (res && res.status === "ok") {
+                      toast("Loaded show: " + name, "success");
+                      /* Re-query everything */
+                      sendCmd(addr("/annieData/{device}/list/all"), null);
+                      sendCmd(addr("/annieData/{device}/ori/list"), null);
+                    }
+                  });
+                });
+              },
+              "Load", true
+            );
+          } else if (btn.dataset.act === "delete") {
+            showConfirm("Delete Show '" + name + "'", "Delete '" + name + "' from device NVS?", function () {
+              sendCmd(addr("/annieData/{device}/show/delete/" + name), null).then(function (res) {
+                if (res && res.status === "ok") {
+                  toast("Deleted: " + name, "success");
+                  sendCmd(addr("/annieData/{device}/show/list"), null);
+                }
+              });
+            }, "Delete", true);
+          }
+        });
+      });
+      tbody.appendChild(tr);
     });
   }
 
-  ["oriColorR", "oriColorG", "oriColorB"].forEach(function (id) {
-    var el = $("#" + id);
-    if (el) el.addEventListener("input", updateOriColorPreview);
-  });
+  function renderShowLibraryTable(shows) {
+    var tbody = $("#showLibraryTableBody");
+    if (!tbody) return;
+    if (!shows || shows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">◑</div><div class="empty-text">No shows in library.</div></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = "";
+    shows.forEach(function (s) {
+      var tr = document.createElement("tr");
+      var savedDate = s.saved ? s.saved.replace("T", " ").substr(0, 16) : "—";
+      tr.innerHTML =
+        '<td>' + esc(s.name) + '</td>' +
+        '<td class="cell-mono" style="font-size:0.8em">' + esc(savedDate) + '</td>' +
+        '<td class="cell-actions">' +
+          '<button class="tbl-btn tbl-btn-primary" data-act="load" title="Push show to device">Load to Device</button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete from library">×</button>' +
+        '</td>';
+      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          if (btn.dataset.act === "load") {
+            if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+            showConfirm(
+              "Load Library Show '" + s.name + "'",
+              "Push all messages, patches, and oris to device and save as show '" + s.name + "'?",
+              function () {
+                fetch("/api/shows/" + encodeURIComponent(s.name)).then(function (r) { return r.json(); })
+                  .then(function (showData) {
+                    _pushLibraryShowToDevice(showData);
+                  })
+                  .catch(function (e) { toast("Failed to read library show: " + e, "error"); });
+              },
+              "Load", true
+            );
+          } else if (btn.dataset.act === "delete") {
+            showConfirm("Delete '" + s.name + "' from Library", "This cannot be undone.", function () {
+              fetch("/api/shows/" + encodeURIComponent(s.name), { method: "DELETE" })
+                .then(function () { _refreshShowLibrary(); toast("Deleted: " + s.name, "info"); })
+                .catch(function (e) { toast("Delete failed: " + e, "error"); });
+            }, "Delete", true);
+          }
+        });
+      });
+      tbody.appendChild(tr);
+    });
+  }
+
+  function _refreshShowLibrary() {
+    fetch("/api/shows").then(function (r) { return r.json(); })
+      .then(function (data) { renderShowLibraryTable(data || []); })
+      .catch(function (e) { console.warn("Library fetch failed:", e); });
+  }
+
+  function _pushLibraryShowToDevice(showData) {
+    if (!showData) return;
+    var name = showData.name || "imported";
+    /* Push messages */
+    (showData.messages || []).forEach(function (m) {
+      var cfg = "value:" + m.value + ",ip:" + m.ip + ",port:" + m.port + ",adr:" + m.adr;
+      if (m.low  !== undefined) cfg += ",low:" + m.low;
+      if (m.high !== undefined) cfg += ",high:" + m.high;
+      sendCmd(addr("/annieData/{device}/msg/" + m.name), '"' + cfg + '"');
+    });
+    /* Push patches */
+    (showData.patches || []).forEach(function (p) {
+      var cfg = "ip:" + p.ip + ",port:" + p.port + ",period:" + p.period;
+      sendCmd(addr("/annieData/{device}/patch/" + p.name), '"' + cfg + '"');
+      (p.msgs || []).forEach(function (mName) {
+        sendCmd(addr("/annieData/{device}/patch/" + p.name + "/addMsg"), '"' + mName + '"');
+      });
+    });
+    /* Push oris */
+    (showData.oris || []).forEach(function (o) {
+      var rgb = (o.color || [255,255,255]);
+      var colorStr = '"' + rgb[0] + "," + rgb[1] + "," + rgb[2] + '"';
+      sendCmd(addr("/annieData/{device}/ori/register/" + o.name), colorStr);
+      if (o.quaternions && o.quaternions.length > 0) {
+        o.quaternions.forEach(function (q) {
+          sendCmd(addr("/annieData/{device}/ori/save/" + o.name), null);
+        });
+      }
+    });
+    /* Then save to device NVS as named show */
+    setTimeout(function () {
+      sendCmd(addr("/annieData/{device}/show/save/" + name), null).then(function () {
+        toast("Loaded library show '" + name + "' to device", "success");
+        sendCmd(addr("/annieData/{device}/list/all"), null);
+        sendCmd(addr("/annieData/{device}/ori/list"), null);
+        sendCmd(addr("/annieData/{device}/show/list"), null);
+      });
+    }, 600);
+  }
+
+  /* Wire up show buttons */
+  (function () {
+    var btnSaveDevice  = $("#btnShowSaveDevice");
+    var btnSaveLibrary = $("#btnShowSaveLibrary");
+    var btnListDevice  = $("#btnShowListDevice");
+    var btnListLibrary = $("#btnShowListLibrary");
+
+    if (btnSaveDevice) btnSaveDevice.addEventListener("click", function () {
+      var name = ($("#showSaveName").value || "").trim();
+      if (!name) { toast("Show name required", "error"); return; }
+      if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+      sendCmd(addr("/annieData/{device}/show/save/" + name), null).then(function (res) {
+        if (res && res.status === "ok") {
+          toast("Saved show on device: " + name, "success");
+          sendCmd(addr("/annieData/{device}/show/list"), null);
+        }
+      });
+    });
+
+    if (btnSaveLibrary) btnSaveLibrary.addEventListener("click", function () {
+      var name = ($("#showSaveName").value || "").trim();
+      if (!name) { toast("Show name required", "error"); return; }
+      var dev = getActiveDev();
+      if (!dev) { toast("Select a device first", "error"); return; }
+      /* Build show JSON from current Gooey registry */
+      var msgs = Object.values(dev.messages || {}).map(function (m) { return m; });
+      var patches = Object.values(dev.patches || {}).map(function (p) { return p; });
+      var oris = Object.entries(dev.oris || {}).map(function (kv) {
+        return { name: kv[0], color: kv[1].color, samples: kv[1].samples, use_axis: kv[1].useAxis };
+      });
+      var payload = {
+        name: name,
+        saved: new Date().toISOString(),
+        device: dev.name,
+        messages: msgs,
+        patches: patches,
+        oris: oris
+      };
+      fetch("/api/shows/" + encodeURIComponent(name), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); })
+        .then(function () {
+          toast("Saved to library: " + name, "success");
+          _refreshShowLibrary();
+        })
+        .catch(function (e) { toast("Library save failed: " + e, "error"); });
+    });
+
+    if (btnListDevice) btnListDevice.addEventListener("click", function () {
+      if (!getActiveDev()) { toast("Select a device first", "error"); return; }
+      sendCmd(addr("/annieData/{device}/show/list"), null);
+    });
+
+    if (btnListLibrary) btnListLibrary.addEventListener("click", function () {
+      _refreshShowLibrary();
+    });
+  }());
 
   /* ═══════════════════════════════════════════
      INLINE FIELD VALIDATION
@@ -2736,7 +2888,7 @@
     if (openRefPanel) {
       openRefPanel.addEventListener("click", function (e) {
         e.preventDefault();
-        showPanel("reference");
+        if (!_activeViews.reference) toggleView("reference");
       });
     }
   }
@@ -2748,8 +2900,9 @@
   var REF_SEEN_KEY = "gooey_refPanelSeen";
   try {
     if (!localStorage.getItem(REF_SEEN_KEY)) {
-      /* First visit: show reference panel instead of feed */
-      showPanel("reference");
+      /* First visit: also show reference panel */
+      _activeViews.reference = true;
+      updatePanelLayout();
       localStorage.setItem(REF_SEEN_KEY, "1");
     }
   } catch (e) {}
@@ -2759,30 +2912,15 @@
      ═══════════════════════════════════════════ */
 
   (function () {
-    var drawer      = $("#serialDrawer");
     var terminal    = $("#serialTerminal");
     var portSelect  = $("#serialPortSelect");
     var baudSelect  = $("#serialBaudSelect");
-    var btnToggle   = $("#btnSerialToggle");
     var btnConnect  = $("#btnSerialConnect");
     var btnClear    = $("#btnSerialClear");
-    var btnClose    = $("#btnSerialClose");
     var btnRefresh  = $("#btnSerialRefreshPorts");
     var _connected  = false;
 
-    if (!drawer) return;
-
-    function openDrawer() {
-      drawer.classList.remove("hidden");
-      document.body.classList.add("serial-open");
-      btnToggle.classList.add("active");
-      refreshPorts();
-    }
-    function closeDrawer() {
-      drawer.classList.add("hidden");
-      document.body.classList.remove("serial-open");
-      btnToggle.classList.remove("active");
-    }
+    if (!terminal) return;
 
     function refreshPorts() {
       socket.emit("serial_list_ports");
@@ -2837,11 +2975,6 @@
     socket.on("serial_error", function (data) {
       appendLine("Error: " + (data.message || "unknown"), "stderr");
     });
-
-    btnToggle.addEventListener("click", function () {
-      if (drawer.classList.contains("hidden")) openDrawer(); else closeDrawer();
-    });
-    btnClose.addEventListener("click", closeDrawer);
 
     btnConnect.addEventListener("click", function () {
       if (_connected) {

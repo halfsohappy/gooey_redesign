@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Right Panel Mockup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+IE:wght@100..400&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --font:        "Martian Mono", monospace;
+  --font-title:  "Playwrite IE", cursive;
+  --bg:          #ffffff;
+  --bg-alt:      #f7f5fb;
+  --border:      rgba(0,0,0,0.10);
+  --text-dark:   #2A2F36;
+  --text-medium: #6C7A89;
+  --text-light:  #ABB7B7;
+  --accent:      #90849c;
+  --success:     #4CAF50;
+  --danger:      #ef4444;
+  --warning:     #f59e0b;
+}
+
+body {
+  font-family: var(--font);
+  background: #e8e4f0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 32px;
+  gap: 0;
+}
+
+/* ── Right panel shell ── */
+.panel-right {
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+}
+
+/* ── Shared panel header ── */
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.feed-header h2 {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-dark);
+}
+.feed-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ── Feed panel ── */
+.panel-feed {
+  background: #fef3e8;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid rgba(0,0,0,0.08);
+}
+.feed-scroll {
+  height: 240px;
+  overflow-y: auto;
+  font-size: 11px;
+  font-family: var(--font);
+  padding: 6px 0;
+}
+.feed-row {
+  display: grid;
+  grid-template-columns: 52px 80px 1fr auto;
+  gap: 0 8px;
+  padding: 3px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  align-items: baseline;
+}
+.feed-row:hover { background: rgba(0,0,0,0.03); }
+.feed-time  { color: var(--text-light); font-size: 10px; }
+.feed-dev   { color: var(--accent); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-addr  { color: var(--text-dark); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-val   { color: var(--text-medium); text-align: right; white-space: nowrap; }
+
+/* ── Serial panel ── */
+.panel-serial {
+  background: #0f0f0f;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid rgba(0,0,0,0.08);
+}
+.serial-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #1a1a1a;
+  border-bottom: 1px solid #333;
+  flex-shrink: 0;
+}
+.serial-title {
+  font-family: var(--font-title);
+  font-size: 18px;
+  color: #ccc;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+.serial-pill {
+  font-size: 10px;
+  font-family: var(--font);
+  background: rgba(76,175,80,0.15);
+  color: #4CAF50;
+  border: 1px solid rgba(76,175,80,0.3);
+  border-radius: 10px;
+  padding: 1px 8px;
+}
+.serial-terminal {
+  height: 130px;
+  overflow-y: auto;
+  padding: 8px 14px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #c8c8c8;
+  font-family: var(--font);
+}
+.s-line { white-space: pre; }
+.s-dim  { color: #555; }
+.s-grn  { color: #4CAF50; }
+.s-red  { color: #f87171; }
+.s-yel  { color: #fbbf24; }
+.serial-send {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #111;
+  border-top: 1px solid #2a2a2a;
+  flex-shrink: 0;
+}
+.serial-input {
+  flex: 1;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #eee;
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 8px;
+  outline: none;
+}
+.serial-send-btn {
+  background: #2a2a2a;
+  border: 1px solid #444;
+  color: #ccc;
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* ── Notifs panel ── */
+.panel-notif {
+  background: #f5f7fd;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px solid rgba(0,0,0,0.08);
+}
+.notif-list {
+  height: 130px;
+  overflow-y: auto;
+  padding: 4px 8px;
+}
+.notif-item {
+  display: flex;
+  gap: 8px;
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  font-size: 11px;
+  align-items: baseline;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-time { font-size: 10px; color: var(--text-light); flex-shrink: 0; min-width: 58px; }
+.notif-msg  { flex: 1; color: var(--text-dark); }
+.n-success  { color: #4CAF50; }
+.n-error    { color: var(--danger); }
+.n-info     { color: var(--text-medium); }
+.n-warn     { color: var(--warning); }
+
+/* ── Reference panel ── */
+.panel-ref {
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+.ref-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ref-header h2 {
+  font-family: var(--font-title);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-dark);
+}
+.ref-search {
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.8);
+  color: var(--text-dark);
+  outline: none;
+  width: 110px;
+}
+.ref-content { padding: 10px 14px; }
+.ref-section { margin-bottom: 12px; }
+.ref-section-title {
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-dark);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.ref-section-title::after { content: "▾"; font-size: 20px; color: #5c4a72; line-height: 1; }
+.ref-cmd { font-size: 10.5px; color: var(--text-medium); padding: 2px 0; }
+.ref-cmd code { color: var(--text-dark); font-family: var(--font); }
+
+/* ── Shared small button ── */
+.btn-sm {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 3px 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.6);
+  color: var(--text-dark);
+  cursor: pointer;
+}
+.select-sm {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 3px 5px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 3px;
+  background: rgba(255,255,255,0.6);
+  color: var(--text-dark);
+}
+</style>
+</head>
+<body>
+
+<div class="panel-right">
+
+  <!-- ── Live Feed ── -->
+  <div class="panel-feed">
+    <div class="feed-header">
+      <h2>Live Feed</h2>
+      <div class="feed-controls">
+        <select class="select-sm"><option>All devices</option><option>bart</option><option>lilly</option></select>
+        <button class="btn-sm">Pause</button>
+        <button class="btn-sm">Clear</button>
+      </div>
+    </div>
+    <div class="feed-scroll">
+      <div class="feed-row"><span class="feed-time">14:02:38</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/ori/quat</span><span class="feed-val">0.12 −0.44 0.87 0.18</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:38</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/ori/euler</span><span class="feed-val">12.3 −4.1 88.6</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:37</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/msg/accel_x</span><span class="feed-val">0.0034</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:37</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/ori/quat</span><span class="feed-val">0.13 −0.43 0.87 0.19</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:37</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/msg/gyro_z</span><span class="feed-val">−0.0021</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:36</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/ori/euler</span><span class="feed-val">−3.2 18.7 91.0</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:36</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/status</span><span class="feed-val">ok</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:36</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/ori/quat</span><span class="feed-val">0.09 −0.51 0.85 0.11</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:35</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/msg/accel_y</span><span class="feed-val">−0.0019</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:35</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/msg/flex_1</span><span class="feed-val">0.782</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:35</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/ori/euler</span><span class="feed-val">7.1 −2.8 44.3</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:34</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/status</span><span class="feed-val">ok</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:34</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/ori/quat</span><span class="feed-val">0.21 −0.38 0.90 0.04</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:34</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/msg/gyro_x</span><span class="feed-val">0.0007</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:33</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/ori/euler</span><span class="feed-val">10.9 −5.2 87.1</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:33</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/msg/accel_z</span><span class="feed-val">9.803</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:33</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/ori/quat</span><span class="feed-val">0.11 −0.45 0.88 0.17</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:32</span><span class="feed-dev">lilly</span><span class="feed-addr">/annieData/lilly/msg/flex_2</span><span class="feed-val">0.441</span></div>
+    </div>
+  </div>
+
+  <!-- ── Serial Monitor ── -->
+  <div class="panel-serial">
+    <div class="serial-bar">
+      <span class="serial-title">Serial</span>
+      <span class="serial-pill">● /dev/cu.usbmodem101</span>
+      <select class="select-sm" style="background:#2a2a2a;color:#eee;border-color:#444"><option>115200</option></select>
+      <button class="btn-sm" style="background:#2a2a2a;color:#ccc;border-color:#444">Disconnect</button>
+    </div>
+    <div class="serial-terminal">
+      <div class="s-line s-dim">[14:02:31] connected to /dev/cu.usbmodem101 @ 115200</div>
+      <div class="s-line">[14:02:32] IMU init OK</div>
+      <div class="s-line s-grn">[14:02:32] WiFi connected — 192.168.1.44</div>
+      <div class="s-line">[14:02:33] OSC tx: /annieData/bart/ori/quat</div>
+      <div class="s-line">[14:02:34] OSC tx: /annieData/bart/msg/accel_x</div>
+      <div class="s-line s-yel">[14:02:35] WARN: ori buffer overflow — dropping frame</div>
+      <div class="s-line">[14:02:36] OSC tx: /annieData/bart/status ok</div>
+      <div class="s-line">[14:02:37] OSC tx: /annieData/bart/ori/quat</div>
+      <div class="s-line s-dim">[14:02:38] heartbeat</div>
+    </div>
+    <div class="serial-send">
+      <input class="serial-input" value="/annieData/bart/list/all verbose" readonly>
+      <button class="serial-send-btn">Send</button>
+    </div>
+  </div>
+
+  <!-- ── Notifications ── -->
+  <div class="panel-notif">
+    <div class="feed-header">
+      <h2>Notifications</h2>
+      <div class="feed-controls"><button class="btn-sm">Clear</button></div>
+    </div>
+    <div class="notif-list">
+      <div class="notif-item"><span class="notif-time">14:02:36</span><span class="notif-msg n-info">Querying bart…</span></div>
+      <div class="notif-item"><span class="notif-time">14:02:31</span><span class="notif-msg n-success">bart connected — 192.168.1.44:8000</span></div>
+      <div class="notif-item"><span class="notif-time">14:02:28</span><span class="notif-msg n-warn">lilly: reply timeout (port 9000)</span></div>
+      <div class="notif-item"><span class="notif-time">14:02:21</span><span class="notif-msg n-success">patch "scene_01" started on bart</span></div>
+      <div class="notif-item"><span class="notif-time">14:02:14</span><span class="notif-msg n-error">sam: connection refused — 192.168.1.51</span></div>
+      <div class="notif-item"><span class="notif-time">14:02:09</span><span class="notif-msg n-info">Listening on port 9000</span></div>
+    </div>
+  </div>
+
+  <!-- ── Reference ── -->
+  <div class="panel-ref">
+    <div class="ref-header">
+      <h2><strong>Reference</strong></h2>
+      <div class="feed-controls">
+        <input class="ref-search" placeholder="Search…">
+        <button class="btn-sm">Guide ↗</button>
+      </div>
+    </div>
+    <div class="ref-content">
+      <div class="ref-section">
+        <div class="ref-section-title">OSC Commands</div>
+        <div class="ref-cmd"><code>/annieData/{name}/list/all</code> — query full registry</div>
+        <div class="ref-cmd"><code>/annieData/{name}/msg/set</code> — configure a message</div>
+        <div class="ref-cmd"><code>/annieData/{name}/patch/start</code> — start a patch</div>
+      </div>
+      <div class="ref-section">
+        <div class="ref-section-title">Keywords</div>
+        <div class="ref-cmd"><code>verbose</code> — include full field metadata in reply</div>
+        <div class="ref-cmd"><code>override</code> — address mode: use explicit address string</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
