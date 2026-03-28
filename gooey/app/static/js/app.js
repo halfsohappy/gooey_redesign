@@ -1912,6 +1912,19 @@
     });
   });
 
+  /* Euler Tare */
+  $("#btnTareSet").addEventListener("click", function () {
+    sendCmd(addr("/annieData/{device}/tare"), null).then(function (res) {
+      if (res.status === "ok") toast("Tare set", "success");
+    });
+  });
+
+  $("#btnTareReset").addEventListener("click", function () {
+    sendCmd(addr("/annieData/{device}/tare/reset"), null).then(function (res) {
+      if (res.status === "ok") toast("Tare reset", "success");
+    });
+  });
+
   function refreshBridgeList() {
     fetch("/api/status").then(function (r) { return r.json(); }).then(function (data) {
       var container = $("#activeBridges");
