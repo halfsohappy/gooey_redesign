@@ -27,7 +27,8 @@ control surface on the same network.
 11. [Orientations (Oris)](#11-orientations-oris)
 12. [Status Monitoring](#12-status-monitoring)
 13. [Practical Workflows](#13-practical-workflows)
-14. [Troubleshooting](#14-troubleshooting)
+14. [Shows](#14-shows)
+15. [Troubleshooting](#15-troubleshooting)
 
 ---
 
@@ -422,6 +423,9 @@ Available keys:
 | `low` (or `min`) | Output range minimum. |
 | `high` (or `max`) | Output range maximum. |
 | `scene` | Name of a scene to assign this message to. |
+| `ori_only` (or `orionly`) | Name of an ori. Message sends only when this ori is active. |
+| `ori_not` (or `orinot`) | Name of an ori. Message sends only when this ori is NOT active. |
+| `ternori` | Name of an ori. Ignores sensor; sends `high` when ori is active, `low` when not. |
 
 ### Updating a message
 
@@ -532,8 +536,8 @@ To turn off an override, prefix the field with `-`:
 (WAIT, THIS IS ANNOYING. WE ALREADY ESTABLISHED THAT '-' MEANS REFERENCING OBJECTS, NOT SUBTRACTION. WHAT THE HECK CLAUDE, WHY DID U DO THIS. AND WHY DIDNT I CATCH IT. ETHAN REMIND ME TOMORROW TO CHANGE THIS.)
 
 
-Available override fields: `ip`, `port`, `adr`, `low`, `high`, `scale`
-(shortcut for both low and high), `all`, `none`.
+Available override fields: `ip`, `port`, `adr`, `low`, `high`, `bounds`
+(alias for both `low` + `high`), `scale` (same as `bounds`), `all`, `none`.
 
 ### Scaling with scene overrides
 
@@ -796,14 +800,15 @@ You can also select an ori remotely:
 | `/annieData/{dev}/ori/save/{name}` | *(none)* | Save current orientation (or expand range if name exists). |
 | `/annieData/{dev}/ori/reset/{name}` | *(none)* | Reset a range ori to a fresh single point. |
 | `/annieData/{dev}/ori/delete/{name}` | *(none)* | Delete an ori. |
-| `/annieData/{dev}/ori/clear` | *(none)* | Delete all oris. |
-| `/annieData/{dev}/ori/list` | *(none)* | List all oris. Range oris show `[R<N>]`. |
+| `/annieData/{dev}/ori/clear` | *(none)* | Erase all saved oris from memory. |
+| `/annieData/{dev}/ori/list` | *(none)* | List all registered oris with sample counts. Range oris show `[R<N>]`. |
 | `/annieData/{dev}/ori/info/{name}` | *(none)* | Show ori details (samples, center, half-widths). |
 | `/annieData/{dev}/ori/active` | *(none)* | Query the currently active ori. |
 | `/annieData/{dev}/ori/threshold` | float (rad/s) | Set the motion gate gyro threshold. |
 | `/annieData/{dev}/ori/tolerance` | float (degrees) | Set angular match tolerance for range oris. |
 | `/annieData/{dev}/ori/strict` | `"on"` / `"off"` | Toggle strict matching (no-match allowed). |
 | `/annieData/{dev}/ori/color/{name}` | `"r,g,b"` (0–255) | Set the RGB color of a named ori. |
+| `/annieData/{dev}/ori/register/{name}` | Optional: `"r,g,b"` color string | Pre-register an ori slot before saving. Auto-assigns LED color from palette, or set custom. |
 | `/annieData/{dev}/ori/select/{name}` | *(none)* | Select an ori for on-device editing (Button A). |
 
 ### Notes
@@ -1042,7 +1047,48 @@ other axes.
 
 ---
 
-## 14. Troubleshooting
+## 14. Shows
+
+A **show** is a named snapshot of the entire device state — all messages,
+scenes, and oris.  Think of it as a "save file" for everything the device is
+doing.
+
+### Storage
+
+- The device's non-volatile storage (NVS) can hold up to **4 shows**.
+- Gooey's local library stores unlimited shows as JSON files in
+  `gooey/data/shows/`.
+
+### Saving a show
+
+Send the show name as the payload:
+
+```
+/annieData/{dev}/save   "act1"
+```
+
+This writes the current messages, scenes, and oris into a show named `act1`
+on the device's NVS.
+
+### Loading a show
+
+```
+/annieData/{dev}/load   "act1"
+```
+
+Loading a show **replaces** all current messages, scenes, and oris with the
+contents of the saved show.
+
+### Gooey UI
+
+Gooey provides a Shows tab where you can save, load, rename, and delete shows
+using a graphical interface.  Shows saved through Gooey are also stored locally
+as JSON files in `gooey/data/shows/`, so you can back them up, share them
+between machines, or keep more than the 4-show device limit.
+
+---
+
+## 15. Troubleshooting
 
 ### The device is not responding to commands
 
@@ -1082,6 +1128,15 @@ other axes.
   [low, high].
 - If a scene overrides bounds (`scale` override), the scene's bounds are used
   instead of each message's.  Check the scene's override settings.
+
+### Running out of message or scene slots
+
+The device supports a maximum of **64 scenes** and **256 messages**.  If you
+hit these limits:
+
+- Delete unused scenes or messages with the `/delete` command.
+- Use `/annieData/{dev}/nvs/clear` to factory-reset all saved OSC data and
+  start fresh.
 
 ### The device needs to be re-provisioned
 

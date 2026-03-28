@@ -213,8 +213,9 @@ portal mode.
 
 **File:** `data_streams.h`
 
-The global array `float data_streams[18]` holds the current normalised sensor
-values.  All values are in the range **[0, 1]**.
+The global array `float data_streams[NUM_DATA_STREAMS]` (where
+`#define NUM_DATA_STREAMS 22`) holds the current normalised sensor values.
+All values are in the range **[0, 1]**.
 
 | Index | Name | Physical meaning |
 |-------|------|-----------------|
@@ -292,6 +293,7 @@ An OscMessage binds a single sensor stream to an outbound OSC destination:
 │ enabled      : bool                     │
 │ ori_only     : String  (ab7 only)       │
 │ ori_not      : String  (ab7 only)       │
+│ ternori      : String  (ab7 only)       │
 │ exist        : ExistFlags               │
 ├─────────────────────────────────────────┤
 │ sendable()   : bool                     │
@@ -325,6 +327,11 @@ to send only when a specific orientation is (or is not) the active match.
 Config keys: `ori_only:{name}`, `ori_not:{name}`.  These are stored on the
 message and checked in the send task.  On Bart builds the fields exist but are
 never checked.
+
+**Ternary ori field** (ab7 only): `ternori` names an ori.  When set, the
+message ignores `value_ptr` and sends `bounds[1]` (high) when the named ori is
+active, `bounds[0]` (low) when it is not.  Config key: `ternori:{name}`.
+Saved to NVS.
 
 ### OscScene (`osc_scene.h`)
 
@@ -580,6 +587,7 @@ Commands that need two values accept a single CSV string: `"name1, name2"`.
 | `enabled` | `true`/`false` | Enable or disable the message. |
 | `ori_only` | ori name | *(ab7 only)* Send only when this ori is active. |
 | `ori_not` | ori name | *(ab7 only)* Send only when this ori is NOT active. |
+| `ternori` | ori name | *(ab7 only)* Ignore `value_ptr`; send `bounds[1]` (high) when named ori is active, `bounds[0]` (low) when not. Saved to NVS. |
 
 **Reference mode:** Use `-` instead of `:` to inherit a value from a named
 registry object:
@@ -799,7 +807,7 @@ src/
 ├── ab7_hardware.cpp    ab7 BNO085 IMU driver, quaternion-to-Euler.
 ├── ori_tracker.h       Orientation save/recall/matching (ab7 only).
 ├── network_setup.h     WiFi captive-portal provisioning (uses net_pass).
-├── data_streams.h      data_streams[12] array, index constants, simulated data.
+├── data_streams.h      data_streams[22] array (NUM_DATA_STREAMS), index constants, simulated data.
 ├── osc_message.h       OscMessage class, ExistFlags, ori_only/ori_not fields.
 ├── osc_scene.h         OscScene class, OverrideFlags, AddressMode, period clamping.
 ├── osc_registry.h      OscRegistry singleton, method implementations.
@@ -854,12 +862,12 @@ Approximate memory footprint:
 
 | Array | Size | Rough bytes |
 |-------|------|-------------|
-| `scenes[64]` | 64 × ~300 bytes | ~19 KB |
-| `messages[256]` | 256 × ~100 bytes | ~25 KB |
+| `scenes[64]` | 64 × ~500 bytes (includes `msg_indices[64]` array) | ~32 KB |
+| `messages[256]` | 256 × ~180 bytes (includes String fields, ori fields) | ~46 KB |
 | `data_streams[22]` | 22 × 4 bytes | 88 bytes |
 
 The ESP32-S3 has ~512 KB of SRAM, of which ~300 KB is available after WiFi and
-BLE stacks.  The registry uses about 44 KB, leaving plenty of room.
+BLE stacks.  The registry uses about 78 KB, leaving plenty of room.
 
 To change capacity, modify `MAX_OSC_PATCHES` and `MAX_OSC_MESSAGES` in
 `osc_message.h` and recompile.

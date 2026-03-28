@@ -539,7 +539,7 @@
 
           <div class="card" data-card-id="ori-register">
             <h2>Register Ori</h2>
-            <p class="hint-text">Create a named ori slot on the device immediately. Then use <strong>Record Ori</strong> below (or Button A on-device) to capture its orientation.</p>
+            <p class="hint-text">Create a named ori slot on the device immediately. Then use <strong>Record Ori</strong> below (or Button A on ab7 devices) to capture its orientation. Color is auto-assigned from a 12-color palette, or pick a custom one.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="regOriName">Name</label>
@@ -628,6 +628,7 @@
 
           <div class="card" data-card-id="ori-settings">
             <h2>Ori Settings</h2>
+            <p class="hint-text">Threshold sets the motion gate — device must be still (below this rad/s) before matching. Tolerance widens the angular match window. Strict disables fallback to the last-matched ori when none match.</p>
             <div class="form-row">
               <div class="form-group fg-narrow">
                 <label for="oriThreshold">Threshold (rad/s)</label>
@@ -650,7 +651,7 @@
 
           <div class="card" data-card-id="ori-color">
             <h2>Ori Color &amp; Select</h2>
-            <p class="hint-text">Set the LED color for an ori (used for on-device button editing).</p>
+            <p class="hint-text">Set the LED color for an ori (used for on-device button editing on ab7 devices). Select makes this the active ori for the physical button workflow.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="oriColorName">Ori Name</label>
@@ -698,7 +699,7 @@
 
           <div class="card" data-card-id="shows-device">
             <h2>On Device</h2>
-            <p class="hint-text">Shows stored in device NVS (max 4). Loading a show replaces all current messages, scenes, and oris — a confirmation is required.</p>
+            <p class="hint-text">Shows stored in device NVS (max 4). Loading a show replaces <strong>all</strong> current messages, scenes, and oris on the device.</p>
             <div class="btn-row" style="margin-bottom:8px">
               <button class="btn btn-secondary" id="btnShowListDevice">Refresh</button>
             </div>
@@ -736,7 +737,7 @@
         <section class="section" id="sec-direct">
           <div class="card">
             <h2>Direct Command</h2>
-            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately.</p>
+            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately. If a message or scene with the same name already exists, it will be replaced.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="directName">Name</label>
