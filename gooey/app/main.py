@@ -17,6 +17,7 @@ from .osc_handler import OSCEngine
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "theatergwd-control-center"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() == "true"
 engine = OSCEngine(socketio)
 
 # ── Validation helpers ──
@@ -51,6 +52,10 @@ def _valid_address(addr):
 
 def _error(msg, code=400):
     return jsonify({"status": "error", "message": msg}), code
+
+
+def _demo(action):
+    return jsonify({"status": "error", "message": f"Demo mode \u2014 {action}"}), 200
 
 
 # ── Client-side device registry ──
@@ -111,6 +116,8 @@ def api_send():
     if not _valid_address(address):
         return _error("OSC address must start with /")
 
+    if DEMO_MODE:
+        return _demo("OSC messages can't be sent in the online demo.")
     result = engine.send_message(_resolve_host(host), int(port), address, args)
     return jsonify(result)
 
@@ -139,6 +146,8 @@ def api_send_repeat():
     except (ValueError, TypeError):
         return _error("Invalid interval")
 
+    if DEMO_MODE:
+        return _demo("Repeated send isn't available in the online demo.")
     result = engine.start_repeated_send(
         send_id, _resolve_host(host), int(port), address, args, interval)
     return jsonify(result)
@@ -167,6 +176,8 @@ def api_send_json():
     if not isinstance(messages, list) or not messages:
         return _error("Messages must be a non-empty array")
 
+    if DEMO_MODE:
+        return _demo("OSC messages can't be sent in the online demo.")
     result = engine.send_json_messages(
         _resolve_host(host), int(port), messages, int(interval))
     return jsonify(result)
@@ -182,6 +193,8 @@ def api_recv_start():
     if not _valid_port(port):
         return _error("Port must be 1-65535")
 
+    if DEMO_MODE:
+        return _demo("OSC listeners can't be started in the online demo.")
     result = engine.start_receiver(recv_id, int(port), filter_str)
     return jsonify(result)
 
@@ -213,6 +226,8 @@ def api_bridge_start():
     if not _valid_port(out_port):
         return _error("Output port must be 1-65535")
 
+    if DEMO_MODE:
+        return _demo("The OSC bridge isn't available in the online demo.")
     result = engine.start_bridge(
         bridge_id, int(in_port), _resolve_host(out_host),
         int(out_port), filter_str)
@@ -403,6 +418,9 @@ def handle_serial_list_ports():
 @socketio.on("serial_connect")
 def handle_serial_connect(data):
     sid = request.sid
+    if DEMO_MODE:
+        socketio.emit("serial_error", {"message": "Demo mode \u2014 Serial connections aren't available in the online demo."}, to=sid)
+        return
     port = data.get("port", "")
     baud = int(data.get("baud", 115200))
     _close_serial(sid)
@@ -440,6 +458,9 @@ def handle_serial_disconnect_port():
 @socketio.on("serial_send")
 def handle_serial_send(data):
     sid = request.sid
+    if DEMO_MODE:
+        socketio.emit("serial_error", {"message": "Demo mode \u2014 Can't send serial data in the online demo."}, to=sid)
+        return
     conn = _serial_connections.get(sid)
     if not conn:
         return
