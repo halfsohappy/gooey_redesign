@@ -1,4 +1,5 @@
 [build]
+builder = "NIXPACKS"
 buildCommand = "pip install -r gooey/requirements.txt"
 
 [deploy]
