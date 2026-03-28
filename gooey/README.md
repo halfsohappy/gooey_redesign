@@ -13,7 +13,7 @@ Built with Python. Runs in your browser. Designed for theater professionals.
 ### Homebrew (macOS — recommended)
 
 ```bash
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
+brew install halfsohappy/theatergwd/gooey
 ```
 
 Then run:

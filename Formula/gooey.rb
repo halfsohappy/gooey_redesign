@@ -2,12 +2,8 @@
 
 # Homebrew formula for Gooey – TheaterGWD Control Center
 #
-# Install (one line):
-#   brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
-#
-# Or step by step:
-#   brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD
-#   brew install gooey
+# Install:
+#   brew install halfsohappy/theatergwd/gooey
 #
 class Gooey < Formula
   desc "TheaterGWD Control Center – web-based OSC device manager for theater sensor hardware"

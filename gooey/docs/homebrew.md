@@ -46,22 +46,11 @@ Homebrew installs Python automatically as a dependency — you don't need to ins
 
 ## Installation
 
-### Option A: Tap and install (recommended)
-
 ```bash
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD
-brew install gooey
+brew install halfsohappy/theatergwd/gooey
 ```
 
-The `tap` command registers the TheaterGWD repository as a Homebrew tap. You only need to do this once — future `brew install` / `brew upgrade` commands will find it automatically.
-
-### Option B: One-liner
-
-```bash
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
-```
-
-This taps the repository and installs in a single command.
+This automatically registers the TheaterGWD tap and installs Gooey in one step. Future `brew upgrade gooey` commands will find it automatically.
 
 ### Verify
 
@@ -165,7 +154,7 @@ brew uninstall gooey
 brew untap halfsohappy/theatergwd
 ```
 
-This removes the tap registration. You can always re-tap later.
+This removes the tap registration. You can always re-install later.
 
 ### Full cleanup
 
@@ -272,8 +261,7 @@ brew reinstall gooey
 
 ```bash
 brew untap halfsohappy/theatergwd
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD
-brew install gooey
+brew install halfsohappy/theatergwd/gooey
 ```
 
 ---

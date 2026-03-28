@@ -34,14 +34,7 @@ The fastest way on macOS. One command to install, one command to run.
 ### Install
 
 ```bash
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD
-brew install gooey
-```
-
-Or in one line:
-
-```bash
-brew tap halfsohappy/theatergwd https://github.com/halfsohappy/TheaterGWD && brew install gooey
+brew install halfsohappy/theatergwd/gooey
 ```
 
 ### Run
@@ -224,7 +217,7 @@ pip install -r requirements.txt   # In case deps changed
 
 ```bash
 brew uninstall gooey
-brew untap halfsohappy/theatergwd     # Optional: remove the tap
+brew untap halfsohappy/theatergwd    # Optional: remove the tap
 ```
 
 ### pip
