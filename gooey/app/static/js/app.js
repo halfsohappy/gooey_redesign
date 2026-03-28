@@ -1559,7 +1559,14 @@
         var dev = getActiveDev();
         if (dev) {
           dev.messages[name] = parseConfigString(cfg);
+          /* Auto-register any ori names referenced in ori fields */
+          [resolveName(oo, true), resolveName(on, true), resolveName(tn, true)].forEach(function (oriName) {
+            if (oriName && !dev.oris[oriName]) {
+              dev.oris[oriName] = { color: [255, 255, 255], samples: 0, pre_reg: true };
+            }
+          });
           renderMsgTable();
+          renderOriTable();
           refreshAllDropdowns();
         }
       }
