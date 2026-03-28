@@ -1535,17 +1535,21 @@
   $("#btnMsgApply").addEventListener("click", function () {
     var name = ($("#msgName").value || "").trim();
     if (!name) { toast("Message name required", "error"); return; }
+    /* Resolve "name" shorthand: address → "/msgName", ori fields → "ori_msgName" */
+    function resolveName(val, ori) {
+      return val.toLowerCase() === "name" ? (ori ? "ori_" + name : "/" + name) : val;
+    }
     var parts = [];
-    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push("adr:" + a);
+    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push("adr:" + resolveName(a, false));
     var v = $("#msgValue").value; if (v) parts.push("value:" + v);
     var ip = $("#msgIP").value.trim(); if (ip) parts.push("ip:" + ip);
     var port = $("#msgPort").value; if (port) parts.push("port:" + port);
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
     var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
-    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
-    var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
-    var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + tn);
+    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + resolveName(oo, true));
+    var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + resolveName(on, true));
+    var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + resolveName(tn, true));
     var cfg = parts.join(", ");
     var address = addr("/annieData/{device}/msg/{name}", name);
     sendCmd(address, cfg || null).then(function (res) {
