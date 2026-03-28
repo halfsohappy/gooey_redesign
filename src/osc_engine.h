@@ -5,21 +5,21 @@
 // This file provides:
 //   1. The WiFiUDP + MicroOscUdp globals used for all OSC I/O.
 //   2. A send mutex that serialises access to the UDP socket across tasks.
-//   3. The FreeRTOS task function that each OscPatch runs to send its
+//   3. The FreeRTOS task function that each OscScene runs to send its
 //      messages at the configured polling period.
-//   4. Helpers: start_patch / stop_patch / blackout_all / restore_all.
+//   4. Helpers: start_scene / stop_scene / blackout_all / restore_all.
 //   5. The StatusReporter::send() implementation (needs the MicroOsc global).
 //   6. begin_udp() — initialises WiFi and the UDP listener.
 //
-// SENDING FLOW (per patch task iteration):
+// SENDING FLOW (per scene task iteration):
 //   1. Sleep for send_period_ms.
-//   2. If the patch is disabled, go back to sleep.
+//   2. If the scene is disabled, go back to sleep.
 //   3. Lock the registry mutex.
-//   4. For each message index in the patch:
+//   4. For each message index in the scene:
 //      a. Skip if the message is disabled.
 //      b. Resolve effective IP, port, and OSC address (message's own value,
-//         or the patch's value if the patch overrides that field, or the
-//         patch's value as a fallback if the message has no value set).
+//         or the scene's value if the scene overrides that field, or the
+//         scene's value as a fallback if the message has no value set).
 //      c. Read the live sensor value from data_streams[].
 //      d. Lock the send mutex.
 //      e. Set the MicroOsc destination and call sendFloat().
@@ -122,51 +122,51 @@ inline void StatusReporter::send(StatusLevel lvl, const String& category,
 // ---------------------------------------------------------------------------
 //
 // These decide what IP / port / address / bounds a message actually uses,
-// taking into account the patch override flags and fallback logic:
+// taking into account the scene override flags and fallback logic:
 //
-//   1. If the patch overrides the field AND the patch has it set → patch wins.
+//   1. If the scene overrides the field AND the scene has it set → scene wins.
 //   2. Else if the message has it set → message wins.
-//   3. Else if the patch has it set (no override, but no message value) → patch.
+//   3. Else if the scene has it set (no override, but no message value) → scene.
 //   4. Else → empty / zero (not sendable).
 
-static inline IPAddress resolve_ip(const OscMessage& m, const OscPatch& p) {
+static inline IPAddress resolve_ip(const OscMessage& m, const OscScene& p) {
     if (p.overrides.ip && p.exist.ip) return p.ip;
     if (m.exist.ip)                   return m.ip;
     if (p.exist.ip)                   return p.ip;
     return IPAddress(0, 0, 0, 0);
 }
 
-static inline unsigned int resolve_port(const OscMessage& m, const OscPatch& p) {
+static inline unsigned int resolve_port(const OscMessage& m, const OscScene& p) {
     if (p.overrides.port && p.exist.port) return p.port;
     if (m.exist.port)                     return m.port;
     if (p.exist.port)                     return p.port;
     return 0;
 }
 
-/// Resolve the effective OSC address using the patch's address_mode:
+/// Resolve the effective OSC address using the scene's address_mode:
 ///
-///   ADR_FALLBACK — message's own address, patch as fallback if msg has none.
-///   ADR_OVERRIDE — patch address replaces message address entirely.
-///   ADR_PREPEND  — patch.adr + msg.adr  (e.g. "/mixer" + "/fader1" → "/mixer/fader1")
-///   ADR_APPEND   — msg.adr + patch.adr  (e.g. "/fader1" + "/mixer" → "/fader1/mixer")
+///   ADR_FALLBACK — message's own address, scene as fallback if msg has none.
+///   ADR_OVERRIDE — scene address replaces message address entirely.
+///   ADR_PREPEND  — scene.adr + msg.adr  (e.g. "/mixer" + "/fader1" → "/mixer/fader1")
+///   ADR_APPEND   — msg.adr + scene.adr  (e.g. "/fader1" + "/mixer" → "/fader1/mixer")
 ///
 /// For PREPEND and APPEND, if either side is empty it gracefully degrades
 /// to just the non-empty side.  A leading double-slash is avoided by
 /// stripping trailing '/' from the first part.
-static inline String resolve_address(const OscMessage& m, const OscPatch& p) {
+static inline String resolve_address(const OscMessage& m, const OscScene& p) {
     String m_adr = m.exist.adr ? m.osc_address : String("");
     String p_adr = p.exist.adr ? p.osc_address : String("");
 
     switch (p.address_mode) {
         case ADR_OVERRIDE:
-            // Patch address replaces message address unconditionally.
+            // Scene address replaces message address unconditionally.
             return p_adr.length() > 0 ? p_adr : m_adr;
 
         case ADR_PREPEND: {
-            // patch.adr + msg.adr  (patch first, message appended).
+            // scene.adr + msg.adr  (scene first, message appended).
             if (p_adr.length() == 0) return m_adr;
             if (m_adr.length() == 0) return p_adr;
-            // Strip trailing '/' from patch to avoid "//".
+            // Strip trailing '/' from scene to avoid "//".
             String prefix = p_adr;
             if (prefix.endsWith("/")) prefix.remove(prefix.length() - 1);
             // Ensure msg part starts with '/'.
@@ -175,30 +175,30 @@ static inline String resolve_address(const OscMessage& m, const OscPatch& p) {
         }
 
         case ADR_APPEND: {
-            // msg.adr + patch.adr  (message first, patch appended).
+            // msg.adr + scene.adr  (message first, scene appended).
             if (m_adr.length() == 0) return p_adr;
             if (p_adr.length() == 0) return m_adr;
             // Strip trailing '/' from message to avoid "//".
             String prefix = m_adr;
             if (prefix.endsWith("/")) prefix.remove(prefix.length() - 1);
-            // Ensure patch part starts with '/'.
+            // Ensure scene part starts with '/'.
             if (!p_adr.startsWith("/")) p_adr = "/" + p_adr;
             return prefix + p_adr;
         }
 
         case ADR_FALLBACK:
         default:
-            // Message's address wins if set; otherwise use patch as fallback.
+            // Message's address wins if set; otherwise use scene as fallback.
             // The overrides.adr flag is handled here for backward compatibility:
-            // if overrides.adr is true, the patch address is forced (like OVERRIDE).
+            // if overrides.adr is true, the scene address is forced (like OVERRIDE).
             if (p.overrides.adr && p_adr.length() > 0) return p_adr;
             return m_adr.length() > 0 ? m_adr : p_adr;
     }
 }
 
 /// Resolve the effective low bound (bounds[0]).
-/// Patch override → message's own → patch fallback → 0.0.
-static inline float resolve_low(const OscMessage& m, const OscPatch& p) {
+/// Scene override → message's own → scene fallback → 0.0.
+static inline float resolve_low(const OscMessage& m, const OscScene& p) {
     if (p.overrides.low && p.exist.low)  return p.bounds[0];
     if (m.exist.low)                     return m.bounds[0];
     if (p.exist.low)                     return p.bounds[0];
@@ -206,8 +206,8 @@ static inline float resolve_low(const OscMessage& m, const OscPatch& p) {
 }
 
 /// Resolve the effective high bound (bounds[1]).
-/// Patch override → message's own → patch fallback → 1.0.
-static inline float resolve_high(const OscMessage& m, const OscPatch& p) {
+/// Scene override → message's own → scene fallback → 1.0.
+static inline float resolve_high(const OscMessage& m, const OscScene& p) {
     if (p.overrides.high && p.exist.high) return p.bounds[1];
     if (m.exist.high)                     return m.bounds[1];
     if (p.exist.high)                     return p.bounds[1];
@@ -215,24 +215,24 @@ static inline float resolve_high(const OscMessage& m, const OscPatch& p) {
 }
 
 // ---------------------------------------------------------------------------
-// Patch send task — the FreeRTOS function each patch runs
+// Scene send task — the FreeRTOS function each scene runs
 // ---------------------------------------------------------------------------
 //
-// The task receives a pointer to its OscPatch (which lives in the registry's
+// The task receives a pointer to its OscScene (which lives in the registry's
 // fixed array and never moves).  It loops forever, sending all assigned
 // messages at the configured rate.
 
-void patch_send_task(void* param) {
-    OscPatch* patch = static_cast<OscPatch*>(param);
+void scene_send_task(void* param) {
+    OscScene* scene = static_cast<OscScene*>(param);
     OscRegistry& reg = osc_registry();
 
     int last_ori_index = -1;   // matches OriTracker default (no active ori)
 
     for (;;) {
         // Sleep for the polling period.
-        vTaskDelay(pdMS_TO_TICKS(clamp_patch_period_ms((long)patch->send_period_ms)));
+        vTaskDelay(pdMS_TO_TICKS(clamp_scene_period_ms((long)scene->send_period_ms)));
 
-        if (!patch->enabled) continue;
+        if (!scene->enabled) continue;
 
         // Reset dedup caches whenever the active ori changes so that messages
         // always fire at least once after each ori transition.
@@ -246,8 +246,8 @@ void patch_send_task(void* param) {
 
         reg.lock();
 
-        for (uint8_t i = 0; i < patch->msg_count; i++) {
-            int mi = patch->msg_indices[i];
+        for (uint8_t i = 0; i < scene->msg_count; i++) {
+            int mi = scene->msg_indices[i];
             if (mi < 0 || mi >= (int)reg.msg_count) continue;
 
             OscMessage& msg = reg.messages[mi];
@@ -268,9 +268,9 @@ void patch_send_task(void* param) {
             }
 
             // Resolve effective destination.
-            IPAddress    eff_ip   = resolve_ip(msg, *patch);
-            unsigned int eff_port = resolve_port(msg, *patch);
-            String       eff_adr  = resolve_address(msg, *patch);
+            IPAddress    eff_ip   = resolve_ip(msg, *scene);
+            unsigned int eff_port = resolve_port(msg, *scene);
+            String       eff_adr  = resolve_address(msg, *scene);
 
             if (eff_ip == IPAddress(0, 0, 0, 0) || eff_port == 0 || eff_adr.length() == 0) {
                 continue;  // not enough info to send
@@ -284,9 +284,9 @@ void patch_send_task(void* param) {
                 val = *(msg.value_ptr);
             }
 
-            // Resolve effective output bounds (patch may override message's).
-            float eff_low  = resolve_low(msg, *patch);
-            float eff_high = resolve_high(msg, *patch);
+            // Resolve effective output bounds (scene may override message's).
+            float eff_low  = resolve_low(msg, *scene);
+            float eff_high = resolve_high(msg, *scene);
 
             // Map [0, 1] → [low, high].  If low == high the value passes
             // through as-is (degenerate range means "no scaling").
@@ -326,11 +326,11 @@ void patch_send_task(void* param) {
 }
 
 // ---------------------------------------------------------------------------
-// Patch lifecycle helpers
+// Scene lifecycle helpers
 // ---------------------------------------------------------------------------
 
-/// Create and start the FreeRTOS task for a patch.  No-op if already running.
-static inline void start_patch(OscPatch* p) {
+/// Create and start the FreeRTOS task for a scene.  No-op if already running.
+static inline void start_scene(OscScene* p) {
     if (!p) return;
     if (p->task_handle) return;  // already running
 
@@ -341,50 +341,50 @@ static inline void start_patch(OscPatch* p) {
     snprintf(tname, sizeof(tname), "p_%s", p->name.c_str());
 
     xTaskCreate(
-        patch_send_task,   // task function
+        scene_send_task,   // task function
         tname,             // name (for debugging)
         4096,              // stack size (bytes)
-        p,                 // parameter: pointer to the patch
+        p,                 // parameter: pointer to the scene
         1,                 // priority
-        &p->task_handle    // handle stored back in the patch
+        &p->task_handle    // handle stored back in the scene
     );
 
-    status_reporter().info("patch", "Started patch '" + p->name + "'");
+    status_reporter().info("scene", "Started scene '" + p->name + "'");
 }
 
-/// Stop the FreeRTOS task for a patch.
-static inline void stop_patch(OscPatch* p) {
+/// Stop the FreeRTOS task for a scene.
+static inline void stop_scene(OscScene* p) {
     if (!p) return;
     p->enabled = false;
     if (p->task_handle) {
         vTaskDelete(p->task_handle);
         p->task_handle = nullptr;
     }
-    status_reporter().info("patch", "Stopped patch '" + p->name + "'");
+    status_reporter().info("scene", "Stopped scene '" + p->name + "'");
 }
 
-/// Stop all patch tasks (theater "blackout").
+/// Stop all scene tasks (theater "blackout").
 static inline void blackout_all() {
     OscRegistry& reg = osc_registry();
     reg.lock();
-    for (uint16_t i = 0; i < reg.patch_count; i++) {
-        stop_patch(&reg.patches[i]);
+    for (uint16_t i = 0; i < reg.scene_count; i++) {
+        stop_scene(&reg.scenes[i]);
     }
     reg.unlock();
-    status_reporter().info("engine", "BLACKOUT — all patches stopped");
+    status_reporter().info("engine", "BLACKOUT — all scenes stopped");
 }
 
-/// Re-enable and start all patches that have at least one message.
+/// Re-enable and start all scenes that have at least one message.
 static inline void restore_all() {
     OscRegistry& reg = osc_registry();
     reg.lock();
-    for (uint16_t i = 0; i < reg.patch_count; i++) {
-        if (reg.patches[i].msg_count > 0) {
-            start_patch(&reg.patches[i]);
+    for (uint16_t i = 0; i < reg.scene_count; i++) {
+        if (reg.scenes[i].msg_count > 0) {
+            start_scene(&reg.scenes[i]);
         }
     }
     reg.unlock();
-    status_reporter().info("engine", "RESTORE — all patches restarted");
+    status_reporter().info("engine", "RESTORE — all scenes restarted");
 }
 
 // ---------------------------------------------------------------------------

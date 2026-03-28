@@ -31,7 +31,7 @@
 
 // --- OSC object model -------------------------------------------------------
 #include "osc_message.h"   // OscMessage class
-#include "osc_patch.h"     // OscPatch class
+#include "osc_scene.h"     // OscScene class
 #include "osc_registry.h"  // OscRegistry singleton + method implementations
 
 // --- Device address (set during provisioning, used in command dispatch) ------
@@ -43,7 +43,7 @@ String device_adr;
 // --- Sending engine (FreeRTOS tasks, UDP, MicroOsc) -------------------------
 #include "osc_engine.h"
 
-// --- Non-volatile storage for patches and messages --------------------------
+// --- Non-volatile storage for scenes and messages --------------------------
 #include "osc_storage.h"
 
 // --- Network provisioning (captive portal) ----------------------------------

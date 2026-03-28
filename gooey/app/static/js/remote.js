@@ -12,7 +12,7 @@ const App = (() => {
   let pendingResolve = null;   // for osc() Promise
   let pendingTimer  = null;
   let _currentMsgName   = null;
-  let _currentPatchName = null;
+  let _currentSceneName = null;
   const monitorItems = [];
 
   /* ── Persistence ─────────────────────────────────────────────────────────── */
@@ -177,7 +177,7 @@ const App = (() => {
     return text.split(/[\s,]+/)
       .map(s => s.trim())
       .filter(s => /^[\w.\-]{1,32}$/.test(s) &&
-                   !["ok","true","false","msgs","patches","none","error"].includes(s));
+                   !["ok","true","false","msgs","scenes","none","error"].includes(s));
   }
 
   /* ── Monitor ─────────────────────────────────────────────────────────────── */
@@ -245,16 +245,16 @@ const App = (() => {
     go("screenMsgDetail");
   }
 
-  /* ── Patches screen ──────────────────────────────────────────────────────── */
-  function loadPatches() {
-    const body = document.getElementById("patchListBody");
+  /* ── Scenes screen ──────────────────────────────────────────────────────── */
+  function loadScenes() {
+    const body = document.getElementById("sceneListBody");
     body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
-    showLoading("Fetching patches…");
-    osc("list/patches").then(reply => {
+    showLoading("Fetching scenes…");
+    osc("list/scenes").then(reply => {
       hideLoading();
       const names = parseNames(reply);
       if (!names.length) {
-        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No patches found</div></div></div></div>`;
+        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No scenes found</div></div></div></div>`;
         return;
       }
       body.innerHTML = `<div class="section-label">Tap to manage</div>`;
@@ -262,25 +262,25 @@ const App = (() => {
       names.forEach(name => {
         const row = document.createElement("div"); row.className = "row";
         row.innerHTML = `<div class="row-icon">🗂</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
-        row.addEventListener("click", () => openPatchDetail(name));
+        row.addEventListener("click", () => openSceneDetail(name));
         card.appendChild(row);
       });
       body.appendChild(card);
     });
   }
 
-  function openPatchDetail(name) {
-    _currentPatchName = name;
-    document.getElementById("patchDetailTitle").textContent = name;
-    const body = document.getElementById("patchDetailBody");
+  function openSceneDetail(name) {
+    _currentSceneName = name;
+    document.getElementById("sceneDetailTitle").textContent = name;
+    const body = document.getElementById("sceneDetailBody");
     body.innerHTML = "";
     const card = document.createElement("div"); card.className = "card";
     const actions = [
-      { label:"Start",      icon:"▶️", cls:"success", fn: () => { _sendNoReply(`patch/${name}/start`); toast("Started"); } },
-      { label:"Stop",       icon:"⏹", cls:"warn",    fn: () => { _sendNoReply(`patch/${name}/stop`);  toast("Stopped"); } },
-      { label:"Info",       icon:"ℹ️",                fn: () => _sendAndShow(`patch/${name}/info`, null, `${name} info`) },
-      { label:"Enable All", icon:"✅",                fn: () => { _sendNoReply(`patch/${name}/enableAll`); toast("All enabled"); } },
-      { label:"Delete",     icon:"🗑", cls:"danger",  fn: () => confirm(`Delete patch "${name}"?`, () => { _sendNoReply(`patch/${name}/delete`); toast("Deleted"); back(); }) },
+      { label:"Start",      icon:"▶️", cls:"success", fn: () => { _sendNoReply(`scene/${name}/start`); toast("Started"); } },
+      { label:"Stop",       icon:"⏹", cls:"warn",    fn: () => { _sendNoReply(`scene/${name}/stop`);  toast("Stopped"); } },
+      { label:"Info",       icon:"ℹ️",                fn: () => _sendAndShow(`scene/${name}/info`, null, `${name} info`) },
+      { label:"Enable All", icon:"✅",                fn: () => { _sendNoReply(`scene/${name}/enableAll`); toast("All enabled"); } },
+      { label:"Delete",     icon:"🗑", cls:"danger",  fn: () => confirm(`Delete scene "${name}"?`, () => { _sendNoReply(`scene/${name}/delete`); toast("Deleted"); back(); }) },
     ];
     actions.forEach(a => {
       const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
@@ -289,7 +289,7 @@ const App = (() => {
       card.appendChild(row);
     });
     body.appendChild(card);
-    go("screenPatchDetail");
+    go("screenSceneDetail");
   }
 
   /* ── Oris screen ─────────────────────────────────────────────────────────── */
@@ -380,14 +380,14 @@ const App = (() => {
       });
     });
     document.getElementById("menuMessages").addEventListener("click", () => { go("screenMessages"); loadMessages(); });
-    document.getElementById("menuPatches").addEventListener("click",  () => { go("screenPatches");  loadPatches();  });
+    document.getElementById("menuScenes").addEventListener("click",  () => { go("screenScenes");  loadScenes();  });
     document.getElementById("menuOris").addEventListener("click",     () => { go("screenOris"); });
     document.getElementById("menuQuick").addEventListener("click",    () => go("screenQuick"));
     document.getElementById("menuMonitor").addEventListener("click",  () => go("screenMonitor"));
     document.getElementById("menuSettings").addEventListener("click", () => openSettings());
 
     /* ── Back buttons ── */
-    ["backMessages","backPatches","backMsgDetail","backPatchDetail",
+    ["backMessages","backScenes","backMsgDetail","backSceneDetail",
      "backOris","backOriDetail",
      "backQuick","backMonitor","backSettings","backResult"].forEach(id => {
       document.getElementById(id).addEventListener("click", back);
@@ -420,14 +420,14 @@ const App = (() => {
       loadOris();
     });
 
-    /* ── Patches ── */
-    document.getElementById("btnRefreshPatches").addEventListener("click", loadPatches);
+    /* ── Scenes ── */
+    document.getElementById("btnRefreshScenes").addEventListener("click", loadScenes);
 
     /* ── Quick actions ── */
     document.getElementById("qBlackout").addEventListener("click", () =>
-      confirm("Blackout? All patches will stop.", () => { _sendNoReply("blackout"); toast("Blackout sent"); }));
+      confirm("Blackout? All scenes will stop.", () => { _sendNoReply("blackout"); toast("Blackout sent"); }));
     document.getElementById("qRestore").addEventListener("click",  () =>
-      confirm("Restore all previous patches?", () => { _sendNoReply("restore"); toast("Restore sent"); }));
+      confirm("Restore all previous scenes?", () => { _sendNoReply("restore"); toast("Restore sent"); }));
     document.getElementById("qSave").addEventListener("click",     () => { _sendNoReply("save"); toast("Save sent"); });
     document.getElementById("qLoad").addEventListener("click",     () =>
       confirm("Reload config from NVS?", () => { _sendNoReply("load"); toast("Load sent"); }));

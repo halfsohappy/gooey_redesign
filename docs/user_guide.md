@@ -21,7 +21,7 @@ control surface on the same network.
 5. [Available Sensor Values](#5-available-sensor-values)
 6. [Complete Command Reference](#6-complete-command-reference)
 7. [Working with Messages](#7-working-with-messages)
-8. [Working with Patches](#8-working-with-patches)
+8. [Working with Scenes](#8-working-with-scenes)
 9. [Overrides and Scaling](#9-overrides-and-scaling)
 10. [Address Composition](#10-address-composition)
 11. [Orientations (Oris)](#11-orientations-oris)
@@ -100,26 +100,26 @@ defines:
 Example: "Send the X-axis acceleration to the lighting console at
 192.168.1.50 port 7000 on address /fixture/1/dimmer, scaled from 0 to 255."
 
-### Patches
+### Scenes
 
-A **patch** is a group of messages that are sent together.  Think of it like a
+A **scene** is a group of messages that are sent together.  Think of it like a
 page on a lighting console — a collection of related outputs that you can
 start, stop, or modify as a unit.
 
-Each patch runs on its own timer.  You set how often it sends (e.g., every
+Each scene runs on its own timer.  You set how often it sends (e.g., every
 50 ms = 20 times per second).
 
-A patch can also hold its own IP address, port, OSC address, and output scale.
+A scene can also hold its own IP address, port, OSC address, and output scale.
 These can serve as defaults for its messages, or they can **override** every
-message in the patch — useful when you want all sensor data going to the same
+message in the scene — useful when you want all sensor data going to the same
 destination.
 
 ### Overrides
 
-When a patch has "override" enabled for a particular field, every message in
-that patch uses the patch's value instead of its own.  This is useful when
+When a scene has "override" enabled for a particular field, every message in
+that scene uses the scene's value instead of its own.  This is useful when
 you have many messages all going to the same place — set the destination once
-on the patch and override.
+on the scene and override.
 
 ### Scaling
 
@@ -130,7 +130,7 @@ equipment might expect a different range:
 - Audio faders might use 0–1 (no scaling needed).
 - A pan/tilt fixture might need −180 to 180.
 
-You set **low** and **high** bounds on either the message or the patch, and the
+You set **low** and **high** bounds on either the message or the scene, and the
 device maps the 0–1 sensor value to that range.
 
 ---
@@ -149,18 +149,18 @@ Address:  /annieData/bart/direct/mySetup
 Payload:  "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/accel/x, period:50"
 ```
 
-That single command creates a message and patch, links them, and starts
+That single command creates a message and scene, links them, and starts
 sending the X-axis acceleration to 192.168.1.50:9000 at 20 Hz.  Open an OSC
 monitor on your target machine and you will see values arriving immediately.
 
 To stop:
 ```
-Address:  /annieData/bart/patch/mySetup/stop
+Address:  /annieData/bart/scene/mySetup/stop
 ```
 
 ### Step-by-step method
 
-If you need more control over the message and patch separately:
+If you need more control over the message and scene separately:
 
 **Step 1: Create a message**
 ```
@@ -171,25 +171,25 @@ Payload:  "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/accel/x"
 This creates a message named "accelX" that reads the X-axis accelerometer,
 and will send it to 192.168.1.50:9000 at OSC address /sensor/accel/x.
 
-**Step 2: Create a patch and add the message**
+**Step 2: Create a scene and add the message**
 ```
-Address:  /annieData/bart/patch/sensors
+Address:  /annieData/bart/scene/sensors
 Payload:  "ip:192.168.1.50, port:9000"
 ```
 ```
-Address:  /annieData/bart/patch/sensors/addMsg
+Address:  /annieData/bart/scene/sensors/addMsg
 Payload:  "accelX"
 ```
 
 **Step 3: Set the send rate (optional, default is 50ms)**
 ```
-Address:  /annieData/bart/patch/sensors/period
+Address:  /annieData/bart/scene/sensors/period
 Payload:  "100"
 ```
 
 **Step 4: Start sending**
 ```
-Address:  /annieData/bart/patch/sensors/start
+Address:  /annieData/bart/scene/sensors/start
 ```
 
 The device is now sending the X-axis acceleration value to your target 10
@@ -197,7 +197,7 @@ times per second.
 
 **Step 5: Stop sending**
 ```
-Address:  /annieData/bart/patch/sensors/stop
+Address:  /annieData/bart/scene/sensors/stop
 ```
 
 ---
@@ -254,12 +254,12 @@ All names are case-insensitive.
 
 > **Sending constants:** Use `value:high` or `value:low` to send a fixed value
 > instead of live sensor data.  The output is whatever the effective `high` or
-> `low` bound resolves to (message bound → patch override → default 0/1).
+> `low` bound resolves to (message bound → scene override → default 0/1).
 > Examples:
 > - `value:high, high:127` — always sends 127
 > - `value:low, low:255` — always sends 255
-> - `value:high` on a message inside a patch with `high:255` — sends 255 via the
->   patch's override, with no per-message configuration needed
+> - `value:high` on a message inside a scene with `high:255` — sends 255 via the
+>   scene's override, with no per-message configuration needed
 
 ---
 
@@ -271,7 +271,7 @@ mean your device name.
 
 **Case flexibility:** All command segments accept camelCase, snake_case, and
 plain lowercase.  For example, `addMsg`, `add_msg`, and `addmsg` are all
-equivalent.  User-defined names (message and patch names) preserve their
+equivalent.  User-defined names (message and scene names) preserve their
 original case.
 
 **Payload format:** All payloads are a single string or a single number.  When
@@ -291,41 +291,41 @@ comma-separated string: `"name1, name2"`.
 | `/annieData/{dev}/msg/{name}/disable` | *(none)* | Disable (mute) the message. |
 | `/annieData/{dev}/msg/{name}/info` | *(none)* | Get the message's parameters. |
 
-### Patch Commands
+### Scene Commands
 
 | Address | Payload | What it does |
 |---------|---------|--------------|
-| `/annieData/{dev}/patch/{name}` | config string | Create or update a patch. |
-| `/annieData/{dev}/patch/{name}/delete` | *(none)* | Delete the patch. |
-| `/annieData/{dev}/patch/{name}/start` | *(none)* | Start sending. |
-| `/annieData/{dev}/patch/{name}/stop` | *(none)* | Stop sending. |
-| `/annieData/{dev}/patch/{name}/addMsg` | `"msg1, msg2"` | Add message(s) to the patch. |
-| `/annieData/{dev}/patch/{name}/removeMsg` | `"msgName"` | Remove a message from the patch. |
-| `/annieData/{dev}/patch/{name}/period` | `"50"` | Set how often to send (in milliseconds). |
-| `/annieData/{dev}/patch/{name}/override` | field list | Set which fields the patch overrides. |
-| `/annieData/{dev}/patch/{name}/adrMode` | mode string | Set address composition mode. |
-| `/annieData/{dev}/patch/{name}/setAll` | config string | Apply settings to all messages in the patch. |
-| `/annieData/{dev}/patch/{name}/solo` | `"msgName"` | Enable one message, mute all others. |
-| `/annieData/{dev}/patch/{name}/unsolo` | *(none)* | Unmute all messages. |
-| `/annieData/{dev}/patch/{name}/enableAll` | *(none)* | Enable all messages in the patch. |
-| `/annieData/{dev}/patch/{name}/info` | *(none)* | Get the patch's parameters. |
+| `/annieData/{dev}/scene/{name}` | config string | Create or update a scene. |
+| `/annieData/{dev}/scene/{name}/delete` | *(none)* | Delete the scene. |
+| `/annieData/{dev}/scene/{name}/start` | *(none)* | Start sending. |
+| `/annieData/{dev}/scene/{name}/stop` | *(none)* | Stop sending. |
+| `/annieData/{dev}/scene/{name}/addMsg` | `"msg1, msg2"` | Add message(s) to the scene. |
+| `/annieData/{dev}/scene/{name}/removeMsg` | `"msgName"` | Remove a message from the scene. |
+| `/annieData/{dev}/scene/{name}/period` | `"50"` | Set how often to send (in milliseconds). |
+| `/annieData/{dev}/scene/{name}/override` | field list | Set which fields the scene overrides. |
+| `/annieData/{dev}/scene/{name}/adrMode` | mode string | Set address composition mode. |
+| `/annieData/{dev}/scene/{name}/setAll` | config string | Apply settings to all messages in the scene. |
+| `/annieData/{dev}/scene/{name}/solo` | `"msgName"` | Enable one message, mute all others. |
+| `/annieData/{dev}/scene/{name}/unsolo` | *(none)* | Unmute all messages. |
+| `/annieData/{dev}/scene/{name}/enableAll` | *(none)* | Enable all messages in the scene. |
+| `/annieData/{dev}/scene/{name}/info` | *(none)* | Get the scene's parameters. |
 
 ### Clone / Rename / Move
 
 | Address | Payload | What it does |
 |---------|---------|--------------|
 | `/annieData/{dev}/clone/msg` | `"srcName, destName"` | Copy a message to a new name. |
-| `/annieData/{dev}/clone/patch` | `"srcName, destName"` | Copy a patch to a new name. |
+| `/annieData/{dev}/clone/scene` | `"srcName, destName"` | Copy a scene to a new name. |
 | `/annieData/{dev}/rename/msg` | `"oldName, newName"` | Rename a message. |
-| `/annieData/{dev}/rename/patch` | `"oldName, newName"` | Rename a patch. |
-| `/annieData/{dev}/move` | `"msgName, patchName"` | Move a message to a different patch. |
+| `/annieData/{dev}/rename/scene` | `"oldName, newName"` | Rename a scene. |
+| `/annieData/{dev}/move` | `"msgName, sceneName"` | Move a message to a different scene. |
 
 ### List Commands
 
 | Address | Payload | What it does |
 |---------|---------|--------------|
 | `/annieData/{dev}/list/msgs` | `"verbose"` *(optional)* | List all messages. |
-| `/annieData/{dev}/list/patches` | `"verbose"` *(optional)* | List all patches. |
+| `/annieData/{dev}/list/scenes` | `"verbose"` *(optional)* | List all scenes. |
 | `/annieData/{dev}/list/all` | `"verbose"` *(optional)* | List everything. |
 
 When `"verbose"` is included, the reply includes all parameters for each item.
@@ -336,8 +336,8 @@ If a section is empty, the device replies with `none` for that section
 
 | Address | What it does |
 |---------|--------------|
-| `/annieData/{dev}/blackout` | Stop all patches immediately. |
-| `/annieData/{dev}/restore` | Restart all patches. |
+| `/annieData/{dev}/blackout` | Stop all scenes immediately. |
+| `/annieData/{dev}/restore` | Restart all scenes. |
 | `/annieData/{dev}/dedup` | Payload `"on"`/`"off"` — enable or disable duplicate-value suppression. No payload queries the current state. |
 
 ### Status Commands
@@ -351,25 +351,25 @@ Level values: `"error"`, `"warn"` / `"warning"`, `"info"`, `"debug"`.
 
 ### Save / Load Commands
 
-Patches and messages can be saved to non-volatile memory (NVS) so they survive
+Scenes and messages can be saved to non-volatile memory (NVS) so they survive
 power cycles.
 
 | Address | Payload | What it does |
 |---------|---------|--------------|
-| `/annieData/{dev}/save` | *(none)* | Save all patches and messages to NVS. |
+| `/annieData/{dev}/save` | *(none)* | Save all scenes and messages to NVS. |
 | `/annieData/{dev}/save/msg` | `"msgName"` | Save one message to NVS. |
-| `/annieData/{dev}/save/patch` | `"patchName"` | Save one patch to NVS. |
-| `/annieData/{dev}/load` | *(none)* | Load all patches and messages from NVS. |
+| `/annieData/{dev}/save/scene` | `"sceneName"` | Save one scene to NVS. |
+| `/annieData/{dev}/load` | *(none)* | Load all scenes and messages from NVS. |
 | `/annieData/{dev}/nvs/clear` | *(none)* | Erase all saved OSC data from NVS. |
 
 ### Direct Command
 
-The `direct` command creates a message and patch, links them, and starts
+The `direct` command creates a message and scene, links them, and starts
 sending — all in one step.  This is the fastest way to start receiving data.
 
 | Address | Payload | What it does |
 |---------|---------|--------------|
-| `/annieData/{dev}/direct/{name}` | config string | Create msg + patch, add, and start sending. |
+| `/annieData/{dev}/direct/{name}` | config string | Create msg + scene, add, and start sending. |
 
 The config string uses the same format as message creation, with an optional
 `period` key:
@@ -380,11 +380,11 @@ The config string uses the same format as message creation, with an optional
 
 This single command:
 1. Creates a message named `mySetup` with the sensor and destination.
-2. Creates a patch named `mySetup` with the same destination.
-3. Adds the message to the patch.
+2. Creates a scene named `mySetup` with the same destination.
+3. Adds the message to the scene.
 4. Starts sending at 50 ms intervals (20 Hz).
 
-If a message or patch with that name already exists, it is updated with the
+If a message or scene with that name already exists, it is updated with the
 new values and restarted.
 
 ---
@@ -421,7 +421,7 @@ Available keys:
 | `adr` (or `addr`, `address`) | OSC address path (e.g., `/fader/1`). |
 | `low` (or `min`) | Output range minimum. |
 | `high` (or `max`) | Output range maximum. |
-| `patch` | Name of a patch to assign this message to. |
+| `scene` | Name of a scene to assign this message to. |
 
 ### Updating a message
 
@@ -439,7 +439,7 @@ sensor assignment.
 ### Referencing other objects (COOL & POWERFUL & IMPORTANT !!)
 
 Use `-` instead of `:` to copy a value from another registered message or
-patch:
+scene:
 
 ```
 ip-mixer1, port-mixer1, value:accelX
@@ -451,23 +451,23 @@ Use `default-mixer1` to copy all set fields from `mixer1` as fallbacks.
 
 ---
 
-## 8. Working with Patches
+## 8. Working with Scenes
 
-### Creating and populating a patch
+### Creating and populating a scene
 
 ```
-/annieData/bart/patch/showPatch     "ip:192.168.1.50, port:9000, adr:/sensor"
+/annieData/bart/scene/showScene     "ip:192.168.1.50, port:9000, adr:/sensor"
 /annieData/bart/msg/ax              "value:accelX"
 /annieData/bart/msg/ay              "value:accelY"
 /annieData/bart/msg/az              "value:accelZ"
-/annieData/bart/patch/showPatch/addMsg   "ax, ay, az"
+/annieData/bart/scene/showScene/addMsg   "ax, ay, az"
 ```
 
 ### Starting and stopping
 
 ```
-/annieData/bart/patch/showPatch/start
-/annieData/bart/patch/showPatch/stop
+/annieData/bart/scene/showScene/start
+/annieData/bart/scene/showScene/stop
 ```
 
 ### Changing the send rate
@@ -482,7 +482,7 @@ The period is in milliseconds.  Lower = faster (more CPU and network usage):
 | 10 ms | 100 Hz |
 
 ```
-/annieData/bart/patch/showPatch/period    "20"
+/annieData/bart/scene/showScene/period    "20"
 ```
 
 ### Solo / unsolo
@@ -490,22 +490,22 @@ The period is in milliseconds.  Lower = faster (more CPU and network usage):
 During rehearsal, you might want to isolate one sensor stream:
 
 ```
-/annieData/bart/patch/showPatch/solo      "ax"
+/annieData/bart/scene/showScene/solo      "ax"
 ```
 
-This mutes every message in the patch except `ax`.  To restore them:
+This mutes every message in the scene except `ax`.  To restore them:
 
 ```
-/annieData/bart/patch/showPatch/unsolo
+/annieData/bart/scene/showScene/unsolo
 ```
 
 ### Applying settings to all messages
 
 ```
-/annieData/bart/patch/showPatch/setAll    "low:0, high:255"
+/annieData/bart/scene/showScene/setAll    "low:0, high:255"
 ```
 
-This sets the output range of every message in the patch to 0–255.
+This sets the output range of every message in the scene to 0–255.
 
 ---
 
@@ -513,21 +513,21 @@ This sets the output range of every message in the patch to 0–255.
 
 ### Overriding destination fields
 
-If all messages in a patch go to the same IP and port, set them once on the
-patch and enable the override:
+If all messages in a scene go to the same IP and port, set them once on the
+scene and enable the override:
 
 ```
-/annieData/bart/patch/showPatch           "ip:192.168.1.50, port:9000"
-/annieData/bart/patch/showPatch/override  "ip, port"
+/annieData/bart/scene/showScene           "ip:192.168.1.50, port:9000"
+/annieData/bart/scene/showScene/override  "ip, port"
 ```
 
-Now every message in the patch sends to 192.168.1.50:9000, regardless of what
+Now every message in the scene sends to 192.168.1.50:9000, regardless of what
 IP/port each individual message has set.
 
 To turn off an override, prefix the field with `-`:
 
 ```
-/annieData/bart/patch/showPatch/override  "-ip"
+/annieData/bart/scene/showScene/override  "-ip"
 ```
 (WAIT, THIS IS ANNOYING. WE ALREADY ESTABLISHED THAT '-' MEANS REFERENCING OBJECTS, NOT SUBTRACTION. WHAT THE HECK CLAUDE, WHY DID U DO THIS. AND WHY DIDNT I CATCH IT. ETHAN REMIND ME TOMORROW TO CHANGE THIS.)
 
@@ -535,39 +535,39 @@ To turn off an override, prefix the field with `-`:
 Available override fields: `ip`, `port`, `adr`, `low`, `high`, `scale`
 (shortcut for both low and high), `all`, `none`.
 
-### Scaling with patch overrides
+### Scaling with scene overrides
 
-Set output bounds on the patch and override them:
+Set output bounds on the scene and override them:
 
 ```
-/annieData/bart/patch/dmxPatch           "low:0, high:255"
-/annieData/bart/patch/dmxPatch/override  "scale"
+/annieData/bart/scene/dmxScene           "low:0, high:255"
+/annieData/bart/scene/dmxScene/override  "scale"
 ```
 
-Now every message in this patch outputs values mapped from 0–255, even if
+Now every message in this scene outputs values mapped from 0–255, even if
 individual messages have different bounds set.  This is useful when all
-messages in a patch target the same type of equipment (e.g., DMX fixtures).
+messages in a scene target the same type of equipment (e.g., DMX fixtures).
 
 ---
 
 ## 10. Address Composition
 
-By default, each message uses its own OSC address.  But the patch can modify
+By default, each message uses its own OSC address.  But the scene can modify
 how addresses are assembled.
 
 ### Address modes
 
 | Mode | What happens | Example |
 |------|-------------|---------|
-| `fallback` (default) | Message's address is used. If message has no address, the patch's address is used. | Message: `/fader1` → sends `/fader1` |
-| `override` | Patch's address replaces the message's. | Patch: `/mixer`, Message: `/fader1` → sends `/mixer` |
-| `prepend` | Patch's address is placed before the message's. | Patch: `/mixer`, Message: `/fader1` → sends `/mixer/fader1` |
-| `append` | Message's address is placed before the patch's. | Patch: `/mixer`, Message: `/fader1` → sends `/fader1/mixer` |
+| `fallback` (default) | Message's address is used. If message has no address, the scene's address is used. | Message: `/fader1` → sends `/fader1` |
+| `override` | Scene's address replaces the message's. | Scene: `/mixer`, Message: `/fader1` → sends `/mixer` |
+| `prepend` | Scene's address is placed before the message's. | Scene: `/mixer`, Message: `/fader1` → sends `/mixer/fader1` |
+| `append` | Message's address is placed before the scene's. | Scene: `/mixer`, Message: `/fader1` → sends `/fader1/mixer` |
 
 ### Setting the address mode
 
 ```
-/annieData/bart/patch/showPatch/adrMode   "prepend"
+/annieData/bart/scene/showScene/adrMode   "prepend"
 ```
 
 ### When to use each mode
@@ -575,11 +575,11 @@ how addresses are assembled.
 - **fallback:** When each message has its own complete address.
 - **override:** When every message should go to the same address (e.g., a
   single fader).
-- **prepend:** When the patch represents a destination group and messages
-  represent individual channels.  Patch address `/mixer`, messages
+- **prepend:** When the scene represents a destination group and messages
+  represent individual channels.  Scene address `/mixer`, messages
   `/ch1`, `/ch2`, etc. → `/mixer/ch1`, `/mixer/ch2`.
 - **append:** Less common, but useful when messages represent a primary
-  category and the patch adds a suffix.
+  category and the scene adds a suffix.
 
 ---
 
@@ -735,9 +735,9 @@ value.
 /annieData/{dev}/msg/light_sw
 "ternori:spotlight, ip:192.168.1.50, port:9000, adr:/light/1, low:0, high:255"
 
-# Add to a patch and start
-/annieData/{dev}/patch/lights/addMsg   "light_sw"
-/annieData/{dev}/patch/lights/start
+# Add to a scene and start
+/annieData/{dev}/scene/lights/addMsg   "light_sw"
+/annieData/{dev}/scene/lights/start
 ```
 
 Or as a one-liner with `direct`:
@@ -844,7 +844,7 @@ Status messages arrive as OSC strings in the format:
 [LEVEL] category: description
 ```
 
-Example: `[INFO] patch: Started patch 'showPatch'`
+Example: `[INFO] scene: Started scene 'showScene'`
 
 ---
 
@@ -857,9 +857,9 @@ integrating with your show.
 
 ```
 /annieData/bart/msg/test       "value:accelX, ip:192.168.1.10, port:9000, adr:/test"
-/annieData/bart/patch/test     "ip:192.168.1.10, port:9000"
-/annieData/bart/patch/test/addMsg    "test"
-/annieData/bart/patch/test/start
+/annieData/bart/scene/test     "ip:192.168.1.10, port:9000"
+/annieData/bart/scene/test/addMsg    "test"
+/annieData/bart/scene/test/start
 ```
 
 Open an OSC monitor on your laptop (192.168.1.10:9000) and watch the values
@@ -871,16 +871,16 @@ You have three messages going to the same mixer, each controlling a different
 channel:
 
 ```
-/annieData/bart/patch/mixer    "ip:192.168.1.50, port:7000, adr:/mixer"
-/annieData/bart/patch/mixer/adrMode   "prepend"
-/annieData/bart/patch/mixer/override  "ip, port"
+/annieData/bart/scene/mixer    "ip:192.168.1.50, port:7000, adr:/mixer"
+/annieData/bart/scene/mixer/adrMode   "prepend"
+/annieData/bart/scene/mixer/override  "ip, port"
 
 /annieData/bart/msg/ch1        "value:accelX, adr:/ch1"
 /annieData/bart/msg/ch2        "value:accelY, adr:/ch2"
 /annieData/bart/msg/ch3        "value:gyroZ, adr:/ch3"
 
-/annieData/bart/patch/mixer/addMsg   "ch1, ch2, ch3"
-/annieData/bart/patch/mixer/start
+/annieData/bart/scene/mixer/addMsg   "ch1, ch2, ch3"
+/annieData/bart/scene/mixer/start
 ```
 
 The mixer receives:
@@ -893,28 +893,28 @@ The mixer receives:
 All outputs need to be scaled to 0–255:
 
 ```
-/annieData/bart/patch/dmx      "ip:10.0.0.100, port:7700, low:0, high:255"
-/annieData/bart/patch/dmx/override   "ip, port, scale"
+/annieData/bart/scene/dmx      "ip:10.0.0.100, port:7700, low:0, high:255"
+/annieData/bart/scene/dmx/override   "ip, port, scale"
 
 /annieData/bart/msg/dim        "value:accelLength, adr:/fixture/1/dimmer"
 /annieData/bart/msg/pan        "value:eulerX, adr:/fixture/1/pan"
 /annieData/bart/msg/tilt       "value:eulerY, adr:/fixture/1/tilt"
 
-/annieData/bart/patch/dmx/addMsg     "dim, pan, tilt"
-/annieData/bart/patch/dmx/period     "20"
-/annieData/bart/patch/dmx/start
+/annieData/bart/scene/dmx/addMsg     "dim, pan, tilt"
+/annieData/bart/scene/dmx/period     "20"
+/annieData/bart/scene/dmx/start
 ```
 
-All three messages are scaled to 0–255 because the patch overrides the bounds.
+All three messages are scaled to 0–255 because the scene overrides the bounds.
 
 ### Workflow 4: Duplicating a setup for a second device
 
-Clone an existing patch to create a second copy aimed at a different IP:
+Clone an existing scene to create a second copy aimed at a different IP:
 
 ```
-/annieData/bart/clone/patch    "dmx, dmx2"
-/annieData/bart/patch/dmx2     "ip:10.0.0.101"
-/annieData/bart/patch/dmx2/start
+/annieData/bart/clone/scene    "dmx, dmx2"
+/annieData/bart/scene/dmx2     "ip:10.0.0.101"
+/annieData/bart/scene/dmx2/start
 ```
 
 ### Workflow 5: Blackout during scene change
@@ -936,18 +936,18 @@ When ready to resume:
 You suspect the gyro Z value is noisy.  Solo it to isolate:
 
 ```
-/annieData/bart/patch/mixer/solo   "ch3"
+/annieData/bart/scene/mixer/solo   "ch3"
 ```
 
 Only `ch3` (gyro Z) is sent.  When done:
 
 ```
-/annieData/bart/patch/mixer/unsolo
+/annieData/bart/scene/mixer/unsolo
 ```
 
 ### Workflow 7: Saving and loading your configuration
 
-After setting up all your messages and patches, save them so they survive a
+After setting up all your messages and scenes, save them so they survive a
 power cycle:
 
 ```
@@ -964,7 +964,7 @@ You can also save individual objects:
 
 ```
 /annieData/bart/save/msg     "ch1"
-/annieData/bart/save/patch   "mixer"
+/annieData/bart/save/scene   "mixer"
 ```
 
 To start fresh, clear all saved data:
@@ -997,13 +997,13 @@ Have the actor point at each light and save an ori:
 /annieData/{dev}/msg/sw2   "ternori:light2, adr:/light/2, low:0, high:255"
 ```
 
-**Step 3: Add to a patch and start**
+**Step 3: Add to a scene and start**
 
 ```
-/annieData/{dev}/patch/lights   "ip:192.168.1.50, port:9000"
-/annieData/{dev}/patch/lights/override   "ip, port"
-/annieData/{dev}/patch/lights/addMsg   "sw1, sw2"
-/annieData/{dev}/patch/lights/start
+/annieData/{dev}/scene/lights   "ip:192.168.1.50, port:9000"
+/annieData/{dev}/scene/lights/override   "ip, port"
+/annieData/{dev}/scene/lights/addMsg   "sw1, sw2"
+/annieData/{dev}/scene/lights/start
 ```
 
 Now when the actor points at light 1, `/light/1` receives 255 and `/light/2`
@@ -1057,19 +1057,19 @@ other axes.
 
 - cry
 - skeuomorphism in system design is dead
-- I can't believe you made me rename it to "patch", ethan.
-- I recognize patch is better by every metric
+- I can't believe you made me rename it to "scene", ethan.
+- I recognize scene is better by every metric
 - hehe mailman(/woman/person). like the ones that go to your house
 
 ### Values are not arriving at my target
 
-- Make sure the patch is started (`/start`).
+- Make sure the scene is started (`/start`).
 - Check that messages have a `value` set — they need a sensor assigned.
 - Verify the target IP, port, and address are correct.
-- Use the `info` command to inspect a message or patch:
+- Use the `info` command to inspect a message or scene:
   ```
   /annieData/bart/msg/myFader/info
-  /annieData/bart/patch/showPatch/info
+  /annieData/bart/scene/showScene/info
   ```
 - Use the `list` command to see everything registered:
   ```
@@ -1080,8 +1080,8 @@ other axes.
 
 - Check the output bounds (`low` / `high`).  The device maps 0–1 to
   [low, high].
-- If a patch overrides bounds (`scale` override), the patch's bounds are used
-  instead of each message's.  Check the patch's override settings.
+- If a scene overrides bounds (`scale` override), the scene's bounds are used
+  instead of each message's.  Check the scene's override settings.
 
 ### The device needs to be re-provisioned
 

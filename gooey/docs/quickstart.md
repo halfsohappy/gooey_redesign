@@ -59,7 +59,7 @@ At the **top of the page**, you'll see the connection bar:
 
 The Dashboard gives you quick-access buttons:
 
-- **List All** — asks the device to report all configured messages, patches, and settings. Watch the **live feed** on the right for the reply.
+- **List All** — asks the device to report all configured messages, scenes, and settings. Watch the **live feed** on the right for the reply.
 - **Status Info** — queries device status (firmware, uptime, etc.)
 - **Blackout** — emergency stop: immediately pauses all OSC output from the device
 - **Restore** — resumes output after a blackout
@@ -78,18 +78,18 @@ Messages define *what* the device sends — which sensor value, to which IP/port
 5. Enter an **OSC Address** (e.g. `/sensor/accel/x`)
 6. Click **Create**
 
-### Patches tab
+### Scenes tab
 
-Patches group messages together and control their timing.
+Scenes group messages together and control their timing.
 
-1. Enter a **Patch Name** (e.g. `myPatch`)
-2. Click **Create** to make an empty patch
-3. Use **Add Message** to add your message to the patch
+1. Enter a **Scene Name** (e.g. `myScene`)
+2. Click **Create** to make an empty scene
+3. Use **Add Message** to add your message to the scene
 4. Click **Start** to begin streaming
 
 ### Direct tab
 
-The fastest path — creates a message, a patch, links them, and starts streaming in one step:
+The fastest path — creates a message, a scene, links them, and starts streaming in one step:
 
 1. Pick a sensor value
 2. Enter target IP, port, and OSC address

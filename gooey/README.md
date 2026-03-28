@@ -75,7 +75,7 @@ The control center opens at **http://127.0.0.1:5000**.
 
 The interface uses a **split-panel layout**:
 
-- **Left panel** — Organized command sections (Dashboard, Messages, Patches, Direct, Advanced, Reference)
+- **Left panel** — Organized command sections (Dashboard, Messages, Scenes, Direct, Advanced, Reference)
 - **Right panel** — Always-visible live activity feed showing all sent/received messages
 - **Top bar** — Device connection settings and reply listener toggle
 
@@ -90,26 +90,26 @@ Quick-access buttons for common operations:
 - **Blackout / Restore** — Emergency stop and resume
 - **Save / Load** — Persist to or restore from NVS
 - **NVS Clear** — Factory reset OSC config
-- **List** — Query messages, patches, or everything (with verbose option)
+- **List** — Query messages, scenes, or everything (with verbose option)
 - **Status Config** — Tell the device where to send status messages
 
 ### Messages
 Complete message management:
-- **Create/Update** — Config builder with sensor value, target IP/port/address, bounds, patch assignment
+- **Create/Update** — Config builder with sensor value, target IP/port/address, bounds, scene assignment
 - **Actions** — Info, Enable, Disable, Delete, Save for any named message
 - **Clone/Rename** — Duplicate or rename messages
 
-### Patches
-Full patch control:
+### Scenes
+Full scene control:
 - **Start/Stop/Delete** — Lifecycle management
 - **Info/Save** — Query details or persist individually
-- **Period/AdrMode/Override** — Configure patch behavior
-- **Add/Remove/Solo/Move** — Manage messages within patches
+- **Period/AdrMode/Override** — Configure scene behavior
+- **Add/Remove/Solo/Move** — Manage messages within scenes
 - **setAll** — Apply config to all messages at once
-- **Clone/Rename** — Duplicate or rename patches
+- **Clone/Rename** — Duplicate or rename scenes
 
 ### Direct
-One-step setup with config builder — creates message + patch, links them, starts streaming.
+One-step setup with config builder — creates message + scene, links them, starts streaming.
 
 ### Advanced
 - **Raw OSC Send** — Send arbitrary OSC messages (single or repeated)
@@ -121,7 +121,7 @@ Searchable documentation for all:
 - **Commands** — Every OSC address pattern with description and expected payload
 - **Keywords** — Plain-language definitions for all TheaterGWD concepts
 - **Config Keys** — All key:value pairs accepted in config strings
-- **Address Modes** — How patches compose OSC addresses
+- **Address Modes** — How scenes compose OSC addresses
 
 ---
 

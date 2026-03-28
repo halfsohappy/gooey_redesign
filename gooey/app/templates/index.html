@@ -7,6 +7,13 @@
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <script>
+    (function(){
+      var t = localStorage.getItem('gooey-theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
 </head>
 <body>
 
@@ -56,10 +63,15 @@
           </div>
         </div>
 
+        <!-- Blackout — inline button in header row -->
+        <button class="hdr-btn hdr-btn-blackout" id="btnBlackoutAll" title="Immediately stop all outputs on every device" aria-label="Blackout all"><i class="bi bi-stop-circle"></i> Blackout</button>
+
       </div><!-- /hdr-row -->
 
       <!-- ── Status strip ── -->
       <div class="hdr-strip">
+
+        <button class="strip-theme-btn" id="btnThemeToggle" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
 
         <div class="strip-cell">
           <span class="ws-dot" id="wsDot"></span>
@@ -71,20 +83,16 @@
           <span class="hdr-notif-latest" id="notifLatest">No notifications</span>
         </div>
 
-        <div class="strip-notif" style="border-left:1px solid rgba(0,0,0,0.08)">
+        <div class="strip-notif" style="border-left:1px solid var(--overlay-rule)">
           <span class="strip-notif-label"><i class="bi bi-broadcast"></i></span>
           <span id="feedLatest" class="hdr-notif-latest">No feed messages</span>
         </div>
 
+        <button class="hdr-btn hdr-btn-restore" id="btnRestoreAll" title="Restore previous output state on every device" aria-label="Restore all"><i class="bi bi-play-circle"></i> Restore</button>
+
       </div>
 
     </div><!-- /hdr-content -->
-
-    <!-- Blackout / Restore — full header height, stacked -->
-    <div class="hdr-bo-col">
-      <button class="bo-btn bo-blackout" id="btnBlackoutAll" title="Immediately stop all outputs on every device" aria-label="Blackout all">Blackout</button>
-      <button class="bo-btn bo-restore" id="btnRestoreAll" title="Restore previous output state on every device" aria-label="Restore all">Restore</button>
-    </div>
 
     <!-- Panel toggle buttons — full height 2×2 -->
     <div class="hdr-tools">
@@ -135,7 +143,7 @@
       </div>
       <div class="onboard-step" id="onboard4">
         <span class="onboard-num">4</span>
-        <span><strong>Start a patch</strong> — group messages into a patch and hit Start to begin streaming.</span>
+        <span><strong>Start a scene</strong> — group messages into a scene and hit Start to begin streaming.</span>
       </div>
     </div>
   </div>
@@ -147,10 +155,10 @@
     <div class="panel-left">
       <nav class="section-nav">
         <button class="nav-btn active" data-section="messages" title="View, create, and edit OSC messages">Messages</button>
-        <button class="nav-btn" data-section="patches" title="Manage patch groups and their messages">Patches</button>
+        <button class="nav-btn" data-section="scenes" title="Manage scene groups and their messages">Scenes</button>
         <button class="nav-btn" data-section="ori" title="Orientation tracking and ori conditions">Ori</button>
         <button class="nav-btn" data-section="shows" title="Named show snapshots — save and load full device state">Shows</button>
-        <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + patch and starts streaming">Direct</button>
+        <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + scene and starts streaming">Direct</button>
         <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
       </nav>
 
@@ -165,7 +173,7 @@
             <div class="welcome-steps">
               <div class="welcome-step"><span class="step-num">1</span> Add a device using the <strong>+</strong> button above</div>
               <div class="welcome-step"><span class="step-num">2</span> Click its tab and choose Query to load its configuration</div>
-              <div class="welcome-step"><span class="step-num">3</span> Create messages and patches to start sending OSC</div>
+              <div class="welcome-step"><span class="step-num">3</span> Create messages and scenes to start sending OSC</div>
             </div>
           </div>
 
@@ -177,8 +185,8 @@
             </div>
             <div class="quick-ref-list">
               <div class="qr-row"><code>/annieData/{dev}/msg/add</code> <span>Create a message</span></div>
-              <div class="qr-row"><code>/annieData/{dev}/patch/start/{name}</code> <span>Start a patch</span></div>
-              <div class="qr-row"><code>/annieData/{dev}/list/verbose</code> <span>List all messages &amp; patches</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/scene/start/{name}</code> <span>Start a scene</span></div>
+              <div class="qr-row"><code>/annieData/{dev}/list/verbose</code> <span>List all messages &amp; scenes</span></div>
               <div class="qr-row"><code>/annieData/{dev}/tare</code> <span>Zero Euler angles</span></div>
               <div class="qr-row"><code>/annieData/{dev}/blackout</code> <span>Stop all output</span></div>
             </div>
@@ -186,13 +194,13 @@
           </div>
           <div class="card">
             <div class="tbl-toolbar">
-              <span class="tbl-toolbar-label">Messages</span>
+              <span class="tbl-toolbar-label">Message Tracker</span>
               <div class="col-picker-wrap" style="position:relative">
-                <button id="btnColPicker" class="btn btn-sm" aria-label="Choose visible columns">Columns ▾</button>
+                <button id="btnColPicker" class="th-caret-btn" aria-label="Choose visible columns">▾</button>
                 <div id="colPickerMenu" class="col-picker-menu hidden">
                   <label><input type="checkbox" data-col="low" checked> Low</label>
                   <label><input type="checkbox" data-col="high" checked> High</label>
-                  <label><input type="checkbox" data-col="patch" checked> Patch</label>
+                  <label><input type="checkbox" data-col="scene" checked> Scene</label>
                   <label><input type="checkbox" data-col="ori" checked> Ori</label>
                 </div>
               </div>
@@ -209,10 +217,10 @@
                     <th>Address</th>
                     <th data-col="low">Low</th>
                     <th data-col="high">High</th>
-                    <th data-col="patch">Patch</th>
+                    <th data-col="scene">Scene</th>
                     <th class="ori-section" data-col="ori">Ori</th>
-                    <th>Enabled</th>
-                    <th>Actions</th>
+                    <th>EN</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody id="msgTableBody">
@@ -286,9 +294,9 @@
                 <input type="text" id="msgHigh" placeholder="1">
               </div>
               <div class="form-group">
-                <label for="msgPatch">Patch</label>
-                <input type="text" id="msgPatch" placeholder="assign to patch" list="patchNameList">
-                <datalist id="patchNameList"></datalist>
+                <label for="msgScene">Scene</label>
+                <input type="text" id="msgScene" placeholder="assign to scene" list="sceneNameList">
+                <datalist id="sceneNameList"></datalist>
               </div>
             </div>
             <div class="form-row ori-section">
@@ -336,13 +344,13 @@
           </div>
         </section>
 
-        <!-- ===== PATCHES ===== -->
-        <section class="section" id="sec-patches">
+        <!-- ===== SCENES ===== -->
+        <section class="section" id="sec-scenes">
           <div class="card">
-            <h2>Patches</h2>
-            <p class="hint-text">Click <strong>⟳ Query</strong> to populate from device. Start/stop patches directly from the table.</p>
+            <h2>Scene Tracker</h2>
+            <p class="hint-text">Click <strong>⟳ Query</strong> to populate from device. Start/stop scenes directly from the table.</p>
             <div style="overflow-x:auto">
-              <table class="data-table" id="patchTable">
+              <table class="data-table" id="sceneTable">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -350,14 +358,14 @@
                     <th>Adr Mode</th>
                     <th>Overrides</th>
                     <th>Messages</th>
-                    <th>Actions</th>
+                    <th></th>
                   </tr>
                 </thead>
-                <tbody id="patchTableBody">
+                <tbody id="sceneTableBody">
                   <tr><td colspan="6"><div class="empty-state">
                     <div class="empty-icon">○</div>
-                    <div class="empty-text">No patches tracked yet.</div>
-                    <div class="empty-sub">Query the device or create a patch below.</div>
+                    <div class="empty-text">No scenes tracked yet.</div>
+                    <div class="empty-sub">Query the device or create a scene below.</div>
                     <button class="btn btn-sm" onclick="document.getElementById('btnQueryVerbose').click()">→ Query Device Now</button>
                   </div></td></tr>
                 </tbody>
@@ -366,29 +374,29 @@
           </div>
 
           <div class="card">
-            <h2>Create / Edit Patch</h2>
+            <h2>Create / Edit Scene</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchName">Patch Name</label>
-                <input type="text" id="patchName" placeholder="e.g. sensors" list="patchNameList2">
-                <datalist id="patchNameList2"></datalist>
+                <label for="sceneName">Scene Name</label>
+                <input type="text" id="sceneName" placeholder="e.g. sensors" list="sceneNameList2">
+                <datalist id="sceneNameList2"></datalist>
               </div>
               <div class="form-group fg-narrow">
-                <label for="patchPeriod">Period (ms)</label>
-                <input type="number" id="patchPeriod" value="50" min="1">
+                <label for="scenePeriod">Period (ms)</label>
+                <input type="number" id="scenePeriod" value="50" min="1">
               </div>
               <div class="form-group">
-                <label for="patchAdrMode">
+                <label for="sceneAdrMode">
                   Address Mode
                   <button class="help-btn" aria-label="Help: Address modes" title="Address modes" onclick="toggleHelp('adrModeHelp'); return false;">?</button>
                 </label>
                 <div id="adrModeHelp" class="help-box hidden">
-                  <strong>fallback</strong> — use message's own address; patch value only if message has none.<br>
-                  <strong>override</strong> — always use patch's address instead of message's.<br>
-                  <strong>prepend</strong> — prepend patch address to message address.<br>
-                  <strong>append</strong> — append patch address after message address.
+                  <strong>fallback</strong> — use message's own address; scene value only if message has none.<br>
+                  <strong>override</strong> — always use scene's address instead of message's.<br>
+                  <strong>prepend</strong> — prepend scene address to message address.<br>
+                  <strong>append</strong> — append scene address after message address.
                 </div>
-                <select id="patchAdrMode">
+                <select id="sceneAdrMode">
                   <option value="fallback">fallback</option>
                   <option value="override">override</option>
                   <option value="prepend">prepend</option>
@@ -398,26 +406,26 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchIP">IP</label>
-                <input type="text" id="patchIP" placeholder="e.g. 192.168.1.50">
+                <label for="sceneIP">IP</label>
+                <input type="text" id="sceneIP" placeholder="e.g. 192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
-                <label for="patchPort">Port</label>
-                <input type="number" id="patchPort" value="9000" min="1" max="65535">
+                <label for="scenePort">Port</label>
+                <input type="number" id="scenePort" value="9000" min="1" max="65535">
               </div>
               <div class="form-group">
-                <label for="patchAdr">OSC Address</label>
-                <input type="text" id="patchAdr" placeholder="e.g. /sensor">
+                <label for="sceneAdr">OSC Address</label>
+                <input type="text" id="sceneAdr" placeholder="e.g. /sensor">
               </div>
             </div>
             <div class="form-row">
               <div class="form-group fg-narrow">
-                <label for="patchLow">Low</label>
-                <input type="number" id="patchLow" step="any" placeholder="e.g. 0">
+                <label for="sceneLow">Low</label>
+                <input type="number" id="sceneLow" step="any" placeholder="e.g. 0">
               </div>
               <div class="form-group fg-narrow">
-                <label for="patchHigh">High</label>
-                <input type="number" id="patchHigh" step="any" placeholder="e.g. 255">
+                <label for="sceneHigh">High</label>
+                <input type="number" id="sceneHigh" step="any" placeholder="e.g. 255">
               </div>
             </div>
             <div class="form-group">
@@ -426,7 +434,7 @@
                 <button class="help-btn" aria-label="Help: Override flags" title="Override flags" onclick="toggleHelp('overrideFlagsHelp'); return false;">?</button>
               </label>
               <div id="overrideFlagsHelp" class="help-box hidden">
-                Check each field that this patch should <strong>override</strong> in messages. When overridden, the patch's value replaces the message's value for that field when sending.
+                Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
               </div>
               <div class="cb-row">
                 <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
@@ -438,73 +446,73 @@
             </div>
             <div class="form-group">
               <label>Config Preview</label>
-              <div class="preview-input" id="patchPreviewAdr" style="margin-bottom:2px; padding:6px 10px; min-height:26px;">&nbsp;</div>
-              <div class="preview-input" id="patchPreviewCfg" style="padding:6px 10px; min-height:26px;">&nbsp;</div>
+              <div class="preview-input" id="scenePreviewAdr" style="margin-bottom:2px; padding:6px 10px; min-height:26px;">&nbsp;</div>
+              <div class="preview-input" id="scenePreviewCfg" style="padding:6px 10px; min-height:26px;">&nbsp;</div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchApply" title="Send this patch config to the device">Apply to Device</button>
-              <button class="btn btn-accent" id="btnPatchStart" title="Start streaming this patch">▶ Start</button>
-              <button class="btn btn-stop" id="btnPatchStop" title="Stop streaming this patch">■ Stop</button>
+              <button class="btn btn-primary" id="btnSceneApply" title="Send this scene config to the device">Apply to Device</button>
+              <button class="btn btn-accent" id="btnSceneStart" title="Start streaming this scene">▶ Start</button>
+              <button class="btn btn-stop" id="btnSceneStop" title="Stop streaming this scene">■ Stop</button>
             </div>
           </div>
 
           <div class="card">
-            <h2>Patch ↔ Message</h2>
+            <h2>Scene ↔ Message</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchMsgPatch">Patch</label>
-                <input type="text" id="patchMsgPatch" placeholder="patch name" list="patchNameList3">
-                <datalist id="patchNameList3"></datalist>
+                <label for="sceneMsgScene">Scene</label>
+                <input type="text" id="sceneMsgScene" placeholder="scene name" list="sceneNameList3">
+                <datalist id="sceneNameList3"></datalist>
               </div>
               <div class="form-group">
-                <label for="patchMsgNames">Message(s) <span class="hint">(comma-sep)</span></label>
-                <input type="text" id="patchMsgNames" placeholder="msg1, msg2" list="msgNameList2">
+                <label for="sceneMsgNames">Message(s) <span class="hint">(comma-sep)</span></label>
+                <input type="text" id="sceneMsgNames" placeholder="msg1, msg2" list="msgNameList2">
                 <datalist id="msgNameList2"></datalist>
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchAddMsg" title="Add message(s) to the patch">Add to Patch</button>
-              <button class="btn btn-secondary" id="btnPatchRemoveMsg" title="Remove message(s) from the patch">Remove from Patch</button>
-              <button class="btn btn-secondary" id="btnPatchSolo" title="Solo: keep only these messages in the patch">Solo</button>
-              <button class="btn btn-secondary" id="btnPatchMove" title="Move message(s) from their current patch to this one">Move</button>
+              <button class="btn btn-primary" id="btnSceneAddMsg" title="Add message(s) to the scene">Add to Scene</button>
+              <button class="btn btn-secondary" id="btnSceneRemoveMsg" title="Remove message(s) from the scene">Remove from Scene</button>
+              <button class="btn btn-secondary" id="btnSceneSolo" title="Solo: keep only these messages in the scene">Solo</button>
+              <button class="btn btn-secondary" id="btnSceneMove" title="Move message(s) from their current scene to this one">Move</button>
             </div>
           </div>
 
           <div class="card">
-            <h2>Clone / Rename Patch</h2>
+            <h2>Clone / Rename Scene</h2>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchSrcName">Source</label>
-                <input type="text" id="patchSrcName" placeholder="existing patch" list="patchNameList4">
-                <datalist id="patchNameList4"></datalist>
+                <label for="sceneSrcName">Source</label>
+                <input type="text" id="sceneSrcName" placeholder="existing scene" list="sceneNameList4">
+                <datalist id="sceneNameList4"></datalist>
               </div>
               <div class="form-group">
-                <label for="patchDestName">New Name</label>
-                <input type="text" id="patchDestName" placeholder="new name">
+                <label for="sceneDestName">New Name</label>
+                <input type="text" id="sceneDestName" placeholder="new name">
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchClone" title="Duplicate a patch with a new name">Clone</button>
-              <button class="btn btn-secondary" id="btnPatchRename" title="Rename an existing patch">Rename</button>
+              <button class="btn btn-primary" id="btnSceneClone" title="Duplicate a scene with a new name">Clone</button>
+              <button class="btn btn-secondary" id="btnSceneRename" title="Rename an existing scene">Rename</button>
             </div>
           </div>
 
           <div class="card">
-            <h2>Patch setAll</h2>
-            <p class="hint-text">Apply one config string to every message currently in a patch.</p>
+            <h2>Scene setAll</h2>
+            <p class="hint-text">Apply one config string to every message currently in a scene.</p>
             <div class="form-row">
               <div class="form-group">
-                <label for="patchSetAllPatch">Patch</label>
-                <input type="text" id="patchSetAllPatch" placeholder="patch name" list="patchNameListSetAll">
-                <datalist id="patchNameListSetAll"></datalist>
+                <label for="sceneSetAllScene">Scene</label>
+                <input type="text" id="sceneSetAllScene" placeholder="scene name" list="sceneNameListSetAll">
+                <datalist id="sceneNameListSetAll"></datalist>
               </div>
               <div class="form-group">
-                <label for="patchSetAllCfg">Config String</label>
-                <input type="text" id="patchSetAllCfg" placeholder="e.g. low:0, high:255">
+                <label for="sceneSetAllCfg">Config String</label>
+                <input type="text" id="sceneSetAllCfg" placeholder="e.g. low:0, high:255">
               </div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnPatchSetAll" title="Apply this config to all messages in the patch">Apply setAll</button>
+              <button class="btn btn-primary" id="btnSceneSetAll" title="Apply this config to all messages in the scene">Apply setAll</button>
             </div>
           </div>
         </section>
@@ -674,7 +682,7 @@
 
           <div class="card" data-card-id="shows-save">
             <h2>Save Current State as Show</h2>
-            <p class="hint-text">Snapshots all current messages, patches, and oris on the device into a named slot (up to 4 on device, unlimited in Gooey library).</p>
+            <p class="hint-text">Snapshots all current messages, scenes, and oris on the device into a named slot (up to 4 on device, unlimited in Gooey library).</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="showSaveName">Show Name</label>
@@ -690,7 +698,7 @@
 
           <div class="card" data-card-id="shows-device">
             <h2>On Device</h2>
-            <p class="hint-text">Shows stored in device NVS (max 4). Loading a show replaces all current messages, patches, and oris — a confirmation is required.</p>
+            <p class="hint-text">Shows stored in device NVS (max 4). Loading a show replaces all current messages, scenes, and oris — a confirmation is required.</p>
             <div class="btn-row" style="margin-bottom:8px">
               <button class="btn btn-secondary" id="btnShowListDevice">Refresh</button>
             </div>
@@ -728,7 +736,7 @@
         <section class="section" id="sec-direct">
           <div class="card">
             <h2>Direct Command</h2>
-            <p class="hint-text">One-step: creates a message + patch, links them, and starts streaming immediately.</p>
+            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately.</p>
             <div class="form-row">
               <div class="form-group">
                 <label for="directName">Name</label>
@@ -796,7 +804,7 @@
               <input type="text" id="directPreview" class="preview-input" readonly>
             </div>
             <div class="btn-row">
-              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + patch, links, and starts streaming immediately">→ Send Direct</button>
+              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + scene, links, and starts streaming immediately">→ Send Direct</button>
               <button class="btn btn-secondary" id="btnDirectCopy" title="Copy the config string to clipboard">↗ Copy Config</button>
             </div>
           </div>

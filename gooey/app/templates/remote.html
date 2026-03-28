@@ -186,7 +186,7 @@
   <div class="body">
     <div class="card">
       <div class="row" id="menuMessages"><div class="row-icon">▸</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuPatches"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">Patches</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="menuScenes"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">Scenes</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
       <div class="row" id="menuOris"><div class="row-icon">◎</div><div class="row-text"><div class="row-title">Orientations</div><div class="row-sub">Save, list, reset, delete oris</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
@@ -220,25 +220,25 @@
   <div class="body" id="msgDetailBody"></div>
 </div>
 
-<!-- ══ PATCHES LIST ═════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenPatches">
+<!-- ══ SCENES LIST ═════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenScenes">
   <div class="hdr">
-    <button class="hdr-back" id="backPatches">‹</button>
-    <div class="hdr-title">Patches</div>
-    <button class="hdr-action" id="btnRefreshPatches">↻</button>
+    <button class="hdr-back" id="backScenes">‹</button>
+    <div class="hdr-title">Scenes</div>
+    <button class="hdr-action" id="btnRefreshScenes">↻</button>
   </div>
-  <div class="body" id="patchListBody">
+  <div class="body" id="sceneListBody">
     <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>
   </div>
 </div>
 
-<!-- ══ PATCH DETAIL ══════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenPatchDetail">
+<!-- ══ SCENE DETAIL ══════════════════════════════════════════════════════════ -->
+<div class="screen hidden" id="screenSceneDetail">
   <div class="hdr">
-    <button class="hdr-back" id="backPatchDetail">‹</button>
-    <div class="hdr-title" id="patchDetailTitle">Patch</div>
+    <button class="hdr-back" id="backSceneDetail">‹</button>
+    <div class="hdr-title" id="sceneDetailTitle">Scene</div>
   </div>
-  <div class="body" id="patchDetailBody"></div>
+  <div class="body" id="sceneDetailBody"></div>
 </div>
 
 <!-- ══ ORIS LIST ════════════════════════════════════════════════════════════ -->
@@ -296,15 +296,15 @@
   </div>
   <div class="body">
     <div class="card">
-      <div class="row danger" id="qBlackout"><div class="row-icon">■</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all patches immediately</div></div></div>
-      <div class="row success" id="qRestore"><div class="row-icon">◆</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running patches</div></div></div>
+      <div class="row danger" id="qBlackout"><div class="row-icon">■</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all scenes immediately</div></div></div>
+      <div class="row success" id="qRestore"><div class="row-icon">◆</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running scenes</div></div></div>
     </div>
     <div class="card">
       <div class="row" id="qSave"><div class="row-icon">↓</div><div class="row-text"><div class="row-title">Save</div><div class="row-sub">Persist all config to NVS</div></div></div>
       <div class="row" id="qLoad"><div class="row-icon">↑</div><div class="row-text"><div class="row-title">Load</div><div class="row-sub">Reload config from NVS</div></div></div>
     </div>
     <div class="card">
-      <div class="row" id="qListAll"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and patches</div></div><div class="row-chev">›</div></div>
+      <div class="row" id="qListAll"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and scenes</div></div><div class="row-chev">›</div></div>
     </div>
     <div class="card">
       <div class="row danger" id="qNvsClear"><div class="row-icon">×</div><div class="row-text"><div class="row-title">NVS Clear</div><div class="row-sub">Factory reset — erase all saved data</div></div></div>

@@ -6,31 +6,27 @@
   <title>{{ title }} — Gooey</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    (function(){
+      var t = localStorage.getItem('gooey-theme');
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
 </head>
 <body class="docs-page">
 
   <!-- ===== Docs Header ===== -->
-  <header class="main-header">
-    <div class="hdr-row">
-
-      <!-- Identity -->
-      <div class="hdr-box hdr-logo-box">
-        <div class="hdr-logo-text">Gooey</div>
-        <div class="hdr-logo-sub">annieData<br>Control Center</div>
-      </div>
-
-      <!-- Back + switch guide -->
-      <div class="hdr-box hdr-box-seamless">
-        <a class="hdr-seamless-btn" href="/">← Back to App</a>
-        <a class="hdr-seamless-btn" href="{{ url_for('docs', guide=other_guide) }}">↗ {{ other_title }}</a>
-      </div>
-
-      <!-- Current guide title -->
-      <div class="hdr-box docs-hdr-title">
-        <span class="docs-hdr-label">{{ title }}</span>
-      </div>
-
-    </div>
+  <header class="docs-header">
+    <a class="hdr-logo-box" href="/">
+      <span class="hdr-logo-text">Gooey</span>
+      <span class="hdr-logo-sub">annieData · Control Center</span>
+    </a>
+    <nav class="hdr-nav">
+      <a href="/">← App</a>
+      <a href="{{ url_for('docs', guide=other_guide) }}">{{ other_title }}</a>
+    </nav>
+    <div class="hdr-title">{{ title }}</div>
   </header>
 
   <!-- ===== Docs Layout ===== -->
@@ -51,6 +47,10 @@
 
   </div>
 
+  <footer class="docs-footer">
+    Gooey &mdash; <a href="/">Back to App</a>
+  </footer>
+
   <script>
   (function () {
     "use strict";
@@ -67,23 +67,22 @@
       });
     }
 
-    var scroller = document.getElementById("docsContent");
-    scroller.addEventListener("scroll", function () {
-      var scrollTop = scroller.scrollTop;
+    window.addEventListener("scroll", function () {
+      var scrollY = window.scrollY;
       var active = headings[0];
       headings.forEach(function (h) {
-        if (h.offsetTop - 80 <= scrollTop) { active = h; }
+        if (h.offsetTop - 100 <= scrollY) { active = h; }
       });
       if (active) { setActive(active.id); }
     }, { passive: true });
 
-    /* Smooth-scroll TOC links within the content panel */
+    /* Smooth-scroll TOC links */
     tocLinks.forEach(function (a) {
       a.addEventListener("click", function (e) {
         var target = document.querySelector(a.getAttribute("href"));
         if (target) {
           e.preventDefault();
-          scroller.scrollTo({ top: target.offsetTop - 24, behavior: "smooth" });
+          window.scrollTo({ top: target.offsetTop - 80, behavior: "smooth" });
         }
       });
     });

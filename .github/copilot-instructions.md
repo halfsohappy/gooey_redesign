@@ -8,7 +8,7 @@ applications. It consists of two main components:
 | Component | Directory | Language | Purpose |
 |-----------|-----------|----------|---------|
 | **Firmware** | `src/` | C++ (Arduino) | ESP32-S3 sensor firmware — reads barometer, IMU, magnetometer and streams data as OSC messages over WiFi |
-| **Gooey** | `gooey/` | Python + vanilla JS | Web-based control center (Flask + SocketIO) for managing devices, messages, and patches |
+| **Gooey** | `gooey/` | Python + vanilla JS | Web-based control center (Flask + SocketIO) for managing devices, messages, and scenes |
 
 Additional directories:
 - `platforms/` — PlatformIO configs for 25+ alternative microcontroller boards.
@@ -72,7 +72,7 @@ the web UI and verifying behavior in the browser.
 
 - **Header-only modules** — all implementation lives in `.h` files
   (except `bart_hardware.cpp`).
-- Classes: `PascalCase` (e.g. `OscMessage`, `OscPatch`).
+- Classes: `PascalCase` (e.g. `OscMessage`, `OscScene`).
 - Functions: `snake_case` (e.g. `begin_pins()`, `osc_trim_copy()`).
 - Constants/macros: `UPPER_SNAKE_CASE` (e.g. `MAX_OSC_PATCHES`, `CS_IMU`).
 - Private/static variables: leading `_` (e.g. `_message_log`).
@@ -110,7 +110,7 @@ the web UI and verifying behavior in the browser.
 ## Architecture Notes
 
 - **OSC address format**: `/annieData/{device_adr}/{command}`.
-- **Patches** can override message bounds (`low`/`high`) for output scaling.
+- **Scenes** can override message bounds (`low`/`high`) for output scaling.
   Address composition modes: `fallback`, `override`, `prepend`, `append`.
 - **WiFi provisioning** stores credentials in NVS namespace `device_config`
   with keys: `ssid`, `network_password`, `use_dhcp`, `static_ip`, `port`,

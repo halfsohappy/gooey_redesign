@@ -1,15 +1,15 @@
 // =============================================================================
-// osc_registry.h — Central owner of all OscPatch and OscMessage objects
+// osc_registry.h — Central owner of all OscScene and OscMessage objects
 // =============================================================================
 //
-// The OscRegistry is a Meyer's singleton that owns every OscPatch and
+// The OscRegistry is a Meyer's singleton that owns every OscScene and
 // OscMessage in fixed-size arrays.  All pointers returned by the registry
 // point into these arrays and are stable for the device's lifetime.
 //
 // MEMORY MODEL (ESP32):
 //   No heap allocation — capacity is fixed at compile time.  This avoids
 //   fragmentation and gives deterministic memory usage.  Increase
-//   MAX_OSC_PATCHES / MAX_OSC_MESSAGES and recompile if you need more slots.
+//   MAX_OSC_SCENES / MAX_OSC_MESSAGES and recompile if you need more slots.
 //
 // THREAD SAFETY:
 //   A FreeRTOS mutex (reg_mutex) protects all registry modifications.
@@ -20,20 +20,20 @@
 // USAGE:
 //   OscRegistry& reg = osc_registry();
 //   OscMessage*  m   = reg.get_or_create_msg("accelX_out");
-//   OscPatch*    p   = reg.get_or_create_patch("mixer1");
+//   OscScene*    p   = reg.get_or_create_scene("mixer1");
 //   p->add_msg(reg.msg_index(m));
 // =============================================================================
 
 #ifndef OSC_REGISTRY_H
 #define OSC_REGISTRY_H
 
-#include "osc_patch.h"
+#include "osc_scene.h"
 
 class OscRegistry {
 public:
     // --- Storage arrays (fixed, never reallocated) --------------------------
-    OscPatch   patches[MAX_OSC_PATCHES];
-    uint16_t   patch_count = 0;
+    OscScene   scenes[MAX_OSC_SCENES];
+    uint16_t   scene_count = 0;
 
     OscMessage messages[MAX_OSC_MESSAGES];
     uint16_t   msg_count = 0;
@@ -50,11 +50,11 @@ public:
 
     // --- Lookup by name (case-insensitive) ----------------------------------
 
-    OscPatch* find_patch(const String& n) {
+    OscScene* find_scene(const String& n) {
         String key = osc_lower_copy(osc_trim_copy(n));
-        for (uint16_t i = 0; i < patch_count; i++) {
-            if (osc_lower_copy(osc_trim_copy(patches[i].name)) == key)
-                return &patches[i];
+        for (uint16_t i = 0; i < scene_count; i++) {
+            if (osc_lower_copy(osc_trim_copy(scenes[i].name)) == key)
+                return &scenes[i];
         }
         return nullptr;
     }
@@ -70,10 +70,10 @@ public:
 
     // --- Index helpers (pointers ↔ indices) ----------------------------------
 
-    int patch_index(const OscPatch* p) const {
+    int scene_index(const OscScene* p) const {
         if (!p) return -1;
-        ptrdiff_t off = p - patches;
-        return (off >= 0 && off < patch_count) ? (int)off : -1;
+        ptrdiff_t off = p - scenes;
+        return (off >= 0 && off < scene_count) ? (int)off : -1;
     }
 
     int msg_index(const OscMessage* m) const {
@@ -84,12 +84,12 @@ public:
 
     // --- Create or find -----------------------------------------------------
 
-    OscPatch* get_or_create_patch(const String& n) {
-        OscPatch* found = find_patch(n);
+    OscScene* get_or_create_scene(const String& n) {
+        OscScene* found = find_scene(n);
         if (found) return found;
-        if (patch_count >= MAX_OSC_PATCHES) return nullptr;
-        patches[patch_count] = OscPatch(n);
-        return &patches[patch_count++];
+        if (scene_count >= MAX_OSC_SCENES) return nullptr;
+        scenes[scene_count] = OscScene(n);
+        return &scenes[scene_count++];
     }
 
     OscMessage* get_or_create_msg(const String& n) {
@@ -102,8 +102,8 @@ public:
 
     // --- Merge (update existing or create, copying only "exist" fields) ------
 
-    OscPatch* update_patch(const OscPatch& src) {
-        OscPatch* p = get_or_create_patch(src.name);
+    OscScene* update_scene(const OscScene& src) {
+        OscScene* p = get_or_create_scene(src.name);
         if (!p) return nullptr;
         if (src.exist.ip)   { p->ip = src.ip;                   p->exist.ip   = true; }
         if (src.exist.port) { p->port = src.port;               p->exist.port = true; }
@@ -119,7 +119,7 @@ public:
         if (src.exist.ip)    { m->ip = src.ip;                   m->exist.ip    = true; }
         if (src.exist.port)  { m->port = src.port;               m->exist.port  = true; }
         if (src.exist.adr)   { m->osc_address = src.osc_address; m->exist.adr   = true; }
-        if (src.exist.patch) { m->patch = src.patch;             m->exist.patch = true; }
+        if (src.exist.scene) { m->scene = src.scene;             m->exist.scene = true; }
         if (src.exist.val)   { m->value_ptr = src.value_ptr;     m->exist.val   = true; }
         if (src.exist.low)   { m->bounds[0] = src.bounds[0];     m->exist.low   = true; }
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
@@ -131,10 +131,10 @@ public:
 
     // --- Delete (swap-and-shrink) -------------------------------------------
 
-    /// Delete a patch by name.  Any messages referencing this patch have their
-    /// patch pointer cleared.  Returns true if found and deleted.
-    bool delete_patch(const String& n) {
-        OscPatch* p = find_patch(n);
+    /// Delete a scene by name.  Any messages referencing this scene have their
+    /// scene pointer cleared.  Returns true if found and deleted.
+    bool delete_scene(const String& n) {
+        OscScene* p = find_scene(n);
         if (!p) return false;
 
         // Stop the task if running.
@@ -143,41 +143,41 @@ public:
             p->task_handle = nullptr;
         }
 
-        int idx = patch_index(p);
+        int idx = scene_index(p);
 
-        // Clear patch pointers in all messages that reference this patch.
+        // Clear scene pointers in all messages that reference this scene.
         for (uint16_t i = 0; i < msg_count; i++) {
-            if (messages[i].patch == p) {
-                messages[i].patch = nullptr;
-                messages[i].exist.patch = false;
+            if (messages[i].scene == p) {
+                messages[i].scene = nullptr;
+                messages[i].exist.scene = false;
             }
         }
 
         // Swap with last and shrink.
-        if (idx < (int)(patch_count - 1)) {
-            patches[idx] = patches[patch_count - 1];
+        if (idx < (int)(scene_count - 1)) {
+            scenes[idx] = scenes[scene_count - 1];
 
-            // Fix message indices and patch pointers referencing the moved patch.
-            OscPatch* moved = &patches[idx];
-            int old_idx = patch_count - 1;
+            // Fix message indices and scene pointers referencing the moved scene.
+            OscScene* moved = &scenes[idx];
+            int old_idx = scene_count - 1;
             for (uint16_t i = 0; i < msg_count; i++) {
-                if (messages[i].patch == &patches[old_idx]) {
-                    messages[i].patch = moved;
+                if (messages[i].scene == &scenes[old_idx]) {
+                    messages[i].scene = moved;
                 }
             }
-            // Fix msg_indices inside other patches that pointed at old_idx.
-            for (uint16_t pi = 0; pi < patch_count - 1; pi++) {
-                for (uint8_t mi = 0; mi < patches[pi].msg_count; mi++) {
-                    // No msg_indices reference patch indices, they reference message indices.
-                    // So nothing to fix here for patches.
+            // Fix msg_indices inside other scenes that pointed at old_idx.
+            for (uint16_t pi = 0; pi < scene_count - 1; pi++) {
+                for (uint8_t mi = 0; mi < scenes[pi].msg_count; mi++) {
+                    // No msg_indices reference scene indices, they reference message indices.
+                    // So nothing to fix here for scenes.
                 }
             }
         }
-        patch_count--;
+        scene_count--;
         return true;
     }
 
-    /// Delete a message by name.  Removes it from any patch that references it.
+    /// Delete a message by name.  Removes it from any scene that references it.
     /// Returns true if found and deleted.
     bool delete_msg(const String& n) {
         OscMessage* m = find_msg(n);
@@ -185,9 +185,9 @@ public:
 
         int idx = msg_index(m);
 
-        // Remove from any patches that list this message index.
-        for (uint16_t pi = 0; pi < patch_count; pi++) {
-            patches[pi].remove_msg(idx);
+        // Remove from any scenes that list this message index.
+        for (uint16_t pi = 0; pi < scene_count; pi++) {
+            scenes[pi].remove_msg(idx);
         }
 
         // Swap with last and shrink.
@@ -195,17 +195,17 @@ public:
         if (idx < last) {
             messages[idx] = messages[last];
 
-            // Update all patch msg_indices that pointed at `last` to point at `idx`.
-            for (uint16_t pi = 0; pi < patch_count; pi++) {
-                for (uint8_t mi = 0; mi < patches[pi].msg_count; mi++) {
-                    if (patches[pi].msg_indices[mi] == last) {
-                        patches[pi].msg_indices[mi] = idx;
+            // Update all scene msg_indices that pointed at `last` to point at `idx`.
+            for (uint16_t pi = 0; pi < scene_count; pi++) {
+                for (uint8_t mi = 0; mi < scenes[pi].msg_count; mi++) {
+                    if (scenes[pi].msg_indices[mi] == last) {
+                        scenes[pi].msg_indices[mi] = idx;
                     }
                 }
             }
 
-            // Update the patch pointer if the moved message references a patch.
-            // (Patch pointers are stable since patches don't move here.)
+            // Update the scene pointer if the moved message references a scene.
+            // (Scene pointers are stable since scenes don't move here.)
         }
         msg_count--;
         return true;
@@ -213,7 +213,7 @@ public:
 
     // --- Listing helpers ----------------------------------------------------
 
-    uint16_t count_patches() const { return patch_count; }
+    uint16_t count_scenes() const { return scene_count; }
     uint16_t count_msgs()    const { return msg_count; }
 };
 
@@ -227,28 +227,28 @@ static inline OscRegistry& osc_registry() {
 }
 
 // =============================================================================
-// OscMessage method implementations (need OscPatch and OscRegistry complete)
+// OscMessage method implementations (need OscScene and OscRegistry complete)
 // =============================================================================
 
 /// True if there is enough information to actually transmit an OSC packet:
 /// a value to send, and a resolvable destination (ip, port, address).
 inline bool OscMessage::sendable() const {
     bool has_val = (value_ptr != nullptr) || (ternori.length() > 0);
-    bool has_ip  = exist.ip  || (patch && patch->exist.ip);
-    bool has_port = exist.port || (patch && patch->exist.port);
-    bool has_adr = exist.adr || (patch && patch->exist.adr);
+    bool has_ip  = exist.ip  || (scene && scene->exist.ip);
+    bool has_port = exist.port || (scene && scene->exist.port);
+    bool has_adr = exist.adr || (scene && scene->exist.adr);
     return has_val && has_ip && has_port && has_adr;
 }
 
 /// Parse a CSV config string and populate this message's fields.
 ///
 /// Format: "key:value, key:value, ..."
-///   Direct keys:  name, ip, port, adr/addr/address, patch, value, low/min/lo,
+///   Direct keys:  name, ip, port, adr/addr/address, scene, value, low/min/lo,
 ///                 high/max/hi, enabled
-///                 period — accepted but ignored (patch-level field, handled by caller)
+///                 period — accepted but ignored (scene-level field, handled by caller)
 ///   Reference keys (use '-' separator):  ip-refName, port-refName, etc.
 ///   Special:  default-refName / all-refName  copies all set fields from a
-///             registered patch or message as fallback values.
+///             registered scene or message as fallback values.
 ///
 /// Returns false with *error filled in on parse failure.
 inline bool OscMessage::from_config_str(const String& config, String* error) {
@@ -257,7 +257,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     ip         = IPAddress(0, 0, 0, 0);
     port       = 0;
     osc_address = "";
-    patch      = nullptr;
+    scene      = nullptr;
     value_ptr  = nullptr;
     bounds[0]  = 0.0f;
     bounds[1]  = 1.0f;
@@ -305,7 +305,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
         // ----- Reference mode: value is a registered name to look up --------
         if (is_ref) {
             OscRegistry& reg = osc_registry();
-            OscPatch*   ref_p = reg.find_patch(value);
+            OscScene*   ref_p = reg.find_scene(value);
             OscMessage* ref_m = reg.find_msg(value);
 
             if (key == "ip") {
@@ -320,9 +320,9 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                 if      (ref_p && ref_p->exist.adr) { osc_address = ref_p->osc_address; exist.adr = true; }
                 else if (ref_m && ref_m->exist.adr) { osc_address = ref_m->osc_address; exist.adr = true; }
                 else { if (error) *error = "Ref '" + value + "' has no adr"; return false; }
-            } else if (key == "patch") {
-                patch = ref_p ? ref_p : reg.get_or_create_patch(value);
-                exist.patch = true;
+            } else if (key == "scene") {
+                scene = ref_p ? ref_p : reg.get_or_create_scene(value);
+                exist.scene = true;
             } else if (key == "value") {
                 if (ref_m && ref_m->exist.val) { value_ptr = ref_m->value_ptr; exist.val = true; }
                 else { if (error) *error = "Ref '" + value + "' has no value"; return false; }
@@ -346,7 +346,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                     if (ref_m->exist.ip    && !exist.ip)    { ip = ref_m->ip;                   exist.ip    = true; }
                     if (ref_m->exist.port  && !exist.port)  { port = ref_m->port;               exist.port  = true; }
                     if (ref_m->exist.adr   && !exist.adr)   { osc_address = ref_m->osc_address; exist.adr   = true; }
-                    if (ref_m->exist.patch && !exist.patch) { patch = ref_m->patch;             exist.patch = true; }
+                    if (ref_m->exist.scene && !exist.scene) { scene = ref_m->scene;             exist.scene = true; }
                     if (ref_m->exist.val   && !exist.val)   { value_ptr = ref_m->value_ptr;     exist.val   = true; }
                     if (ref_m->exist.low   && !exist.low)   { bounds[0] = ref_m->bounds[0];     exist.low   = true; }
                     if (ref_m->exist.high  && !exist.high)  { bounds[1] = ref_m->bounds[1];     exist.high  = true; }
@@ -381,13 +381,13 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
         } else if (key == "adr" || key == "addr" || key == "address") {
             osc_address = value;
             exist.adr = true;
-        } else if (key == "patch") {
+        } else if (key == "scene") {
             OscRegistry& reg = osc_registry();
-            patch = reg.find_patch(value);
-            if (!patch) {
-                patch = reg.get_or_create_patch(value);
+            scene = reg.find_scene(value);
+            if (!scene) {
+                scene = reg.get_or_create_scene(value);
             }
-            exist.patch = true;
+            exist.scene = true;
         } else if (key == "value" || key == "val") {
             int vi = data_stream_index_from_name(value);
             if (vi < 0 || vi >= NUM_DATA_STREAMS) {
@@ -412,7 +412,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
         } else if (key == "ternori") {
             ternori = value;
         } else if (key == "period") {
-            // Recognised but handled outside from_config_str (patch-level field).
+            // Recognised but handled outside from_config_str (scene-level field).
         } else {
             if (error) *error = "Unknown key: " + key;
             return false;
@@ -440,7 +440,7 @@ inline String OscMessage::to_info_string(bool verbose) const {
     }
     if (exist.low)  { s += " low:" + String(bounds[0], 2); }
     if (exist.high) { s += " high:" + String(bounds[1], 2); }
-    if (exist.patch && patch) { s += " patch:" + patch->name; }
+    if (exist.scene && scene) { s += " scene:" + scene->name; }
     if (ori_only.length() > 0) { s += " ori_only:" + ori_only; }
     if (ori_not.length() > 0)  { s += " ori_not:" + ori_not; }
     if (ternori.length() > 0)  { s += " ternori:" + ternori; }
@@ -448,8 +448,8 @@ inline String OscMessage::to_info_string(bool verbose) const {
     return s;
 }
 
-/// Build a human-readable info string for this patch.
-inline String OscPatch::to_info_string(bool verbose) const {
+/// Build a human-readable info string for this scene.
+inline String OscScene::to_info_string(bool verbose) const {
     String s = name;
     if (!verbose) return s;
 

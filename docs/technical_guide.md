@@ -57,9 +57,9 @@ Both boards connect to a WiFi network (configured through a captive portal on
 first boot), then continuously read their sensors and make the data available
 as normalised `[0, 1]` floating-point values.
 
-Users configure **OscMessages** and **OscPatches** remotely by sending OSC
+Users configure **OscMessages** and **OscScenes** remotely by sending OSC
 commands to the device.  Once configured, the device autonomously sends sensor
-values as OSC float messages to the destinations defined by those patches, at
+values as OSC float messages to the destinations defined by those scenes, at
 the configured polling rates.
 
 ### Key concepts
@@ -67,9 +67,9 @@ the configured polling rates.
 | Term        | Meaning |
 |-------------|---------|
 | **OscMessage** | Maps one sensor value to one OSC destination (IP + port + address). |
-| **OscPatch**   | Groups one or more OscMessages.  A FreeRTOS task sends them all at a configurable rate. |
-| **Override**   | A patch can force its own IP / port / address / bounds on all its messages. |
-| **Address Mode** | Controls how patch and message OSC addresses are composed (fallback, override, prepend, append). |
+| **OscScene**   | Groups one or more OscMessages.  A FreeRTOS task sends them all at a configurable rate. |
+| **Override**   | A scene can force its own IP / port / address / bounds on all its messages. |
+| **Address Mode** | Controls how scene and message OSC addresses are composed (fallback, override, prepend, append). |
 | **StatusReporter** | Sends status / error / progress strings to a monitoring device. |
 | **Ori** *(ab7 only)* | A saved orientation (quaternion).  Messages can be conditioned on which ori is active. |
 
@@ -286,7 +286,7 @@ An OscMessage binds a single sensor stream to an outbound OSC destination:
 │ ip           : IPAddress                │
 │ port         : unsigned int             │
 │ osc_address  : String                   │
-│ patch        : OscPatch* (optional)     │
+│ scene        : OscScene* (optional)     │
 │ value_ptr    : float*  → data_streams[] │
 │ bounds[2]    : float  (low, high)       │
 │ enabled      : bool                     │
@@ -326,17 +326,17 @@ Config keys: `ori_only:{name}`, `ori_not:{name}`.  These are stored on the
 message and checked in the send task.  On Bart builds the fields exist but are
 never checked.
 
-### OscPatch (`osc_patch.h`)
+### OscScene (`osc_scene.h`)
 
-An OscPatch groups messages and manages their transmission:
+An OscScene groups messages and manages their transmission:
 
 ```
 ┌──────────────────────────────────────────────┐
-│ OscPatch                                     │
+│ OscScene                                     │
 ├──────────────────────────────────────────────┤
 │ name           : String                      │
 │ ip / port / osc_address                      │
-│ bounds[2]      : float  (patch-level scale)  │
+│ bounds[2]      : float  (scene-level scale)  │
 │ address_mode   : AddressMode enum            │
 │ send_period_ms : unsigned int  (default 50)  │
 │ enabled        : bool                        │
@@ -352,37 +352,37 @@ An OscPatch groups messages and manages their transmission:
 
 **Period clamping:** The send period is enforced to the range
 `MIN_PATCH_PERIOD_MS` (20 ms) to `MAX_PATCH_PERIOD_MS` (60 000 ms) via
-`clamp_patch_period_ms()`.  This prevents accidental runaway send rates and
+`clamp_scene_period_ms()`.  This prevents accidental runaway send rates and
 excessively long sleeps.  The clamping is applied in command parsing, NVS
 load, clone, and the task delay itself.
 
 #### OverrideFlags
 
-When an override flag is **true**, every message in the patch uses the
-**patch's** value for that field instead of its own:
+When an override flag is **true**, every message in the scene uses the
+**scene's** value for that field instead of its own:
 
 | Flag   | Effect when ON |
 |--------|----------------|
-| `ip`   | All messages use the patch's IP. |
-| `port` | All messages use the patch's port. |
-| `adr`  | All messages use the patch's OSC address (see also AddressMode). |
-| `low`  | All messages use the patch's `bounds[0]` (low scale). |
-| `high` | All messages use the patch's `bounds[1]` (high scale). |
+| `ip`   | All messages use the scene's IP. |
+| `port` | All messages use the scene's port. |
+| `adr`  | All messages use the scene's OSC address (see also AddressMode). |
+| `low`  | All messages use the scene's `bounds[0]` (low scale). |
+| `high` | All messages use the scene's `bounds[1]` (high scale). |
 
 When an override flag is **false**, each message uses its own value, with the
-patch providing a fallback if the message's value is not set.
+scene providing a fallback if the message's value is not set.
 
 #### AddressMode
 
-Controls how the patch's `osc_address` and a message's `osc_address` are
+Controls how the scene's `osc_address` and a message's `osc_address` are
 combined when sending:
 
-| Mode | Result | Example (patch=`/mixer`, msg=`/fader1`) |
+| Mode | Result | Example (scene=`/mixer`, msg=`/fader1`) |
 |------|--------|----------------------------------------|
-| `ADR_FALLBACK` (default) | Message address if set, else patch address. | `/fader1` |
-| `ADR_OVERRIDE` | Patch address replaces message address. | `/mixer` |
-| `ADR_PREPEND` | Patch address + message address. | `/mixer/fader1` |
-| `ADR_APPEND` | Message address + patch address. | `/fader1/mixer` |
+| `ADR_FALLBACK` (default) | Message address if set, else scene address. | `/fader1` |
+| `ADR_OVERRIDE` | Scene address replaces message address. | `/mixer` |
+| `ADR_PREPEND` | Scene address + message address. | `/mixer/fader1` |
+| `ADR_APPEND` | Message address + scene address. | `/fader1/mixer` |
 
 ---
 
@@ -390,11 +390,11 @@ combined when sending:
 
 **File:** `osc_registry.h`
 
-The OscRegistry is a **Meyer's singleton** that owns every OscPatch and
+The OscRegistry is a **Meyer's singleton** that owns every OscScene and
 OscMessage in fixed-size arrays:
 
 ```cpp
-OscPatch   patches[MAX_OSC_PATCHES];   // 64 slots
+OscScene   scenes[MAX_OSC_PATCHES];   // 64 slots
 OscMessage messages[MAX_OSC_MESSAGES]; // 256 slots
 ```
 
@@ -402,15 +402,15 @@ OscMessage messages[MAX_OSC_MESSAGES]; // 256 slots
 
 | Method | Purpose |
 |--------|---------|
-| `find_patch(name)` | Case-insensitive lookup.  Returns `nullptr` if not found. |
+| `find_scene(name)` | Case-insensitive lookup.  Returns `nullptr` if not found. |
 | `find_msg(name)` | Same for messages. |
-| `get_or_create_patch(name)` | Find or create.  Returns `nullptr` if full. |
+| `get_or_create_scene(name)` | Find or create.  Returns `nullptr` if full. |
 | `get_or_create_msg(name)` | Same for messages. |
-| `update_patch(src)` | Merge only the `exist`-flagged fields from `src`. |
+| `update_scene(src)` | Merge only the `exist`-flagged fields from `src`. |
 | `update_msg(src)` | Same for messages. |
-| `delete_patch(name)` | Delete + clean up all references. |
-| `delete_msg(name)` | Delete + remove from any patch. |
-| `patch_index(ptr)` / `msg_index(ptr)` | Convert pointer to array index. |
+| `delete_scene(name)` | Delete + clean up all references. |
+| `delete_msg(name)` | Delete + remove from any scene. |
+| `scene_index(ptr)` / `msg_index(ptr)` | Convert pointer to array index. |
 
 ### Thread safety
 
@@ -436,16 +436,16 @@ A separate `osc_send_mutex()` serialises all `osc.sendFloat()` /
 `osc.sendString()` calls across tasks, since the MicroOscUdp instance is not
 thread-safe.
 
-### Patch send task
+### Scene send task
 
-Each running patch creates a FreeRTOS task (`patch_send_task`) that loops:
+Each running scene creates a FreeRTOS task (`scene_send_task`) that loops:
 
 ```
 loop:
   vTaskDelay(send_period_ms)         // clamped to [20, 60000]
   if not enabled → continue
   lock registry
-  for each message in patch:
+  for each message in scene:
     skip if disabled or no value_ptr
     [ab7] skip if ori_only/ori_not condition fails
     resolve effective IP, port, address, bounds
@@ -474,16 +474,16 @@ This is controlled by `set_send_logging_enabled()` /
 
 For each field (ip, port, address, bounds), the resolution follows:
 
-1. If the **patch overrides** the field AND the patch has it set → **patch
+1. If the **scene overrides** the field AND the scene has it set → **scene
    wins**.
 2. Else if the **message** has it set → **message wins**.
-3. Else if the **patch** has it set (no override, just fallback) → **patch**.
+3. Else if the **scene** has it set (no override, just fallback) → **scene**.
 4. Else → empty/zero (message is skipped).
 
 For addresses, the `AddressMode` adds composition:
 
-- **Prepend:** `patch.adr + msg.adr` (e.g. `/mixer/fader1`)
-- **Append:** `msg.adr + patch.adr` (e.g. `/fader1/mixer`)
+- **Prepend:** `scene.adr + msg.adr` (e.g. `/mixer/fader1`)
+- **Append:** `msg.adr + scene.adr` (e.g. `/fader1/mixer`)
 
 For bounds, the mapping is:
 ```
@@ -495,10 +495,10 @@ where `sensor_value` is always in [0, 1].
 
 | Function | Purpose |
 |----------|---------|
-| `start_patch(p)` | Create the FreeRTOS task, set `enabled = true`. |
-| `stop_patch(p)` | Delete the task, set `enabled = false`. |
-| `blackout_all()` | Stop every patch task. |
-| `restore_all()` | Restart every patch that has at least one message. |
+| `start_scene(p)` | Create the FreeRTOS task, set `enabled = true`. |
+| `stop_scene(p)` | Delete the task, set `enabled = false`. |
+| `blackout_all()` | Stop every scene task. |
+| `restore_all()` | Restart every scene that has at least one message. |
 
 ---
 
@@ -528,7 +528,7 @@ only errors are forwarded.
 [LEVEL] category: message
 ```
 
-Example: `[INFO] patch: Started patch 'mixer1'`
+Example: `[INFO] scene: Started scene 'mixer1'`
 
 All status messages are also printed to Serial for debugging.
 
@@ -576,7 +576,7 @@ Commands that need two values accept a single CSV string: `"name1, name2"`.
 | `value` / `val` | sensor name | Sensor stream to send (e.g. `accelX`, `gyroZ`, `baro`). |
 | `low` / `min` / `lo` | float | Output bounds low (default 0). |
 | `high` / `max` / `hi` | float | Output bounds high (default 1). |
-| `patch` | patch name | Assign this message to a patch. |
+| `scene` | scene name | Assign this message to a scene. |
 | `enabled` | `true`/`false` | Enable or disable the message. |
 | `ori_only` | ori name | *(ab7 only)* Send only when this ori is active. |
 | `ori_not` | ori name | *(ab7 only)* Send only when this ori is NOT active. |
@@ -594,26 +594,26 @@ This copies `ip` and `port` from the registered object named `mixer1`.
 `mixer1` as fallback values (only filling in fields not already set in this
 config string).
 
-### Patch Commands
+### Scene Commands
 
-`/annieData{dev}/patch/{name}/{command}`
+`/annieData{dev}/scene/{name}/{command}`
 
 | Command | Payload | Description |
 |---------|---------|-------------|
-| *(none)* / `assign` | config string | Create or update a patch (ip, port, adr, low, high). |
-| `delete` | *(none)* | Delete the patch and stop its task. |
+| *(none)* / `assign` | config string | Create or update a scene (ip, port, adr, low, high). |
+| `delete` | *(none)* | Delete the scene and stop its task. |
 | `start` / `enable` / `go` | *(none)* | Create the FreeRTOS task and begin sending. |
 | `stop` / `disable` / `mute` | *(none)* | Stop the send task. |
-| `addMsg` / `add` | `"msg1, msg2, ..."` | Add messages to this patch (CSV names). |
-| `removeMsg` / `rmMsg` | `"msgName"` | Remove a message from this patch. |
+| `addMsg` / `add` | `"msg1, msg2, ..."` | Add messages to this scene (CSV names). |
+| `removeMsg` / `rmMsg` | `"msgName"` | Remove a message from this scene. |
 | `period` / `rate` | `"50"` (string or int) | Set the send period in milliseconds (20–60000). |
-| `override` | `"field1, field2, ..."` | Set which fields the patch overrides on its messages. |
+| `override` | `"field1, field2, ..."` | Set which fields the scene overrides on its messages. |
 | `adrMode` / `addressMode` | mode string | Set address composition mode. |
-| `setAll` | config string | Apply a config to every message in this patch. |
+| `setAll` | config string | Apply a config to every message in this scene. |
 | `solo` | `"msgName"` | Enable one message, disable all others. |
-| `unsolo` / `unmute` | *(none)* | Re-enable all messages in the patch. |
-| `enableAll` | *(none)* | Enable all messages in this patch. |
-| `info` | *(none)* | Reply with the patch's parameters and message list. |
+| `unsolo` / `unmute` | *(none)* | Re-enable all messages in the scene. |
+| `enableAll` | *(none)* | Enable all messages in this scene. |
+| `info` | *(none)* | Reply with the scene's parameters and message list. |
 
 #### Override field names
 
@@ -630,38 +630,38 @@ Prefix with `-` to turn off: `"-ip"`.
 ### Clone Commands
 
 `/annieData{dev}/clone/msg` — payload: `"srcName, destName"`
-`/annieData{dev}/clone/patch` — payload: `"srcName, destName"`
+`/annieData{dev}/clone/scene` — payload: `"srcName, destName"`
 
-Creates a copy of a message or patch under a new name.  For patches, the
+Creates a copy of a message or scene under a new name.  For scenes, the
 message list is copied (task state is not).
 
 ### Rename Commands
 
 `/annieData{dev}/rename/msg` — payload: `"oldName, newName"`
-`/annieData{dev}/rename/patch` — payload: `"oldName, newName"`
+`/annieData{dev}/rename/scene` — payload: `"oldName, newName"`
 
 ### Move Command
 
-`/annieData{dev}/move` — payload: `"msgName, patchName"`
+`/annieData{dev}/move` — payload: `"msgName, sceneName"`
 
-Removes the message from its current patch and adds it to the named patch.
+Removes the message from its current scene and adds it to the named scene.
 
 ### List Commands
 
 `/annieData{dev}/list/msgs` — optional payload: `"verbose"` or `"v"`
-`/annieData{dev}/list/patches` — optional payload: `"verbose"` or `"v"`
+`/annieData{dev}/list/scenes` — optional payload: `"verbose"` or `"v"`
 `/annieData{dev}/list/all` — optional payload: `"verbose"` or `"v"`
 
-Replies with a text listing of all registered messages and/or patches.
+Replies with a text listing of all registered messages and/or scenes.
 When a section has no entries, it is returned as `none` (for example:
-`Patches (0): none`).
+`Scenes (0): none`).
 
 ### Global Commands
 
 | Address | Description |
 |---------|-------------|
-| `/annieData{dev}/blackout` | Stop all patch tasks immediately. |
-| `/annieData{dev}/restore` | Restart all patches that have messages. |
+| `/annieData{dev}/blackout` | Stop all scene tasks immediately. |
+| `/annieData{dev}/restore` | Restart all scenes that have messages. |
 | `/annieData{dev}/dedup` | Payload `"on"`/`"off"` — enable or disable duplicate-value suppression. No payload queries the current state. |
 
 ### Status Commands
@@ -675,21 +675,21 @@ When a section has no entries, it is returned as `none` (for example:
 
 | Address | Payload | Description |
 |---------|---------|-------------|
-| `/annieData{dev}/save` | *(none)* | Save all patches and messages to NVS. |
+| `/annieData{dev}/save` | *(none)* | Save all scenes and messages to NVS. |
 | `/annieData{dev}/save/msg` | `"msgName"` | Save one message to NVS. |
-| `/annieData{dev}/save/patch` | `"patchName"` | Save one patch to NVS. |
-| `/annieData{dev}/load` | *(none)* | Load all patches and messages from NVS. |
+| `/annieData{dev}/save/scene` | `"sceneName"` | Save one scene to NVS. |
+| `/annieData{dev}/load` | *(none)* | Load all scenes and messages from NVS. |
 | `/annieData{dev}/nvs/clear` | *(none)* | Erase all saved OSC data from NVS. |
 
 ### Direct Command
 
 | Address | Payload | Description |
 |---------|---------|-------------|
-| `/annieData{dev}/direct/{name}` | config string | One-step: create msg + patch, link, and start sending. |
+| `/annieData{dev}/direct/{name}` | config string | One-step: create msg + scene, link, and start sending. |
 
 The config string is parsed with `from_config_str()` and also accepts an
-optional `period:N` key.  A message and patch are both created (or updated)
-with the name `{name}`, the message is added to the patch, and the patch
+optional `period:N` key.  A message and scene are both created (or updated)
+with the name `{name}`, the message is added to the scene, and the scene
 task is started.  This is the fastest path to getting data flowing.
 
 ### Ori Commands (ab7 only)
@@ -721,7 +721,7 @@ Type these commands into the serial monitor (115200 baud):
 | `streams` | Current sensor data stream values. |
 | `config` | Provisioned network configuration. |
 | `nvs` | NVS storage summary (osc_store). |
-| `registry` | OSC registry (patches + messages). |
+| `registry` | OSC registry (scenes + messages). |
 | `serial [level]` | Get/set serial debug level (`error`, `warn`, `info`, `debug`). |
 | `sends [on\|off]` | Show or toggle per-message send logging to serial. |
 | `hardware` | Hardware diagnostics (chip info, pin states). |
@@ -749,14 +749,14 @@ Type these commands into the serial monitor (115200 baud):
                                │ read by
                                ▼
 ┌──────────────────────────────────────────────────────┐
-│  Patch Send Task (FreeRTOS, one per patch)            │
+│  Scene Send Task (FreeRTOS, one per scene)            │
 │                                                       │
 │  for each message:                                    │
 │    val = *msg.value_ptr                     [0, 1]    │
 │    [ab7] check ori_only / ori_not conditions          │
-│    low, high = resolve_bounds(msg, patch)              │
+│    low, high = resolve_bounds(msg, scene)              │
 │    output = low + val * (high - low)                  │
-│    ip, port, adr = resolve_destination(msg, patch)    │
+│    ip, port, adr = resolve_destination(msg, scene)    │
 │    osc.setDestination(ip, port)                       │
 │    osc.sendFloat(adr, output)                         │
 └──────────────────────────────────┬────────────────────┘
@@ -778,7 +778,7 @@ Type these commands into the serial monitor (115200 baud):
 │ osc_handle_message()  (osc_commands.h)                │
 │                                                       │
 │  Parse address → category / name / command            │
-│  Dispatch to handler → modify registry                │
+│  Disscene to handler → modify registry                │
 │  [ab7] Ori commands: save/delete/list/threshold       │
 │  Send status reply                                    │
 └──────────────────────────────────────────────────────┘
@@ -801,11 +801,11 @@ src/
 ├── network_setup.h     WiFi captive-portal provisioning (uses net_pass).
 ├── data_streams.h      data_streams[12] array, index constants, simulated data.
 ├── osc_message.h       OscMessage class, ExistFlags, ori_only/ori_not fields.
-├── osc_patch.h         OscPatch class, OverrideFlags, AddressMode, period clamping.
+├── osc_scene.h         OscScene class, OverrideFlags, AddressMode, period clamping.
 ├── osc_registry.h      OscRegistry singleton, method implementations.
 ├── osc_status.h        StatusReporter class, StatusLevel enum.
 ├── osc_engine.h        WiFiUDP/MicroOscUdp globals, send task, send logging.
-├── osc_storage.h       NVS persistence: save/load patches and messages.
+├── osc_storage.h       NVS persistence: save/load scenes and messages.
 ├── osc_commands.h      Incoming OSC command dispatcher (including ori commands).
 └── serial_commands.h   Serial monitor debug interface (help, status, sends, etc.).
 ```
@@ -820,7 +820,7 @@ The firmware runs multiple FreeRTOS tasks:
 |------|----------|---------|
 | `loop()` (Arduino main) | 1 | Receive and process incoming OSC commands. |
 | `sensor_task` | 1 | Read sensors (or generate simulated data) at ~100 Hz. |
-| `p_{patchName}` (one per started patch) | 1 | Send OSC messages at the patch's rate. |
+| `p_{sceneName}` (one per started scene) | 1 | Send OSC messages at the scene's rate. |
 
 > **ab7 core pinning:** On the ab7 board, the sensor task is pinned to
 > **core 1** using `xTaskCreatePinnedToCore()`.  `SPI.begin()` registers the
@@ -854,7 +854,7 @@ Approximate memory footprint:
 
 | Array | Size | Rough bytes |
 |-------|------|-------------|
-| `patches[64]` | 64 × ~300 bytes | ~19 KB |
+| `scenes[64]` | 64 × ~300 bytes | ~19 KB |
 | `messages[256]` | 256 × ~100 bytes | ~25 KB |
 | `data_streams[22]` | 22 × 4 bytes | 88 bytes |
 
@@ -879,7 +879,7 @@ To change capacity, modify `MAX_OSC_PATCHES` and `MAX_OSC_MESSAGES` in
 ### Adding a new command
 
 1. In `osc_commands.h`, add a new `else if` clause in the appropriate command
-   section (message commands or patch commands).
+   section (message commands or scene commands).
 2. Read arguments with `osc_msg.nextAsString()` or `osc_msg.nextAsInt()`.
 3. Modify the registry under `reg.lock()` / `reg.unlock()`.
 4. Send a status message with `status_reporter().info(...)`.
@@ -887,8 +887,8 @@ To change capacity, modify `MAX_OSC_PATCHES` and `MAX_OSC_MESSAGES` in
 
 ### Adding a new override field
 
-1. Add the field to `OverrideFlags` in `osc_patch.h`.
+1. Add the field to `OverrideFlags` in `osc_scene.h`.
 2. Add a `resolve_*()` function in `osc_engine.h`.
-3. Use the resolved value in `patch_send_task()`.
+3. Use the resolved value in `scene_send_task()`.
 4. Add parsing in the `override` command handler in `osc_commands.h`.
 5. Update `to_info_string()` in `osc_registry.h`.

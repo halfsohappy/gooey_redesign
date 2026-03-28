@@ -1,36 +1,36 @@
 // =============================================================================
-// osc_storage.h — Non-volatile storage (NVS) for OscMessages and OscPatches
+// osc_storage.h — Non-volatile storage (NVS) for OscMessages and OscScenes
 // =============================================================================
 //
 // This file provides functions to save and load the entire OSC registry
-// (messages and patches) to/from the ESP32's NVS flash using the Preferences
+// (messages and scenes) to/from the ESP32's NVS flash using the Preferences
 // library.  This lets configurations survive power cycles.
 //
 // STORAGE FORMAT:
-//   Each message and patch is serialised to a self-describing CSV string
+//   Each message and scene is serialised to a self-describing CSV string
 //   (the same format used by from_config_str) and stored under a short key.
 //
 //   Namespace: "osc_store"
 //   Keys:
 //     "m_count"   — uint16_t, number of saved messages
 //     "m_0" .. "m_255"  — String, serialised message
-//     "p_count"   — uint16_t, number of saved patches
-//     "p_0" .. "p_63"   — String, serialised patch
+//     "p_count"   — uint16_t, number of saved scenes
+//     "p_0" .. "p_63"   — String, serialised scene
 //
 // SAVE ORDER:
-//   Patches are saved first, then messages.  This does not matter for save,
-//   but on load, patches must be created before messages so that messages
-//   can resolve their patch references.
+//   Scenes are saved first, then messages.  This does not matter for save,
+//   but on load, scenes must be created before messages so that messages
+//   can resolve their scene references.
 //
 // COMMANDS (handled in osc_commands.h):
-//   /annieData{dev}/save           — save all patches and messages
-//   /annieData{dev}/load           — load all patches and messages
+//   /annieData{dev}/save           — save all scenes and messages
+//   /annieData{dev}/load           — load all scenes and messages
 //   /annieData{dev}/save/all       — same as /save
 //   /annieData{dev}/load/all       — same as /load
 //   /annieData{dev}/save/msg       — save one message (payload: name)
-//   /annieData{dev}/save/patch     — save one patch (payload: name)
+//   /annieData{dev}/save/scene     — save one scene (payload: name)
 //   /annieData{dev}/load/msg       — load one message (payload: name)
-//   /annieData{dev}/load/patch     — load one patch (payload: name)
+//   /annieData{dev}/load/scene     — load one scene (payload: name)
 //   /annieData{dev}/nvs/clear      — erase all saved OSC data
 // =============================================================================
 
@@ -49,7 +49,7 @@
 /// parsed back via from_config_str() plus some extra fields.
 ///
 /// Format: "name:xxx, ip:x.x.x.x, port:N, adr:/xxx, value:sensorName,
-///          low:N.NN, high:N.NN, enabled:true, patch:patchName"
+///          low:N.NN, high:N.NN, enabled:true, scene:sceneName"
 /// Only fields with exist flags set are included.
 static inline String msg_to_save_string(const OscMessage& m) {
     String s;
@@ -88,9 +88,9 @@ static inline String msg_to_save_string(const OscMessage& m) {
     if (s.length() > 0) s += ", ";
     s += String("enabled:") + (m.enabled ? "true" : "false");
 
-    if (m.exist.patch && m.patch) {
+    if (m.exist.scene && m.scene) {
         if (s.length() > 0) s += ", ";
-        s += "patch:" + m.patch->name;
+        s += "scene:" + m.scene->name;
     }
 
     // Ori-conditional fields (ab7 only).
@@ -110,7 +110,7 @@ static inline String msg_to_save_string(const OscMessage& m) {
     return s;
 }
 
-/// Serialise an OscPatch to a string for NVS storage.
+/// Serialise an OscScene to a string for NVS storage.
 ///
 /// Format: "name:xxx, ip:x.x.x.x, port:N, adr:/xxx, low:N, high:N,
 ///          period:N, adrmode:prepend, override:ip+port+adr+low+high,
@@ -118,7 +118,7 @@ static inline String msg_to_save_string(const OscMessage& m) {
 ///
 /// The "override" and "msgs" fields use '+' as an internal separator since
 /// ',' and ':' are already used by the CSV format.
-static inline String patch_to_save_string(const OscPatch& p) {
+static inline String scene_to_save_string(const OscScene& p) {
     OscRegistry& reg = osc_registry();
     String s;
 
@@ -186,13 +186,13 @@ static inline String patch_to_save_string(const OscPatch& p) {
     return s;
 }
 
-/// Restore an OscPatch from a saved string.  This handles the extra fields
+/// Restore an OscScene from a saved string.  This handles the extra fields
 /// (period, adrmode, override, msgs) that from_config_str() does not know
 /// about.  It first uses from_config_str() for the standard fields
 /// (ip, port, adr, low, high), then manually parses the rest.
 ///
-/// Assumes the patch has already been created in the registry by name.
-static inline void patch_from_save_string(OscPatch* p, const String& saved) {
+/// Assumes the scene has already been created in the registry by name.
+static inline void scene_from_save_string(OscScene* p, const String& saved) {
     if (!p) return;
     OscRegistry& reg = osc_registry();
 
@@ -200,14 +200,14 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
     OscMessage tmp;
     String err;
     tmp.from_config_str(saved, &err);
-    // Copy the standard fields into the patch.
+    // Copy the standard fields into the scene.
     if (tmp.exist.ip)   { p->ip = tmp.ip;                   p->exist.ip   = true; }
     if (tmp.exist.port) { p->port = tmp.port;               p->exist.port = true; }
     if (tmp.exist.adr)  { p->osc_address = tmp.osc_address; p->exist.adr  = true; }
     if (tmp.exist.low)  { p->bounds[0] = tmp.bounds[0];     p->exist.low  = true; }
     if (tmp.exist.high) { p->bounds[1] = tmp.bounds[1];     p->exist.high = true; }
 
-    // Now manually parse the patch-specific fields from the raw CSV.
+    // Now manually parse the scene-specific fields from the raw CSV.
     String input = saved;
     input.trim();
     size_t start = 0;
@@ -229,7 +229,7 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
 
         if (key == "period") {
             int ms = value.toInt();
-            if (ms > 0) p->send_period_ms = clamp_patch_period_ms(ms);
+            if (ms > 0) p->send_period_ms = clamp_scene_period_ms(ms);
         } else if (key == "adrmode") {
             p->address_mode = address_mode_from_string(value);
         } else if (key == "override") {
@@ -252,7 +252,7 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
                 }
             }
         } else if (key == "msgs") {
-            // Parse "name1+name2+name3" and add to patch.
+            // Parse "name1+name2+name3" and add to scene.
             int s2 = 0;
             while (s2 < (int)value.length()) {
                 int plus = value.indexOf('+', s2);
@@ -265,8 +265,8 @@ static inline void patch_from_save_string(OscPatch* p, const String& saved) {
                 if (m) {
                     int mi = reg.msg_index(m);
                     p->add_msg(mi);
-                    m->patch = p;
-                    m->exist.patch = true;
+                    m->scene = p;
+                    m->exist.scene = true;
                 }
                 // If the message doesn't exist yet, it will be loaded later
                 // and linked in a second pass.
@@ -407,18 +407,18 @@ static inline void nvs_clear_oris() {
     prefs.end();
 }
 
-/// Save all patches and messages to NVS.  Returns the number of objects saved.
+/// Save all scenes and messages to NVS.  Returns the number of objects saved.
 static inline int nvs_save_all() {
     OscRegistry& reg = osc_registry();
     Preferences prefs;
     prefs.begin("osc_store", false);  // read-write
     prefs.clear();  // wipe previous data
 
-    // Save patches.
-    prefs.putUShort("p_count", reg.patch_count);
-    for (uint16_t i = 0; i < reg.patch_count; i++) {
+    // Save scenes.
+    prefs.putUShort("p_count", reg.scene_count);
+    for (uint16_t i = 0; i < reg.scene_count; i++) {
         String key = "p_" + String(i);
-        String val = patch_to_save_string(reg.patches[i]);
+        String val = scene_to_save_string(reg.scenes[i]);
         prefs.putString(key.c_str(), val);
     }
 
@@ -433,10 +433,10 @@ static inline int nvs_save_all() {
     prefs.end();
     // Also save oris.
     nvs_save_oris();
-    return (int)(reg.patch_count + reg.msg_count);
+    return (int)(reg.scene_count + reg.msg_count);
 }
 
-/// Load all patches and messages from NVS.  Clears the current registry
+/// Load all scenes and messages from NVS.  Clears the current registry
 /// before loading.  Returns the number of objects loaded.
 static inline int nvs_load_all() {
     OscRegistry& reg = osc_registry();
@@ -451,21 +451,21 @@ static inline int nvs_load_all() {
         return 0;
     }
 
-    // Stop all running patch tasks before clearing.
-    for (uint16_t i = 0; i < reg.patch_count; i++) {
-        if (reg.patches[i].task_handle) {
-            vTaskDelete(reg.patches[i].task_handle);
-            reg.patches[i].task_handle = nullptr;
+    // Stop all running scene tasks before clearing.
+    for (uint16_t i = 0; i < reg.scene_count; i++) {
+        if (reg.scenes[i].task_handle) {
+            vTaskDelete(reg.scenes[i].task_handle);
+            reg.scenes[i].task_handle = nullptr;
         }
     }
 
     // Reset the registry.
-    reg.patch_count = 0;
+    reg.scene_count = 0;
     reg.msg_count   = 0;
 
-    // --- First pass: create patches with basic fields -----------------------
+    // --- First pass: create scenes with basic fields -----------------------
     // We create them first so messages can reference them by name.
-    for (uint16_t i = 0; i < p_count && i < MAX_OSC_PATCHES; i++) {
+    for (uint16_t i = 0; i < p_count && i < MAX_OSC_SCENES; i++) {
         String key = "p_" + String(i);
         String saved = prefs.getString(key.c_str(), "");
         if (saved.length() == 0) continue;
@@ -480,12 +480,12 @@ static inline int nvs_load_all() {
             pname.trim();
         }
         if (pname.length() == 0) {
-            pname = "patch_" + String(i);  // fallback name
+            pname = "scene_" + String(i);  // fallback name
         }
 
-        OscPatch* p = reg.get_or_create_patch(pname);
+        OscScene* p = reg.get_or_create_scene(pname);
         if (p) {
-            patch_from_save_string(p, saved);
+            scene_from_save_string(p, saved);
         }
     }
 
@@ -532,17 +532,17 @@ static inline int nvs_load_all() {
             m->enabled = (en_val == "true" || en_val == "1" || en_val == "yes");
         }
 
-        // If the message references a patch, add it to the patch's msg list.
-        if (m->exist.patch && m->patch) {
+        // If the message references a scene, add it to the scene's msg list.
+        if (m->exist.scene && m->scene) {
             int mi = reg.msg_index(m);
-            m->patch->add_msg(mi);
+            m->scene->add_msg(mi);
         }
     }
 
-    // --- Third pass: re-link patch message lists ----------------------------
-    // Some patches may have had "msgs:..." that referenced messages not yet
-    // loaded during the first pass.  Re-parse the patch strings to fix.
-    for (uint16_t i = 0; i < p_count && i < MAX_OSC_PATCHES; i++) {
+    // --- Third pass: re-link scene message lists ----------------------------
+    // Some scenes may have had "msgs:..." that referenced messages not yet
+    // loaded during the first pass.  Re-parse the scene strings to fix.
+    for (uint16_t i = 0; i < p_count && i < MAX_OSC_SCENES; i++) {
         String key = "p_" + String(i);
         String saved = prefs.getString(key.c_str(), "");
         if (saved.length() == 0) continue;
@@ -561,7 +561,7 @@ static inline int nvs_load_all() {
             pname.trim();
         }
 
-        OscPatch* p = reg.find_patch(pname);
+        OscScene* p = reg.find_scene(pname);
         if (!p) continue;
 
         // Parse msgs field.
@@ -582,8 +582,8 @@ static inline int nvs_load_all() {
             if (m) {
                 int mi = reg.msg_index(m);
                 p->add_msg(mi);
-                m->patch = p;
-                m->exist.patch = true;
+                m->scene = p;
+                m->exist.scene = true;
             }
         }
     }
@@ -633,10 +633,10 @@ static inline bool nvs_save_msg(const String& name) {
     return true;
 }
 
-/// Save a single patch to NVS by appending/updating it in the stored list.
-static inline bool nvs_save_patch(const String& name) {
+/// Save a single scene to NVS by appending/updating it in the stored list.
+static inline bool nvs_save_scene(const String& name) {
     OscRegistry& reg = osc_registry();
-    OscPatch* p = reg.find_patch(name);
+    OscScene* p = reg.find_scene(name);
     if (!p) return false;
 
     Preferences prefs;
@@ -665,7 +665,7 @@ static inline bool nvs_save_patch(const String& name) {
         prefs.putUShort("p_count", count + 1);
     }
     String key = "p_" + String(slot);
-    prefs.putString(key.c_str(), patch_to_save_string(*p));
+    prefs.putString(key.c_str(), scene_to_save_string(*p));
 
     prefs.end();
     return true;

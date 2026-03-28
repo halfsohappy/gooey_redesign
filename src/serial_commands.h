@@ -15,7 +15,7 @@
 //   streams              — show current sensor data stream values
 //   config               — show provisioned network configuration
 //   nvs                  — show NVS storage summary
-//   registry             — show OSC registry (patches + messages)
+//   registry             — show OSC registry (scenes + messages)
 //   serial [level]       — get/set serial debug level (error/warn/info/debug)
 //   sends [on|off]       — show or toggle per-message send logging to serial
 //   dedup [on|off]       — show or toggle duplicate value suppression
@@ -61,7 +61,7 @@ static inline void _serial_cmd_help() {
     Serial.println(F("  streams      — current sensor data stream values"));
     Serial.println(F("  config       — provisioned network configuration"));
     Serial.println(F("  nvs          — NVS storage summary (osc_store)"));
-    Serial.println(F("  registry     — OSC registry (patches + messages)"));
+    Serial.println(F("  registry     — OSC registry (scenes + messages)"));
     Serial.println(F("  serial [lvl] — get/set serial debug level"));
     Serial.println(F("               — levels: error, warn, info, debug"));
     Serial.println(F("  sends [on|off] — show or set per-message send logging"));
@@ -108,10 +108,10 @@ static inline void _serial_cmd_status() {
     Serial.println(F(" s"));
 
     OscRegistry& reg = osc_registry();
-    Serial.print(F("  Patches        : "));
-    Serial.print(reg.patch_count);
+    Serial.print(F("  Scenes        : "));
+    Serial.print(reg.scene_count);
     Serial.print(F(" / "));
-    Serial.println(MAX_OSC_PATCHES);
+    Serial.println(MAX_OSC_SCENES);
     Serial.print(F("  Messages       : "));
     Serial.print(reg.msg_count);
     Serial.print(F(" / "));
@@ -174,7 +174,7 @@ static inline void _serial_cmd_nvs() {
 
     uint16_t p_count = prefs.getUShort("p_count", 0);
     uint16_t m_count = prefs.getUShort("m_count", 0);
-    Serial.print(F("  Saved patches  : "));
+    Serial.print(F("  Saved scenes  : "));
     Serial.println(p_count);
     Serial.print(F("  Saved messages : "));
     Serial.println(m_count);
@@ -204,11 +204,11 @@ static inline void _serial_cmd_registry() {
     OscRegistry& reg = osc_registry();
     Serial.println(F("──────────── OSC Registry ────────────"));
 
-    Serial.print(F("  Patches ("));
-    Serial.print(reg.patch_count);
+    Serial.print(F("  Scenes ("));
+    Serial.print(reg.scene_count);
     Serial.println(F("):"));
-    for (uint16_t i = 0; i < reg.patch_count; i++) {
-        OscPatch& p = reg.patches[i];
+    for (uint16_t i = 0; i < reg.scene_count; i++) {
+        OscScene& p = reg.scenes[i];
         Serial.print(F("    ["));
         Serial.print(i);
         Serial.print(F("] \""));
@@ -399,7 +399,7 @@ static inline void serial_process() {
                 }
                 cmd.toLowerCase();
 
-                // Dispatch.
+                // Disscene.
                 if (cmd == "help" || cmd == "?") {
                     _serial_cmd_help();
                 } else if (cmd == "status") {
