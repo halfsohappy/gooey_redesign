@@ -2141,6 +2141,34 @@
   _activeViews.feed = true;
   updatePanelLayout();
 
+  /* ── Demo mode init ── */
+  if (window.GOOEY_DEMO) {
+    // Force light theme regardless of localStorage or system preference
+    try { localStorage.removeItem("gooey-theme"); } catch (e) {}
+    document.documentElement.classList.remove("dark");
+
+    // Open Notifications panel alongside Feed
+    _activeViews.notifications = true;
+    updatePanelLayout();
+
+    // Suppress onboard banner — steps appear as notifications instead
+    var _demoBanner = $("#onboardBanner");
+    if (_demoBanner) _demoBanner.classList.add("hidden");
+    try { localStorage.setItem("gooey_onboard_dismissed", "1"); } catch (e) {}
+
+    // Seed getting-started steps as notifications (added in reverse so step 1 shows at top)
+    showToast("Step 4: Start a scene \u2014 group messages together and click Start to begin streaming.", "info");
+    showToast("Step 3: Create messages \u2014 map sensor streams to OSC addresses in the Messages tab.", "info");
+    showToast("Step 2: Query it \u2014 select your device tab, then click \u27f3 Query to load its config.", "info");
+    showToast("Step 1: Add a device \u2014 click + in the header to enter your device\u2019s IP and port.", "info");
+    showToast("Welcome to the Gooey demo \u2014 OSC sending is disabled. Explore freely!", "info");
+
+    // Auto-start tour after a short delay so the page settles first
+    setTimeout(function () {
+      if (window._gooeyTour) window._gooeyTour.start();
+    }, 600);
+  }
+
   /* ═══════════════════════════════════════════
      FEED CONTROLS
      ═══════════════════════════════════════════ */
@@ -3271,6 +3299,9 @@
 
     var btnOnboard = $("#btnOnboardTour");
     if (btnOnboard) btnOnboard.addEventListener("click", startTour);
+
+    /* Expose for demo-mode auto-start */
+    window._gooeyTour = { start: startTour, end: endTour };
   }());
 
 })();

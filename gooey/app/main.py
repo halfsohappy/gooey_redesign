@@ -89,7 +89,7 @@ _remote_sessions = {}
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", demo_mode=DEMO_MODE)
 
 
 @app.route("/remote")
