@@ -25,6 +25,7 @@ OUT_DIR = os.path.join(REPO_ROOT, "docs-site")
 GUIDES = [
     ("user_guide.md",      "user-guide.html",      "User Guide"),
     ("technical_guide.md", "technical-guide.html",  "Technical Guide"),
+    ("beryl_guide.md",     "beryl-guide.html",      "Beryl Guide"),
 ]
 
 MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
@@ -639,6 +640,12 @@ def build():
             "⚙️",
             "Technical Guide",
             "Firmware architecture, module map, concurrency strategy, and extending the codebase.",
+        ),
+        (
+            "beryl-guide.html",
+            "📡",
+            "Beryl Guide",
+            "Run Gooey on a GL.iNet Beryl travel router for a self-contained, portable show control hub.",
         ),
     ]
     index_html = _index_page(index_guides)

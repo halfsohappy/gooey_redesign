@@ -1059,6 +1059,11 @@ Gooey is a browser-based control center for managing TheaterGWD devices.  It
 runs as a local Python server on your computer and communicates with devices
 over OSC — no firmware flashing or serial cables needed for day-to-day use.
 
+> **Running Gooey on a travel router?**  See the
+> [Beryl Guide](beryl-guide.html) for step-by-step instructions on deploying
+> Gooey on a GL.iNet Beryl (GL-MT1300) as a portable, self-contained show
+> control hub.
+
 ### Launching Gooey
 
 From the project root:
