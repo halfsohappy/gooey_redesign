@@ -1,0 +1,29 @@
+# Maintainer: halfsohappy <https://github.com/halfsohappy>
+pkgname=gooey-theatergwd
+pkgver=2026.3.28.209
+pkgrel=1
+pkgdesc="TheaterGWD Control Center – web-based OSC device manager for theater sensor hardware"
+arch=('any')
+url="https://github.com/halfsohappy/TheaterGWD"
+license=('MIT')
+depends=(
+    'python'
+    'python-flask'
+    'python-flask-socketio'
+    'python-markdown'
+    'python-pyserial'
+    'python-python-osc'
+)
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools')
+source=("https://files.pythonhosted.org/packages/source/g/${pkgname}/${pkgname//-/_}-${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+    cd "${pkgname//-/_}-${pkgver}"
+    python -m build --wheel --no-isolation
+}
+
+package() {
+    cd "${pkgname//-/_}-${pkgver}"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+}

@@ -10,11 +10,12 @@ Built with Python. Runs in your browser. Designed for theater professionals.
 
 ## Install
 
-### Homebrew (macOS — recommended)
-
-```bash
-brew install halfsohappy/theatergwd/gooey
-```
+| Platform | Command |
+|----------|---------|
+| macOS (Homebrew) | `brew install halfsohappy/theatergwd/gooey` |
+| Linux (snap) | `sudo snap install gooey-theatergwd` |
+| Arch / Manjaro (AUR) | `yay -S gooey-theatergwd` |
+| Any (pip) | `pip install gooey-theatergwd` |
 
 Then run:
 
@@ -22,38 +23,9 @@ Then run:
 gooey
 ```
 
-That's it — your browser opens automatically.
+Your browser opens automatically at http://127.0.0.1:5000.
 
-> See the [Homebrew Guide](docs/homebrew.md) for full details on updating, uninstalling, and troubleshooting.
-
-### pip install (any platform)
-
-```bash
-git clone https://github.com/halfsohappy/TheaterGWD.git
-cd TheaterGWD/gooey
-pip install .
-gooey
-```
-
-### One-command installer
-
-```bash
-git clone https://github.com/halfsohappy/TheaterGWD.git
-cd TheaterGWD/gooey
-bash install.sh
-```
-
-### Manual
-
-```bash
-cd gooey
-pip install -r requirements.txt
-python run.py
-```
-
-The control center opens at **http://127.0.0.1:5000**.
-
-> 📖 **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, all details.
+> 📖 **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, troubleshooting.
 
 ---
 

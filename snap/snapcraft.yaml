@@ -1,0 +1,41 @@
+name: gooey-theatergwd
+base: core24
+version: git
+summary: TheaterGWD Control Center
+description: |
+  Web-based OSC device manager for theater sensor hardware.
+  Controls TheaterGWD ESP32-S3 sensor devices via OSC over WiFi.
+
+  Start with: gooey-theatergwd
+  Your browser opens automatically at http://127.0.0.1:5000.
+
+  Options:
+    --port PORT     Web server port (default: 5000)
+    --host HOST     Web server host (default: 127.0.0.1)
+    --no-browser    Don't auto-open browser on startup
+    --debug         Enable debug mode
+
+  Alias to 'gooey': sudo snap alias gooey-theatergwd gooey
+
+grade: stable
+confinement: strict
+
+apps:
+  gooey-theatergwd:
+    command: bin/gooey
+    plugs:
+      - network          # send OSC UDP packets to devices
+      - network-bind     # serve the Flask HTTP/WebSocket server
+      - desktop          # open the browser via xdg-open
+      - desktop-legacy   # fallback for older desktop environments
+
+parts:
+  gooey:
+    plugin: python
+    source: gooey
+    python-packages:
+      - flask>=3.0
+      - flask-socketio>=5.3
+      - python-osc>=1.8
+      - markdown>=3.7
+      - pyserial>=3.5

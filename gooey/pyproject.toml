@@ -7,7 +7,7 @@ name = "gooey-theatergwd"
 version = "0.2.0"
 description = "TheaterGWD Control Center – web-based OSC device manager for theater sensor hardware"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.8"
 keywords = ["osc", "theater", "sensor", "control-center", "flask"]
 classifiers = [
@@ -15,7 +15,6 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Flask",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
@@ -32,6 +31,7 @@ dependencies = [
     "flask-socketio>=5.3",
     "python-osc>=1.8",
     "markdown>=3.7",
+    "pyserial>=3.5",
 ]
 
 [project.urls]
