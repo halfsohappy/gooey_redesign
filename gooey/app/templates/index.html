@@ -277,7 +277,7 @@
               </div>
               <div class="form-group fg-narrow">
                 <label for="msgPort">Port</label>
-                <input type="number" id="msgPort" value="9000" min="1" max="65535">
+                <input type="text" id="msgPort" value="9000" placeholder="9000 or >ref">
               </div>
               <div class="form-group">
                 <label for="msgAdr">Address</label>
@@ -499,7 +499,7 @@
               </div>
               <div class="form-group fg-narrow">
                 <label for="scenePort">Port</label>
-                <input type="number" id="scenePort" value="9000" min="1" max="65535">
+                <input type="text" id="scenePort" value="9000" placeholder="9000 or >ref">
               </div>
               <div class="form-group">
                 <label for="sceneAdr">OSC Address</label>
@@ -897,16 +897,11 @@
             </div>
           </div>
 
-          <div class="card" data-card-id="script-enable">
-            <h2>Python Tab</h2>
-            <p class="hint-text">Enable the Python tab to write custom Python for sophisticated routing and data processing.</p>
+          <div class="card" data-card-id="advanced-tools">
+            <h2>Advanced Tools</h2>
             <div class="cb-row">
-              <label class="cb-label"><input type="checkbox" id="chkEnableScript"> Enable Python tab</label>
+              <label class="cb-label" title="Enable the Python tab for custom routing and data processing"><input type="checkbox" id="chkEnableScript"> Show Python tab</label>
             </div>
-          </div>
-
-          <div class="card" data-card-id="ui-options">
-            <h2>UI Options</h2>
             <div class="cb-row">
               <label class="cb-label" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
             </div>

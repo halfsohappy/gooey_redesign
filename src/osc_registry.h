@@ -275,8 +275,8 @@ inline bool OscMessage::sendable() const {
 ///   Direct keys:  name, ip, port, adr/addr/address, scene, value, low/min/lo,
 ///                 high/max/hi, enabled
 ///                 period — accepted but ignored (scene-level field, handled by caller)
-///   Reference keys (use '-' separator):  ip-refName, port-refName, etc.
-///   Special:  default-refName / all-refName  copies all set fields from a
+///   Reference keys (use '>' separator):  ip>refName, port>refName, etc.
+///   Special:  default>refName / all>refName  copies all set fields from a
 ///             registered scene or message as fallback values.
 ///
 /// Returns false with *error filled in on parse failure.
@@ -311,9 +311,9 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
 
         if (token.length() == 0) continue;
 
-        // Determine separator: ':' = direct value, '-' = registry reference.
+        // Determine separator: ':' = direct value, '>' = registry reference.
         int colon = token.indexOf(':');
-        int dash  = token.indexOf('-');
+        int dash  = token.indexOf('>');
 
         bool is_ref = false;
         int  sep    = -1;
@@ -324,7 +324,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             sep    = dash;
             is_ref = true;
         } else {
-            if (error) *error = "Missing ':' or '-' in token: " + token;
+            if (error) *error = "Missing ':' or '>' in token: " + token;
             return false;
         }
 
@@ -361,6 +361,15 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             } else if (key == "high" || key == "max" || key == "hi") {
                 if (ref_m && ref_m->exist.high) { bounds[1] = ref_m->bounds[1]; exist.high = true; }
                 else { if (error) *error = "Ref '" + value + "' has no high"; return false; }
+            } else if (key == "orionly" || key == "ori_only") {
+                if (ref_m && ref_m->ori_only.length() > 0) { ori_only = ref_m->ori_only; }
+                else { if (error) *error = "Ref '" + value + "' has no ori_only"; return false; }
+            } else if (key == "orinot" || key == "ori_not") {
+                if (ref_m && ref_m->ori_not.length() > 0) { ori_not = ref_m->ori_not; }
+                else { if (error) *error = "Ref '" + value + "' has no ori_not"; return false; }
+            } else if (key == "ternori") {
+                if (ref_m && ref_m->ternori.length() > 0) { ternori = ref_m->ternori; }
+                else { if (error) *error = "Ref '" + value + "' has no ternori"; return false; }
             } else if (key == "default" || key == "all") {
                 if (!ref_p && !ref_m) {
                     if (error) *error = "default/all: no object named '" + value + "'";
@@ -379,6 +388,9 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                     if (ref_m->exist.val   && !exist.val)   { value_ptr = ref_m->value_ptr;     exist.val   = true; }
                     if (ref_m->exist.low   && !exist.low)   { bounds[0] = ref_m->bounds[0];     exist.low   = true; }
                     if (ref_m->exist.high  && !exist.high)  { bounds[1] = ref_m->bounds[1];     exist.high  = true; }
+                    if (ref_m->ori_only.length() > 0 && ori_only.length() == 0) { ori_only = ref_m->ori_only; }
+                    if (ref_m->ori_not.length()  > 0 && ori_not.length()  == 0) { ori_not  = ref_m->ori_not;  }
+                    if (ref_m->ternori.length()  > 0 && ternori.length() == 0)  { ternori  = ref_m->ternori;  }
                 }
             } else {
                 if (error) *error = "Unknown key: " + key;
