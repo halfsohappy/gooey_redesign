@@ -912,9 +912,21 @@ def api_shows_delete(name):
 
 # ── Docs ──
 
-_DOCS_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "docs")
-)
+def _find_docs_root():
+    """Return the docs directory, checking both source-checkout and brew-install layouts."""
+    base = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(base, "..", "..", "docs"),  # source checkout: repo/docs/
+        os.path.join(base, "..", "docs"),         # brew install:   libexec/docs/
+    ]
+    for path in candidates:
+        path = os.path.normpath(path)
+        if os.path.isdir(path):
+            return path
+    # Fall back to source-checkout path even if absent (produces a clear 404)
+    return os.path.normpath(candidates[0])
+
+_DOCS_ROOT = _find_docs_root()
 
 _DOCS_GUIDES = {
     "user-guide": ("user_guide.md", "User Guide"),

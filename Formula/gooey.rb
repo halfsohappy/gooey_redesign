@@ -23,6 +23,9 @@ class Gooey < Formula
     # Copy gooey application into libexec
     libexec.install Dir["gooey/*"]
 
+    # Bundle the docs so the in-app guide route works after install
+    (libexec/"docs").install Dir["docs/*.md"]
+
     # Create a Python virtual environment
     venv_dir = libexec/"venv"
     system Formula["python@3"].opt_bin/"python3", "-m", "venv", venv_dir.to_s
