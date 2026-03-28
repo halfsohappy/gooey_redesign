@@ -2,6 +2,7 @@
 
 import datetime
 import json
+import logging
 import os
 import re
 import threading
@@ -18,6 +19,13 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "theatergwd-control-center"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() == "true"
+
+# Suppress benign Werkzeug AssertionError noise (browser dropped connections)
+class _DropWerkzeugAssertions(logging.Filter):
+    def filter(self, record):
+        return not (record.exc_info and record.exc_info[0] is AssertionError)
+
+logging.getLogger("werkzeug").addFilter(_DropWerkzeugAssertions())
 engine = OSCEngine(socketio)
 
 # ── Validation helpers ──

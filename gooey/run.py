@@ -4,7 +4,10 @@
 import argparse
 import os
 import threading
-import webbrowser
+try:
+    import webbrowser
+except ImportError:
+    webbrowser = None
 
 from app.main import create_app
 
@@ -48,7 +51,7 @@ examples:
         print(f"  Accessible from other devices on your network")
     print(f"  Press Ctrl+C to quit\n")
 
-    if not args.no_browser:
+    if not args.no_browser and webbrowser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
 
     socketio.run(
