@@ -3304,4 +3304,370 @@
     window._gooeyTour = { start: startTour, end: endTour };
   }());
 
+  /* ═══════════════════════════════════════════
+     SCRIPT TAB
+     ═══════════════════════════════════════════ */
+  (function () {
+    var SCRIPT_KEY = "gooey_script_enabled";
+    var SCRIPT_DRAFT_KEY = "gooey_script_draft";
+    var SCRIPT_NAME_KEY = "gooey_script_name";
+    var navBtn = $("#navScript");
+    var chkEnable = $("#chkEnableScript");
+    var editor = $("#scriptEditor");
+    var lineNums = $("#scriptLineNumbers");
+    var consoleEl = $("#scriptConsole");
+    var btnRun = $("#btnScriptRun");
+    var btnStop = $("#btnScriptStop");
+    var btnClear = $("#btnScriptConsoleClear");
+    var btnSave = $("#btnScriptSave");
+    var btnSaveAs = $("#btnScriptSaveAs");
+    var btnLoad = $("#btnScriptLoad");
+    var btnDelete = $("#btnScriptDelete");
+    var btnTemplate = $("#btnScriptTemplate");
+    var selLoad = $("#scriptLoadSelect");
+    var selTemplate = $("#scriptTemplateSelect");
+    var selMode = $("#scriptMode");
+    var inputInterval = $("#scriptInterval");
+    var inputListenPort = $("#scriptListenPort");
+
+    var scriptRunning = false;
+    var currentScriptName = "";
+
+    /* ── Enable/disable toggle ── */
+    function setScriptEnabled(on) {
+      if (navBtn) navBtn.style.display = on ? "" : "none";
+      try { localStorage.setItem(SCRIPT_KEY, on ? "1" : "0"); } catch (e) {}
+    }
+
+    // Restore from localStorage
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem(SCRIPT_KEY); } catch (e) {}
+      if (saved === "1") {
+        if (chkEnable) chkEnable.checked = true;
+        setScriptEnabled(true);
+      }
+    }());
+
+    if (chkEnable) {
+      chkEnable.addEventListener("change", function () {
+        setScriptEnabled(chkEnable.checked);
+        if (!chkEnable.checked) {
+          // If currently on the script tab, switch away
+          if (navBtn && navBtn.classList.contains("active")) {
+            var msgBtn = $(".nav-btn[data-section='messages']");
+            if (msgBtn) msgBtn.click();
+          }
+        }
+      });
+    }
+
+    /* ── Line numbers ── */
+    function updateLineNumbers() {
+      if (!editor || !lineNums) return;
+      var lines = editor.value.split("\n").length;
+      var nums = [];
+      for (var i = 1; i <= lines; i++) nums.push(i);
+      lineNums.textContent = nums.join("\n");
+    }
+
+    if (editor) {
+      editor.addEventListener("input", updateLineNumbers);
+      editor.addEventListener("scroll", function () {
+        if (lineNums) lineNums.scrollTop = editor.scrollTop;
+      });
+
+      // Tab key inserts spaces
+      editor.addEventListener("keydown", function (e) {
+        if (e.key === "Tab") {
+          e.preventDefault();
+          var start = editor.selectionStart;
+          var end = editor.selectionEnd;
+          editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
+          editor.selectionStart = editor.selectionEnd = start + 4;
+          updateLineNumbers();
+        }
+      });
+
+      // Restore draft
+      try {
+        var draft = localStorage.getItem(SCRIPT_DRAFT_KEY);
+        if (draft) editor.value = draft;
+        var savedName = localStorage.getItem(SCRIPT_NAME_KEY);
+        if (savedName) currentScriptName = savedName;
+      } catch (e) {}
+      updateLineNumbers();
+
+      // Auto-save draft
+      editor.addEventListener("input", function () {
+        try { localStorage.setItem(SCRIPT_DRAFT_KEY, editor.value); } catch (e) {}
+      });
+    }
+
+    /* ── Console output ── */
+    function appendConsole(text, level) {
+      if (!consoleEl) return;
+      var line = document.createElement("div");
+      line.className = "script-console-line" + (level === "error" ? " error" : level === "warn" ? " warn" : "");
+      line.textContent = text;
+      consoleEl.appendChild(line);
+      // Auto-scroll
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+      // Limit lines
+      while (consoleEl.children.length > 500) {
+        consoleEl.removeChild(consoleEl.firstChild);
+      }
+    }
+
+    socket.on("script_output", function (data) {
+      var prefix = data.time ? "[" + data.time + "] " : "";
+      appendConsole(prefix + data.text, data.level);
+    });
+
+    socket.on("script_stopped", function () {
+      scriptRunning = false;
+      if (btnRun) btnRun.disabled = false;
+      if (btnStop) btnStop.disabled = true;
+      if (editor) editor.readOnly = false;
+    });
+
+    /* ── Run / Stop ── */
+    if (btnRun) {
+      btnRun.addEventListener("click", function () {
+        if (!editor) return;
+        var code = editor.value.trim();
+        if (!code) { toast("No script to run", "error"); return; }
+        scriptRunning = true;
+        btnRun.disabled = true;
+        if (btnStop) btnStop.disabled = false;
+        editor.readOnly = true;
+        socket.emit("script_run", {
+          code: code,
+          mode: selMode ? selMode.value : "loop",
+          interval: inputInterval ? parseInt(inputInterval.value, 10) || 50 : 50,
+          listen_port: inputListenPort ? parseInt(inputListenPort.value, 10) || null : null,
+        });
+      });
+    }
+
+    if (btnStop) {
+      btnStop.addEventListener("click", function () {
+        socket.emit("script_stop");
+      });
+    }
+
+    if (btnClear) {
+      btnClear.addEventListener("click", function () {
+        if (consoleEl) consoleEl.innerHTML = "";
+      });
+    }
+
+    /* ── Save / Load / Delete ── */
+    function refreshScriptList() {
+      api("scripts", null, "GET").then(function (res) {
+        if (!selLoad || !res.scripts) return;
+        selLoad.innerHTML = '<option value="">-- select --</option>';
+        res.scripts.forEach(function (s) {
+          var opt = document.createElement("option");
+          opt.value = s.name;
+          opt.textContent = s.name;
+          if (s.name === currentScriptName) opt.selected = true;
+          selLoad.appendChild(opt);
+        });
+      });
+    }
+
+    if (btnSave) {
+      btnSave.addEventListener("click", function () {
+        if (!editor) return;
+        var name = currentScriptName || prompt("Script name:");
+        if (!name) return;
+        name = name.trim();
+        if (!name) return;
+        api("scripts/" + encodeURIComponent(name), { code: editor.value }).then(function (res) {
+          if (res.status === "ok") {
+            currentScriptName = name;
+            try { localStorage.setItem(SCRIPT_NAME_KEY, name); } catch (e) {}
+            toast("Saved: " + name, "info");
+            refreshScriptList();
+          }
+        });
+      });
+    }
+
+    if (btnSaveAs) {
+      btnSaveAs.addEventListener("click", function () {
+        if (!editor) return;
+        var name = prompt("Save script as:", currentScriptName || "");
+        if (!name) return;
+        name = name.trim();
+        if (!name) return;
+        api("scripts/" + encodeURIComponent(name), { code: editor.value }).then(function (res) {
+          if (res.status === "ok") {
+            currentScriptName = name;
+            try { localStorage.setItem(SCRIPT_NAME_KEY, name); } catch (e) {}
+            toast("Saved: " + name, "info");
+            refreshScriptList();
+          }
+        });
+      });
+    }
+
+    if (btnLoad) {
+      btnLoad.addEventListener("click", function () {
+        if (!selLoad) return;
+        var name = selLoad.value;
+        if (!name) { toast("Select a script first", "error"); return; }
+        api("scripts/" + encodeURIComponent(name), null, "GET").then(function (res) {
+          if (res.status === "ok" && editor) {
+            editor.value = res.code;
+            currentScriptName = name;
+            try {
+              localStorage.setItem(SCRIPT_DRAFT_KEY, res.code);
+              localStorage.setItem(SCRIPT_NAME_KEY, name);
+            } catch (e) {}
+            updateLineNumbers();
+            toast("Loaded: " + name, "info");
+          }
+        });
+      });
+    }
+
+    if (btnDelete) {
+      btnDelete.addEventListener("click", function () {
+        if (!selLoad) return;
+        var name = selLoad.value;
+        if (!name) { toast("Select a script first", "error"); return; }
+        showConfirm("Delete Script", "Delete \"" + name + "\"? This cannot be undone.", function () {
+          api("scripts/" + encodeURIComponent(name), null, "DELETE").then(function (res) {
+            if (res.status === "ok") {
+              if (currentScriptName === name) {
+                currentScriptName = "";
+                try { localStorage.removeItem(SCRIPT_NAME_KEY); } catch (e) {}
+              }
+              toast("Deleted: " + name, "info");
+              refreshScriptList();
+            }
+          });
+        });
+      });
+    }
+
+    /* ── Templates ── */
+    var TEMPLATES = {
+      threshold_gate:
+        "# Threshold Gate\n"
+        + "# Only send when a sensor exceeds a threshold\n\n"
+        + 'accel = sensor("accelLength")\n'
+        + "threshold = 0.5\n\n"
+        + "if accel > threshold:\n"
+        + '    osc_send("192.168.1.50", 7000, "/light/intensity", accel)\n'
+        + '    print(f"Sent: {accel:.3f}")\n',
+
+      value_mapper:
+        "# Value Mapper\n"
+        + "# Remap a sensor value from one range to another\n\n"
+        + 'raw = sensor("eulerY")  # pitch: roughly -1 to 1\n\n'
+        + "# Remap to 0-255 for a DMX channel\n"
+        + "dmx = remap(raw, -1.0, 1.0, 0, 255)\n"
+        + "dmx = clamp(dmx, 0, 255)\n\n"
+        + 'osc_send("192.168.1.50", 7000, "/dmx/1", int(dmx))\n',
+
+      multi_sensor:
+        "# Multi-Sensor Combiner\n"
+        + "# Combine accelerometer and gyroscope into an 'energy' metric\n\n"
+        + 'accel = sensor("accelLength")\n'
+        + 'gyro = sensor("gyroLength")\n\n'
+        + "# Weighted combination\n"
+        + "energy = accel * 0.6 + gyro * 0.4\n\n"
+        + "# Smooth with exponential moving average\n"
+        + 'if "smooth" not in state:\n'
+        + '    state["smooth"] = 0.0\n'
+        + 'state["smooth"] = state["smooth"] * 0.8 + energy * 0.2\n\n'
+        + 'osc_send("192.168.1.50", 7000, "/energy", state["smooth"])\n'
+        + 'print(f"energy={state[\'smooth\']:.3f}")\n',
+
+      timed_crossfade:
+        "# Timed Crossfade\n"
+        + "# Smoothly transition between two values over time\n\n"
+        + "duration = 5.0  # seconds\n"
+        + "t = elapsed() % (duration * 2)  # ping-pong\n\n"
+        + "if t > duration:\n"
+        + "    t = duration * 2 - t  # reverse\n\n"
+        + "fade = t / duration  # 0 to 1\n\n"
+        + "val_a = 0\n"
+        + "val_b = 255\n"
+        + "result = val_a + (val_b - val_a) * fade\n\n"
+        + 'osc_send("192.168.1.50", 7000, "/crossfade", result)\n'
+        + 'print(f"fade={fade:.2f}  result={result:.1f}")\n',
+
+      state_machine:
+        "# State Machine\n"
+        + "# Switch between idle/active/cooldown based on motion\n\n"
+        + 'if "mode" not in state:\n'
+        + '    state["mode"] = "idle"\n'
+        + '    state["timer"] = 0\n\n'
+        + 'accel = sensor("accelLength")\n'
+        + "d = dt()\n\n"
+        + 'if state["mode"] == "idle":\n'
+        + "    if accel > 0.7:\n"
+        + '        state["mode"] = "active"\n'
+        + '        print("-> ACTIVE")\n\n'
+        + 'elif state["mode"] == "active":\n'
+        + '    osc_send("192.168.1.50", 7000, "/active", accel)\n'
+        + "    if accel < 0.3:\n"
+        + '        state["mode"] = "cooldown"\n'
+        + '        state["timer"] = 2.0  # 2 second cooldown\n'
+        + '        print("-> COOLDOWN")\n\n'
+        + 'elif state["mode"] == "cooldown":\n'
+        + '    state["timer"] -= d\n'
+        + '    if state["timer"] <= 0:\n'
+        + '        state["mode"] = "idle"\n'
+        + '        print("-> IDLE")\n',
+    };
+
+    if (btnTemplate) {
+      btnTemplate.addEventListener("click", function () {
+        if (!selTemplate || !editor) return;
+        var key = selTemplate.value;
+        if (!key || !TEMPLATES[key]) { toast("Select a template first", "error"); return; }
+        if (editor.value.trim()) {
+          showConfirm("Load Template", "Replace current editor contents with template?", function () {
+            editor.value = TEMPLATES[key];
+            try { localStorage.setItem(SCRIPT_DRAFT_KEY, editor.value); } catch (e) {}
+            updateLineNumbers();
+          }, "Replace", true);
+        } else {
+          editor.value = TEMPLATES[key];
+          try { localStorage.setItem(SCRIPT_DRAFT_KEY, editor.value); } catch (e) {}
+          updateLineNumbers();
+        }
+      });
+    }
+
+    /* ── Check running status on connect ── */
+    socket.on("connect", function () {
+      socket.emit("script_status");
+    });
+    socket.on("script_status_reply", function (data) {
+      scriptRunning = data.running;
+      if (btnRun) btnRun.disabled = data.running;
+      if (btnStop) btnStop.disabled = !data.running;
+      if (editor) editor.readOnly = data.running;
+    });
+
+    /* ── Refresh script list when navigating to the tab ── */
+    var origNavHandler = null;
+    if (navBtn) {
+      navBtn.addEventListener("click", function () {
+        refreshScriptList();
+      });
+    }
+
+    // Initial load if enabled
+    try {
+      if (localStorage.getItem(SCRIPT_KEY) === "1") refreshScriptList();
+    } catch (e) {}
+  }());
+
 })();

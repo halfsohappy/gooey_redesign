@@ -14,6 +14,7 @@ from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, join_room, leave_room
 
 from .osc_handler import OSCEngine
+from .script_runner import ScriptRunner
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "theatergwd-control-center"
@@ -27,6 +28,7 @@ class _DropWerkzeugAssertions(logging.Filter):
 
 logging.getLogger("werkzeug").addFilter(_DropWerkzeugAssertions())
 engine = OSCEngine(socketio)
+script_runner = ScriptRunner(engine, socketio)
 
 # ── Validation helpers ──
 
@@ -937,6 +939,92 @@ def api_shows_delete(name):
         return jsonify({"status": "ok"})
     except Exception as e:
         return _error(str(e), 500)
+
+
+# ── Script runner ──
+
+_SCRIPTS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "scripts")
+)
+
+
+def _ensure_scripts_dir():
+    os.makedirs(_SCRIPTS_DIR, exist_ok=True)
+
+
+def _script_path(name):
+    safe = re.sub(r"[^\w\-. ]", "_", name)
+    return os.path.join(_SCRIPTS_DIR, safe + ".py")
+
+
+@app.route("/api/scripts", methods=["GET"])
+def api_scripts_list():
+    _ensure_scripts_dir()
+    scripts = []
+    for fname in sorted(os.listdir(_SCRIPTS_DIR)):
+        if not fname.endswith(".py"):
+            continue
+        scripts.append({"name": fname[:-3]})
+    return jsonify({"status": "ok", "scripts": scripts})
+
+
+@app.route("/api/scripts/<name>", methods=["GET"])
+def api_scripts_get(name):
+    _ensure_scripts_dir()
+    fpath = _script_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Script not found", 404)
+    with open(fpath, encoding="utf-8") as fh:
+        code = fh.read()
+    return jsonify({"status": "ok", "name": name, "code": code})
+
+
+@app.route("/api/scripts/<name>", methods=["POST"])
+def api_scripts_save(name):
+    _ensure_scripts_dir()
+    body = request.get_json(silent=True) or {}
+    code = body.get("code", "")
+    fpath = _script_path(name)
+    with open(fpath, "w", encoding="utf-8") as fh:
+        fh.write(code)
+    return jsonify({"status": "ok", "name": name})
+
+
+@app.route("/api/scripts/<name>", methods=["DELETE"])
+def api_scripts_delete(name):
+    fpath = _script_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Script not found", 404)
+    os.remove(fpath)
+    return jsonify({"status": "ok"})
+
+
+@socketio.on("script_run")
+def handle_script_run(data):
+    if DEMO_MODE:
+        socketio.emit("script_output", {
+            "time": "", "text": "Demo mode -- scripts can't run in the online demo.",
+            "level": "error"
+        }, to=request.sid)
+        return
+    code = data.get("code", "")
+    mode = data.get("mode", "loop")
+    interval = data.get("interval", 50)
+    listen_port = data.get("listen_port")
+    script_runner.run(code, mode=mode, interval_ms=interval,
+                      listen_port=listen_port)
+
+
+@socketio.on("script_stop")
+def handle_script_stop():
+    script_runner.stop()
+
+
+@socketio.on("script_status")
+def handle_script_status():
+    socketio.emit("script_status_reply", {
+        "running": script_runner.running,
+    }, to=request.sid)
 
 
 # ── Docs ──

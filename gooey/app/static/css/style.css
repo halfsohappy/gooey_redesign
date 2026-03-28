@@ -2454,3 +2454,118 @@ body.serial-open .app-layout { padding-bottom: 0; }
 .tour-dot.active {
   background: var(--accent, #90849c);
 }
+
+/* ═══════════════════════════════════════════
+   SCRIPT TAB
+   ═══════════════════════════════════════════ */
+
+.script-editor-wrap {
+  display: flex;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+  background: var(--input-bg, #fff);
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.script-line-numbers {
+  min-width: 36px;
+  padding: 10px 8px 10px 8px;
+  text-align: right;
+  background: var(--bg-hover, #f5f5f7);
+  color: var(--text-muted, #999);
+  border-right: 1px solid var(--border, #ddd);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+  overflow: hidden;
+  user-select: none;
+}
+
+.script-editor {
+  flex: 1;
+  min-height: 280px;
+  max-height: 500px;
+  padding: 10px;
+  border: none;
+  outline: none;
+  resize: vertical;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  background: var(--input-bg, #fff);
+  color: var(--text-dark, #2A2F36);
+}
+
+.script-editor::placeholder {
+  color: var(--text-muted, #999);
+}
+
+.script-editor[readonly] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.script-console {
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.script-console-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.script-console-line.error {
+  color: #f38ba8;
+}
+
+.script-console-line.warn {
+  color: #fab387;
+}
+
+.script-ref-content table {
+  font-size: 13px;
+}
+
+.script-ref-content code {
+  background: var(--bg-hover, #f0f0f3);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+/* Dark mode adjustments */
+html.dark .script-editor-wrap {
+  border-color: var(--border);
+}
+
+html.dark .script-line-numbers {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+html.dark .script-editor {
+  background: var(--input-bg);
+  color: var(--text-dark);
+}
+
+html.dark .script-ref-content code {
+  background: var(--bg-hover);
+}
