@@ -2364,7 +2364,7 @@
 
   function initCollapsibleCards() {
     $$(".section .card").forEach(function (card) {
-      if (card.id === "oriDetailsCard" || card.id === "quickRefCard") return;
+      if (card.id === "oriDetailsCard") return;
       var headers = card.querySelectorAll("h2, .card-title-row, .tbl-toolbar");
       headers.forEach(function (hdr) {
         hdr.addEventListener("click", function (e) {
@@ -2938,30 +2938,6 @@
 
   /* Initial onboarding check */
   updateOnboarding();
-
-  /* ═══════════════════════════════════════════
-     QUICK REF CARD dismiss + open panel link
-     ═══════════════════════════════════════════ */
-
-  var QR_DISMISSED_KEY = "gooey_qr_dismissed";
-  var quickRefCard = $("#quickRefCard");
-  if (quickRefCard) {
-    try { if (localStorage.getItem(QR_DISMISSED_KEY)) quickRefCard.style.display = "none"; } catch (e) {}
-    var qrDismiss = $("#quickRefDismiss");
-    if (qrDismiss) {
-      qrDismiss.addEventListener("click", function () {
-        quickRefCard.style.display = "none";
-        try { localStorage.setItem(QR_DISMISSED_KEY, "1"); } catch (e) {}
-      });
-    }
-    var openRefPanel = $("#openRefPanel");
-    if (openRefPanel) {
-      openRefPanel.addEventListener("click", function (e) {
-        e.preventDefault();
-        if (!_activeViews.reference) toggleView("reference");
-      });
-    }
-  }
 
   /* ═══════════════════════════════════════════
      REFERENCE PANEL — open by default first visit
