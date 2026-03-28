@@ -2669,8 +2669,8 @@
       var dev = getActiveDev();
       if (!dev) { toast("Select a device first", "error"); return; }
       /* Build show JSON from current Gooey registry */
-      var msgs = Object.values(dev.messages || {}).map(function (m) { return m; });
-      var patches = Object.values(dev.patches || {}).map(function (p) { return p; });
+      var msgs = Object.entries(dev.messages || {}).map(function (kv) { return Object.assign({ name: kv[0] }, kv[1]); });
+      var patches = Object.entries(dev.patches || {}).map(function (kv) { return Object.assign({ name: kv[0] }, kv[1]); });
       var oris = Object.entries(dev.oris || {}).map(function (kv) {
         return { name: kv[0], color: kv[1].color, samples: kv[1].samples, use_axis: kv[1].useAxis };
       });
