@@ -1,5 +1,7 @@
 """Flask application with SocketIO for TheaterGWD Control Center."""
 
+import datetime
+import json
 import os
 import re
 import threading
@@ -811,6 +813,14 @@ THEATER_GWD_PRESETS = {
         "prepend": "Address mode: patch.adr + msg.adr.",
         "append": "Address mode: msg.adr + patch.adr.",
         "config string": "CSV key:value pairs, e.g. 'value:accelX, ip:192.168.1.50, port:9000'.",
+        "gaccelX": "Gravity-corrected acceleration X — linear acceleration without gravity.",
+        "gaccelY": "Gravity-corrected acceleration Y — linear acceleration without gravity.",
+        "gaccelZ": "Gravity-corrected acceleration Z — linear acceleration without gravity.",
+        "gaccelLength": "Gravity-corrected acceleration magnitude.",
+        "quatI": "Quaternion I component — orientation in quaternion form.",
+        "quatJ": "Quaternion J component — orientation in quaternion form.",
+        "quatK": "Quaternion K component — orientation in quaternion form.",
+        "quatR": "Quaternion R (scalar/real) component — orientation in quaternion form.",
     },
 }
 
@@ -818,6 +828,86 @@ THEATER_GWD_PRESETS = {
 @app.route("/api/presets/theater-gwd", methods=["GET"])
 def api_theater_gwd_presets():
     return jsonify({"status": "ok", "presets": THEATER_GWD_PRESETS})
+
+
+# ── Show Library (disk JSON) ──
+
+_SHOWS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "shows")
+)
+
+
+def _ensure_shows_dir():
+    os.makedirs(_SHOWS_DIR, exist_ok=True)
+
+
+def _show_path(name):
+    """Return the file path for a show, rejecting path-traversal attempts."""
+    safe = re.sub(r"[^\w\-. ]", "_", name)
+    return os.path.join(_SHOWS_DIR, safe + ".json")
+
+
+@app.route("/api/shows", methods=["GET"])
+def api_shows_list():
+    _ensure_shows_dir()
+    shows = []
+    for fname in sorted(os.listdir(_SHOWS_DIR)):
+        if not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(_SHOWS_DIR, fname)
+        try:
+            with open(fpath, encoding="utf-8") as fh:
+                data = json.load(fh)
+            shows.append({
+                "name": data.get("name", fname[:-5]),
+                "saved": data.get("saved", ""),
+                "device": data.get("device", ""),
+            })
+        except Exception:
+            pass
+    return jsonify(shows)
+
+
+@app.route("/api/shows/<name>", methods=["GET"])
+def api_shows_get(name):
+    _ensure_shows_dir()
+    fpath = _show_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Show not found", 404)
+    try:
+        with open(fpath, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return jsonify(data)
+    except Exception as e:
+        return _error(str(e), 500)
+
+
+@app.route("/api/shows/<name>", methods=["POST"])
+def api_shows_save(name):
+    _ensure_shows_dir()
+    body = request.get_json(silent=True) or {}
+    body["name"] = name
+    if not body.get("saved"):
+        body["saved"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    fpath = _show_path(name)
+    try:
+        with open(fpath, "w", encoding="utf-8") as fh:
+            json.dump(body, fh, indent=2)
+        return jsonify({"status": "ok", "name": name})
+    except Exception as e:
+        return _error(str(e), 500)
+
+
+@app.route("/api/shows/<name>", methods=["DELETE"])
+def api_shows_delete(name):
+    fpath = _show_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Show not found", 404)
+    try:
+        os.remove(fpath)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return _error(str(e), 500)
 
 
 # ── Docs ──

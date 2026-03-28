@@ -90,6 +90,20 @@
 //   load/all               — same as load
 //   nvs/clear              — erase all saved OSC data from NVS
 //
+// ── ORI RECORDING COMMANDS (/annieData{dev}/ori/record/...) ────────────────
+//   start/{name}           — begin timed recording session for named ori
+//   stop                   — stop and commit (auto-axis detect + subsample)
+//   cancel                 — discard recording without saving
+//   status                 — reply: active, name, sample_count, elapsed_ms
+//
+// ── SHOW COMMANDS (/annieData{dev}/show/...) ────────────────────────────────
+//   save/{name}            — snapshot current state as named show in NVS
+//   load/{name}            — load named show (two-step: pending → confirm)
+//   load/confirm           — execute the pending show load
+//   list                   — reply: CSV of saved show names
+//   delete/{name}          — delete named show from NVS
+//   rename  "old, new"     — rename a saved show
+//
 // =============================================================================
 
 #ifndef OSC_COMMANDS_H
@@ -150,6 +164,11 @@ static inline void osc_reply(const IPAddress& dest_ip, unsigned int dest_port,
 // ---------------------------------------------------------------------------
 
 void osc_handle_message(MicroOscMessage& osc_msg) {
+    // Persists between calls — holds a pending show name for the two-step
+    // /show/load confirm flow (clears on confirm, cancel, or 30-second timeout).
+    static String pending_show_name = "";
+    static unsigned long pending_show_ms = 0;
+
     String address = osc_msg.getOscAddress();
     Serial.println("[OSC] " + address);
 
@@ -951,9 +970,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 status_reporter().warning("ori", "reset: no name given");
                 return;
             }
-            int idx = ot.reset(ori_name, cur_qi, cur_qj, cur_qk, cur_qr);
+            int idx = ot.reset(ori_name);
             if (idx >= 0) {
-                status_reporter().info("ori", "Reset ori '" + ori_name + "' to current point");
+                status_reporter().info("ori", "Cleared samples for ori '" + ori_name + "' (ready to re-record)");
                 osc_reply(sender_ip, sender_port, reply_adr + "/ori/reset", "Reset: " + ori_name);
             } else {
                 status_reporter().warning("ori", "Ori '" + ori_name + "' not found");
@@ -979,7 +998,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             }
             String info_str = ot.info(ori_name);
             status_reporter().info("ori", info_str);
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/info", info_str);
+            IPAddress info_ip = sender_ip;
+            unsigned int info_port = sender_port;
+            if (status_reporter().configured && status_reporter().dest_port != 0) {
+                info_ip = status_reporter().dest_ip;
+                info_port = status_reporter().dest_port;
+            }
+            osc_reply(info_ip, info_port, reply_adr + "/ori/info", info_str);
             return;
         }
 
@@ -1111,7 +1136,299 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             return;
         }
 
+        // /ori/record/start/{name}  — begin a timed recording session
+        // /ori/record/stop          — finalize (auto-axis detect + farthest-first subsample)
+        // /ori/record/cancel        — discard recording without saving
+        // /ori/record/status        — query session state
+        if (ori_rest.startsWith("/record")) {
+            String rec_sub      = ori_rest.substring(7);       // e.g. "/start/myName"
+            String rec_sub_orig = ori_rest_orig.length() > 7
+                                  ? ori_rest_orig.substring(7)
+                                  : String("");
+
+            if (rec_sub == "/start" || rec_sub.startsWith("/start/")) {
+                String ori_name;
+                if (rec_sub.length() > 7) {
+                    // Name embedded in address: /ori/record/start/{name}
+                    ori_name = rec_sub_orig.length() > 7 ? rec_sub_orig.substring(7) : String("");
+                    ori_name.trim();
+                }
+                if (ori_name.length() == 0) {
+                    const char* typetags = osc_msg.getTypeTags();
+                    if (typetags && typetags[0] == 's') {
+                        ori_name = String(osc_msg.nextAsString());
+                        ori_name.trim();
+                    }
+                }
+                if (ori_name.length() == 0) {
+                    status_reporter().warning("ori", "record/start: no name given");
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/start",
+                              "ERROR: no name given");
+                    return;
+                }
+                if (ot.start_recording(ori_name)) {
+                    status_reporter().info("ori", "Recording started for '" + ori_name + "'");
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/start",
+                              "Recording: " + ori_name);
+                } else {
+                    status_reporter().warning("ori", "Recording already active for '"
+                                             + ot.session.name + "'");
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/start",
+                              "ERROR: already recording '" + ot.session.name + "'");
+                }
+                return;
+            }
+
+            if (rec_sub == "/stop") {
+                if (!ot.session.active) {
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/stop",
+                              "ERROR: no active recording");
+                    return;
+                }
+                String stopped_name = ot.session.name;
+                int n_stored = ot.stop_recording();
+                int idx = ot.find(stopped_name);
+                String result = "Saved: " + stopped_name
+                              + ", samples: " + String(n_stored);
+                if (idx >= 0) {
+                    const SavedOri& o = ot.oris[idx];
+                    if (o.use_axis) {
+                        result += String(", axis: (")
+                               + String(o.axis_x, 2) + ","
+                               + String(o.axis_y, 2) + ","
+                               + String(o.axis_z, 2) + ")";
+                    } else {
+                        result += ", mode: fullQ";
+                    }
+                }
+                status_reporter().info("ori", result);
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/stop", result);
+                return;
+            }
+
+            if (rec_sub == "/cancel") {
+                if (!ot.session.active) {
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/cancel",
+                              "No active recording");
+                } else {
+                    String cancelled = ot.session.name;
+                    ot.cancel_recording();
+                    status_reporter().info("ori", "Recording cancelled for '" + cancelled + "'");
+                    osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/cancel",
+                              "Cancelled: " + cancelled);
+                }
+                return;
+            }
+
+            if (rec_sub == "/status") {
+                String resp;
+                if (ot.session.active) {
+                    resp = "active:true,name:" + ot.session.name
+                         + ",count:" + String(ot.session.count)
+                         + ",elapsed:" + String(ot.session.elapsed_ms());
+                } else {
+                    resp = "active:false";
+                }
+                osc_reply(sender_ip, sender_port, reply_adr + "/ori/record/status", resp);
+                return;
+            }
+
+            status_reporter().warning("ori", "Unknown record sub-command: " + rec_sub);
+            return;
+        }
+
         status_reporter().warning("cmd", "Unknown ori command: " + ori_rest);
+        return;
+    }
+
+    // ── SHOW COMMANDS (/annieData{dev}/show/...) ────────────────────────────
+    //    show/save/{name}    — snapshot current RAM state as a named NVS show
+    //    show/load/{name}    — two-step: set pending, wait for confirm
+    //    show/load/confirm   — execute the pending load
+    //    show/list           — reply CSV of show names
+    //    show/delete/{name}  — delete a named show from NVS
+    //    show/rename         — payload "oldName, newName"
+
+    if (norm_adr.startsWith("/show")) {
+        String show_rest      = norm_adr.length() > 5 ? norm_adr.substring(5) : String("");
+        String show_rest_orig = address.length() > 5  ? address.substring(5)  : String("");
+
+        // Expire pending show load after 30 seconds.
+        if (pending_show_name.length() > 0
+            && (millis() - pending_show_ms) > 30000UL) {
+            status_reporter().info("show", "Pending load of '"
+                                   + pending_show_name + "' expired");
+            pending_show_name = "";
+            pending_show_ms   = 0;
+        }
+
+        // show/save/{name}
+        if (show_rest.startsWith("/save/") || show_rest == "/save") {
+            String show_name;
+            if (show_rest.length() > 6) {
+                show_name = show_rest_orig.length() > 6
+                            ? show_rest_orig.substring(6) : String("");
+                show_name.trim();
+            }
+            if (show_name.length() == 0) {
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == 's') {
+                    show_name = String(osc_msg.nextAsString());
+                    show_name.trim();
+                }
+            }
+            if (show_name.length() == 0) {
+                status_reporter().warning("show", "save: no name given");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/save",
+                          "ERROR: no name given");
+                return;
+            }
+            bool ok = nvs_save_show(show_name);
+            if (ok) {
+                status_reporter().info("show", "Saved show '" + show_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/save",
+                          "Saved show: " + show_name);
+            } else {
+                status_reporter().warning("show", "Could not save show '" + show_name
+                                         + "' (full or NVS error)");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/save",
+                          "ERROR: could not save '" + show_name + "'");
+            }
+            return;
+        }
+
+        // show/load/confirm  (must be checked before show/load/{name})
+        if (show_rest == "/load/confirm" || show_rest == "/loadconfirm") {
+            if (pending_show_name.length() == 0) {
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/load/confirm",
+                          "ERROR: no pending load (send /show/load/{name} first)");
+                return;
+            }
+            String sname = pending_show_name;
+            pending_show_name = "";
+            pending_show_ms   = 0;
+            int n = nvs_load_show(sname);
+            if (n >= 0) {
+                nvs_set_active_show(sname);
+                status_reporter().info("show", "Loaded show '" + sname
+                                      + "' (" + String(n) + " objects)");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/load/confirm",
+                          "Loaded show: " + sname + " (" + String(n) + " objects)");
+            } else {
+                status_reporter().warning("show", "Load failed for show '" + sname + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/load/confirm",
+                          "ERROR: show '" + sname + "' not found");
+            }
+            return;
+        }
+
+        // show/load/{name}  — stage the pending load, reply with confirmation prompt
+        if (show_rest.startsWith("/load/") || show_rest == "/load") {
+            String show_name;
+            if (show_rest.length() > 6) {
+                show_name = show_rest_orig.length() > 6
+                            ? show_rest_orig.substring(6) : String("");
+                show_name.trim();
+            }
+            if (show_name.length() == 0) {
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == 's') {
+                    show_name = String(osc_msg.nextAsString());
+                    show_name.trim();
+                }
+            }
+            if (show_name.length() == 0) {
+                status_reporter().warning("show", "load: no name given");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/load",
+                          "ERROR: no name given");
+                return;
+            }
+            pending_show_name = show_name;
+            pending_show_ms   = millis();
+            status_reporter().info("show", "Pending load of '" + show_name
+                                  + "' — send /show/load/confirm to execute");
+            osc_reply(sender_ip, sender_port, reply_adr + "/show/load",
+                      "PENDING: load '" + show_name + "'? Send /show/load/confirm");
+            return;
+        }
+
+        // show/list
+        if (show_rest == "/list") {
+            String listing = nvs_list_shows();
+            osc_reply(sender_ip, sender_port, reply_adr + "/show/list",
+                      listing.length() > 0 ? listing : "(none)");
+            return;
+        }
+
+        // show/delete/{name}
+        if (show_rest.startsWith("/delete/") || show_rest == "/delete") {
+            String show_name;
+            if (show_rest.length() > 8) {
+                show_name = show_rest_orig.length() > 8
+                            ? show_rest_orig.substring(8) : String("");
+                show_name.trim();
+            }
+            if (show_name.length() == 0) {
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == 's') {
+                    show_name = String(osc_msg.nextAsString());
+                    show_name.trim();
+                }
+            }
+            if (show_name.length() == 0) {
+                status_reporter().warning("show", "delete: no name given");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/delete",
+                          "ERROR: no name given");
+                return;
+            }
+            if (nvs_delete_show(show_name)) {
+                // Clear active show if it was the one deleted.
+                if (nvs_get_active_show() == show_name) nvs_set_active_show("");
+                status_reporter().info("show", "Deleted show '" + show_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/delete",
+                          "Deleted: " + show_name);
+            } else {
+                status_reporter().warning("show", "Show '" + show_name + "' not found");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/delete",
+                          "ERROR: '" + show_name + "' not found");
+            }
+            return;
+        }
+
+        // show/rename  — payload "oldName, newName"
+        if (show_rest == "/rename") {
+            String arg = String(osc_msg.nextAsString());
+            arg.trim();
+            int comma = arg.indexOf(',');
+            if (comma < 0) {
+                status_reporter().error("show", "rename requires \"oldName, newName\"");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/rename",
+                          "ERROR: expected \"oldName, newName\"");
+                return;
+            }
+            String old_name = osc_trim_copy(arg.substring(0, comma));
+            String new_name = osc_trim_copy(arg.substring(comma + 1));
+            if (old_name.length() == 0 || new_name.length() == 0) {
+                status_reporter().error("show", "rename: both names must be non-empty");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/rename",
+                          "ERROR: empty name");
+                return;
+            }
+            if (nvs_rename_show(old_name, new_name)) {
+                if (nvs_get_active_show() == old_name) nvs_set_active_show(new_name);
+                status_reporter().info("show", "Renamed show '" + old_name
+                                      + "' → '" + new_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/rename",
+                          "Renamed: " + old_name + " → " + new_name);
+            } else {
+                status_reporter().warning("show", "Could not rename '" + old_name + "'");
+                osc_reply(sender_ip, sender_port, reply_adr + "/show/rename",
+                          "ERROR: '" + old_name + "' not found");
+            }
+            return;
+        }
+
+        status_reporter().warning("cmd", "Unknown show command: " + show_rest);
         return;
     }
 
@@ -1499,7 +1816,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                         info += "\n    " + reg.messages[mi].to_info_string(true);
                     }
                 }
-                osc_reply(sender_ip, sender_port,
+                IPAddress info_ip = sender_ip;
+                unsigned int info_port = sender_port;
+                if (status_reporter().configured && status_reporter().dest_port != 0) {
+                    info_ip = status_reporter().dest_ip;
+                    info_port = status_reporter().dest_port;
+                }
+                osc_reply(info_ip, info_port,
                           reply_adr + "/patch/" + name_mp + "/info", info);
             }
         }
@@ -1585,7 +1908,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             if (!m) {
                 status_reporter().warning("msg", "Msg '" + name_mp + "' not found");
             } else {
-                osc_reply(sender_ip, sender_port,
+                IPAddress info_ip = sender_ip;
+                unsigned int info_port = sender_port;
+                if (status_reporter().configured && status_reporter().dest_port != 0) {
+                    info_ip = status_reporter().dest_ip;
+                    info_port = status_reporter().dest_port;
+                }
+                osc_reply(info_ip, info_port,
                           reply_adr + "/msg/" + name_mp + "/info",
                           m->to_info_string(true));
             }

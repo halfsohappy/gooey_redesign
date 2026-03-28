@@ -293,6 +293,33 @@ const App = (() => {
   }
 
   /* ── Oris screen ─────────────────────────────────────────────────────────── */
+
+  let _recPollId = null;
+
+  function _stopRemoteRecPoll() {
+    if (_recPollId) { clearInterval(_recPollId); _recPollId = null; }
+  }
+
+  function _setRemoteRecUI(active) {
+    const startBtn   = document.getElementById("btnRemoteRecStart");
+    const stopBtn    = document.getElementById("btnRemoteRecStop");
+    const cancelBtn  = document.getElementById("btnRemoteRecCancel");
+    const statusRow  = document.getElementById("remoteRecStatus");
+    const nameInput  = document.getElementById("remoteRecName");
+    if (active) {
+      if (startBtn)  startBtn.classList.add("hidden");
+      if (statusRow) statusRow.classList.remove("hidden");
+      if (nameInput) nameInput.disabled = true;
+    } else {
+      if (startBtn)  startBtn.classList.remove("hidden");
+      if (statusRow) statusRow.classList.add("hidden");
+      if (nameInput) nameInput.disabled = false;
+      const ctr = document.getElementById("remoteRecCounter");
+      if (ctr) ctr.textContent = "0 samples";
+      _stopRemoteRecPoll();
+    }
+  }
+
   function loadOris() {
     const body = document.getElementById("oriListBody");
     body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
@@ -300,19 +327,98 @@ const App = (() => {
     osc("ori/list").then(reply => {
       hideLoading();
       const names = parseNames(reply);
-      if (!names.length) {
-        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No oris found</div></div></div></div>`;
-        return;
-      }
       body.innerHTML = "";
-      const card = document.createElement("div"); card.className = "card";
-      names.forEach(name => {
-        const row = document.createElement("div"); row.className = "row";
-        row.innerHTML = `<div class="row-icon">🧭</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
-        row.addEventListener("click", () => openOriDetail(name));
-        card.appendChild(row);
+
+      /* ── Quick-tap: one button per ori ── */
+      const quickCard = document.createElement("div"); quickCard.className = "card";
+      const quickLabel = document.createElement("div"); quickLabel.className = "card-label";
+      quickLabel.textContent = "Quick Save — tap to add one sample";
+      quickCard.appendChild(quickLabel);
+      if (names.length) {
+        const tagList = document.createElement("div"); tagList.className = "tag-list";
+        names.forEach(name => {
+          const tag = document.createElement("button"); tag.className = "tag";
+          tag.textContent = name;
+          tag.addEventListener("click", () => {
+            _sendNoReply(`ori/save/${name}`);
+            toast(`Saved sample to "${name}"`);
+          });
+          tagList.appendChild(tag);
+        });
+        quickCard.appendChild(tagList);
+      } else {
+        quickCard.innerHTML += `<div class="row"><div class="row-text"><div class="row-sub">No oris registered yet</div></div></div>`;
+      }
+      body.appendChild(quickCard);
+
+      /* ── Recording section ── */
+      const recCard = document.createElement("div"); recCard.className = "card";
+      recCard.innerHTML = `
+        <div class="card-label">Record Ori — hold pose, then stop</div>
+        <div class="rec-name-row">
+          <input id="remoteRecName" class="text-input" type="text" placeholder="ori name"
+                 list="remoteOriList" autocomplete="off">
+          <datalist id="remoteOriList">
+            ${names.map(n => `<option value="${esc(n)}">`).join("")}
+          </datalist>
+        </div>
+        <button id="btnRemoteRecStart" class="btn btn-full btn-primary">▶ Start Recording</button>
+        <div id="remoteRecStatus" class="remote-rec-status hidden">
+          <span class="rec-dot"></span>
+          <span id="remoteRecCounter">0 samples</span>
+          <div class="btn-row" style="margin-top:6px">
+            <button id="btnRemoteRecStop"   class="btn btn-stop">■ Stop</button>
+            <button id="btnRemoteRecCancel" class="btn btn-secondary">✕ Cancel</button>
+          </div>
+        </div>`;
+      body.appendChild(recCard);
+
+      /* Wire recording buttons */
+      document.getElementById("btnRemoteRecStart").addEventListener("click", () => {
+        const name = (document.getElementById("remoteRecName").value || "").trim();
+        if (!name) { toast("Enter an ori name"); return; }
+        osc(`ori/record/start/${name}`).then(() => {
+          toast(`Recording: ${name}`);
+          _setRemoteRecUI(true);
+          _recPollId = setInterval(() => {
+            osc("ori/record/status").then(r => {
+              const text = replyText(r);
+              if (/active:false/.test(text)) {
+                _setRemoteRecUI(false);
+                loadOris();
+                return;
+              }
+              const cm = text.match(/count:(\d+)/);
+              const ctr = document.getElementById("remoteRecCounter");
+              if (cm && ctr) ctr.textContent = cm[1] + " samples";
+            });
+          }, 500);
+        });
       });
-      body.appendChild(card);
+      document.getElementById("btnRemoteRecStop").addEventListener("click", () => {
+        osc("ori/record/stop").then(r => {
+          _setRemoteRecUI(false);
+          toast(replyText(r).split(",")[0]);
+          loadOris();
+        });
+      });
+      document.getElementById("btnRemoteRecCancel").addEventListener("click", () => {
+        _sendNoReply("ori/record/cancel");
+        _setRemoteRecUI(false);
+        toast("Recording cancelled");
+      });
+
+      /* ── Full ori list — tap to view details ── */
+      if (names.length) {
+        const listCard = document.createElement("div"); listCard.className = "card";
+        names.forEach(name => {
+          const row = document.createElement("div"); row.className = "row";
+          row.innerHTML = `<div class="row-icon">🧭</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
+          row.addEventListener("click", () => openOriDetail(name));
+          listCard.appendChild(row);
+        });
+        body.appendChild(listCard);
+      }
     });
   }
 
@@ -322,10 +428,10 @@ const App = (() => {
     body.innerHTML = "";
     const card = document.createElement("div"); card.className = "card";
     const actions = [
-      { label: "Info",           icon: "ℹ️",              fn: () => _sendAndShow(`ori/info/${name}`, null, `${name} info`) },
-      { label: "Save Again",     icon: "📍",              fn: () => { _sendNoReply(`ori/save/${name}`); toast("Saved again — extends to range"); } },
-      { label: "Reset to Point", icon: "🔄", cls: "warn", fn: () => confirm(`Reset "${name}" to point ori?`, () => { _sendNoReply(`ori/reset/${name}`); toast("Reset"); back(); }) },
-      { label: "Delete",         icon: "🗑", cls: "danger", fn: () => confirm(`Delete ori "${name}"?`, () => { _sendNoReply(`ori/delete/${name}`); toast("Deleted"); back(); }) },
+      { label: "Info",              icon: "ℹ️",              fn: () => _sendAndShow(`ori/info/${name}`, null, `${name} info`) },
+      { label: "Quick Save Sample", icon: "📍",              fn: () => { _sendNoReply(`ori/save/${name}`); toast("Sample added"); } },
+      { label: "Clear Samples",     icon: "🔄", cls: "warn", fn: () => confirm(`Clear samples for "${name}"?`, () => { _sendNoReply(`ori/reset/${name}`); toast("Samples cleared"); back(); }) },
+      { label: "Delete",            icon: "🗑", cls: "danger", fn: () => confirm(`Delete ori "${name}"?`, () => { _sendNoReply(`ori/delete/${name}`); toast("Deleted"); back(); }) },
     ];
     actions.forEach(a => {
       const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
@@ -415,7 +521,7 @@ const App = (() => {
       const name = document.getElementById("oriNewName").value.trim();
       if (!name) { toast("Enter a name for the orientation"); return; }
       _sendNoReply(`ori/save/${name}`);
-      toast(`Saved ori "${name}"`);
+      toast(`Saved sample to "${name}"`);
       document.getElementById("oriNewName").value = "";
       loadOris();
     });
