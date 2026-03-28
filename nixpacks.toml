@@ -1,4 +1,0 @@
-
-[providers]
-# The "..." ensures any other detected packages are also included.
-providers = ["...", "python3"]
