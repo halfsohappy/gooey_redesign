@@ -9,7 +9,7 @@ import threading
 import markdown as md_lib
 import serial
 import serial.tools.list_ports
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_socketio import SocketIO, join_room, leave_room
 
 from .osc_handler import OSCEngine
@@ -931,6 +931,7 @@ _DOCS_ROOT = _find_docs_root()
 _DOCS_GUIDES = {
     "user-guide": ("user_guide.md", "User Guide"),
     "technical-guide": ("technical_guide.md", "Technical Guide"),
+    "tutorial": ("tutorial.md", "Tutorial"),
 }
 
 _MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
@@ -956,17 +957,21 @@ def docs(guide=None):
     md = md_lib.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXTENSION_CONFIGS)
     content_html = md.convert(raw)
     toc_html = getattr(md, "toc", "")
-    other_guide = "technical-guide" if guide == "user-guide" else "user-guide"
-    other_title = _DOCS_GUIDES[other_guide][1]
+    other_guides = [(k, v[1]) for k, v in _DOCS_GUIDES.items() if k != guide]
     return render_template(
         "docs.html",
         title=title,
         content=content_html,
         toc=toc_html,
         guide=guide,
-        other_guide=other_guide,
-        other_title=other_title,
+        other_guides=other_guides,
     )
+
+
+@app.route("/tutorial")
+def tutorial():
+    """Convenience URL for the tutorial — redirects to /docs/tutorial."""
+    return redirect(url_for("docs", guide="tutorial"))
 
 
 def create_app():

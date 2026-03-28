@@ -24,7 +24,9 @@
     </a>
     <nav class="hdr-nav">
       <a href="/">← App</a>
-      <a href="{{ url_for('docs', guide=other_guide) }}">{{ other_title }}</a>
+      {% for g_slug, g_title in other_guides %}
+      <a href="{{ url_for('docs', guide=g_slug) }}">{{ g_title }}</a>
+      {% endfor %}
     </nav>
     <div class="hdr-title">{{ title }}</div>
   </header>

@@ -944,10 +944,53 @@
           <h2><strong>Reference</strong></h2>
           <div class="feed-controls">
             <input type="text" id="refSearch" placeholder="Search…" class="feed-filter-input feed-filter-input-narrow">
+            <a class="btn btn-small btn-ghost" href="/tutorial" target="_blank" rel="noopener" title="Open tutorial">Tutorial ↗</a>
             <a class="btn btn-small btn-ghost" href="/docs/" target="_blank" rel="noopener" title="Open user guide">Guide ↗</a>
           </div>
         </div>
         <div class="ref-panel-content">
+          <div class="ref-section-block" id="tutorialBlock">
+            <div class="ref-section-title">Getting Started</div>
+            <div class="ref-tutorial-content">
+              <p class="hint-text-sm">New to Gooey? Here's a quick overview of the interface.</p>
+
+              <div class="ref-tutorial-section">
+                <strong>Layout</strong>
+                <ul>
+                  <li><b>Header</b> — connection controls, toolbar buttons (List, Status, Blackout, Restore, Save, Load), and panel toggles</li>
+                  <li><b>Main tabs</b> — Messages, Scenes, Ori, Shows, Direct, and Advanced</li>
+                  <li><b>Right panels</b> — Feed, Serial, Notifications, and this Reference panel</li>
+                </ul>
+              </div>
+
+              <div class="ref-tutorial-section">
+                <strong>Tabs at a Glance</strong>
+                <ul>
+                  <li><b>Messages</b> — map a sensor value to an OSC destination (IP, port, address)</li>
+                  <li><b>Scenes</b> — group messages, control timing and shared addressing</li>
+                  <li><b>Ori</b> — orientation tracking and conditions (when an IMU is present)</li>
+                  <li><b>Shows</b> — save and load full device configurations</li>
+                  <li><b>Direct</b> — one-click shortcut: creates a message + scene and starts streaming</li>
+                  <li><b>Advanced</b> — raw OSC send, JSON batch, and OSC bridging</li>
+                </ul>
+              </div>
+
+              <div class="ref-tutorial-section">
+                <strong>Quick Start</strong>
+                <ol>
+                  <li>Enter the device <b>IP</b> and <b>port</b> in the header, then click <b>Start Listener</b></li>
+                  <li>Click <b>List</b> to discover what's configured on the device</li>
+                  <li>Go to <b>Messages</b> — pick a sensor, set a target, and click <b>Apply to Device</b></li>
+                  <li>Go to <b>Scenes</b> — create a scene, add the message, and click <b>Start</b></li>
+                  <li>Watch data flow in the <b>Feed</b> panel</li>
+                </ol>
+              </div>
+
+              <p class="ref-tutorial-link">
+                <a href="/tutorial" target="_blank" rel="noopener">Open the full tutorial ↗</a>
+              </p>
+            </div>
+          </div>
           <div class="ref-section-block">
             <div class="ref-section-title">Commands</div>
             <p class="hint-text-sm">All TheaterGWD OSC commands with their address patterns and expected payloads.</p>
