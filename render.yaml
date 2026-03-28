@@ -7,7 +7,7 @@ services:
     startCommand: python run.py --host 0.0.0.0 --port $PORT --no-browser
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.11.9"
       - key: DEMO_MODE
         value: "true"
     plan: free
