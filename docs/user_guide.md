@@ -27,8 +27,13 @@ control surface on the same network.
 11. [Orientations (Oris)](#11-orientations-oris)
 12. [Status Monitoring](#12-status-monitoring)
 13. [Practical Workflows](#13-practical-workflows)
-14. [Shows](#14-shows)
-15. [Troubleshooting](#15-troubleshooting)
+14. [Gooey — Web Control Center](#14-gooey--web-control-center)
+15. [Mobile Remote](#15-mobile-remote)
+16. [Shows](#16-shows)
+17. [Troubleshooting](#17-troubleshooting)
+
+> **Online docs:** The latest version of this guide is published at
+> [halfsohappy.github.io/TheaterGWD](https://halfsohappy.github.io/TheaterGWD/).
 
 ---
 
@@ -37,10 +42,11 @@ control surface on the same network.
 The TheaterGWD device is a wireless sensor module.  It measures:
 
 - **Acceleration** (3 axes + magnitude) — how fast the device is speeding up
-  or slowing down.
+  or slowing down, in body frame and global (gravity-corrected) frame.
 - **Rotation rate** (3 axes + magnitude) — how quickly the device is spinning.
 - **Barometric pressure** — changes in altitude or air pressure.
-- **Orientation** (3 Euler angles) — which way the device is pointing.
+- **Orientation** (3 Euler angles + 4 quaternion components) — which way the
+  device is pointing.
 
 All of these values are normalised to a range of **0 to 1**, where 0 is the
 minimum and 1 is the maximum.  The device continuously sends these values over
@@ -1047,7 +1053,118 @@ other axes.
 
 ---
 
-## 14. Shows
+## 14. Gooey — Web Control Center
+
+Gooey is a browser-based control center for managing TheaterGWD devices.  It
+runs as a local Python server on your computer and communicates with devices
+over OSC — no firmware flashing or serial cables needed for day-to-day use.
+
+### Launching Gooey
+
+From the project root:
+
+```
+cd gooey
+pip install -r requirements.txt   # first time only
+python -m app.main
+```
+
+Gooey opens at **http://localhost:5000** in your browser.
+
+### Adding a device
+
+1. Enter the device's IP address and port in the header bar.
+2. Click **Query** (or press Enter) to connect.  Gooey sends a `list/all`
+   command and populates the device's messages, scenes, and oris from the
+   reply.
+3. The device appears as a tab in the header.  Click the tab's caret to
+   rename, remove, or switch between devices.
+
+You can manage multiple devices simultaneously — each tab maintains its own
+state.
+
+### Creating messages and scenes
+
+The left panel has tabbed sections:
+
+- **Messages** — Create, edit, enable, disable, save, and delete messages.
+  The form mirrors the config string format: pick a sensor value, set the
+  destination IP/port/address, and optionally set output bounds.
+- **Scenes** — Create scenes, add/remove messages, set the period, configure
+  overrides and address modes, and start/stop sending.
+- **Oris** — Save, delete, and inspect orientations (ab7 devices only).
+- **Direct** — Send a one-shot `direct` command that creates a message + scene
+  and starts sending immediately.
+
+### Message and scene tracker
+
+Below the creation forms, the **tracker table** shows all registered messages
+or scenes with action buttons:
+
+- **Save** (floppy disk icon) — save to device NVS so it survives power cycles.
+- **Disable** (× icon) — mute the message without deleting it.
+- **Delete** (trash icon) — permanently remove from the device.
+
+Hover over any icon to see a tooltip describing its action.
+
+### Right panel views
+
+The right side of the screen hosts up to four views that can be toggled on or
+off independently.  When multiple views are active, they share the vertical
+space equally (50/50, 33/33/33, or 25% each).
+
+| View | What it shows |
+|------|---------------|
+| **Feed** | Live OSC replies from devices — confirmations, errors, list results, info responses. |
+| **Serial** | A serial monitor for direct USB communication with a device.  Select a port, baud rate, and connect. |
+| **Reference** | Keyword reference for all sensor values, commands, and address modes, organized by category. |
+| **Notifications** | Scrollable history of all toast notifications with timestamps, color-coded by type. |
+
+Toggle each view using the buttons in the header.  The most recent
+notification is always visible inline in the header; click it (or the bell
+icon) to open the full notification history.
+
+### Resizing the panel
+
+Drag the left edge of the right panel to resize it horizontally.  The width
+is saved to your browser and restored on reload.
+
+---
+
+## 15. Mobile Remote
+
+The mobile remote is a touch-friendly interface for controlling a TheaterGWD
+device from a phone or tablet on the same network.
+
+### Accessing the remote
+
+Open **http://{your-computer-ip}:5000/remote** on your mobile device.  You
+must be on the same network as the computer running Gooey.
+
+### Connecting
+
+Enter the device IP and port at the top of the page and tap **Connect**.  The
+remote queries the device and loads its current messages, scenes, and oris.
+
+### Managing messages and scenes
+
+Swipe between the **Messages**, **Scenes**, and **Oris** tabs.  Each tab
+shows the items registered on the device with quick-action buttons:
+
+- **Messages:** Enable, disable, delete, and view info.
+- **Scenes:** Start, stop, delete, and adjust period.
+- **Oris:** Delete individual oris or clear all.
+
+### Quick-tap ori buttons
+
+The Oris tab includes a row of pill-shaped buttons — one for each saved ori
+name.  Tap a button to immediately save the device's current orientation under
+that name (equivalent to sending `ori/save/{name}`).  This is useful for
+quickly expanding range oris on-site without typing commands.
+
+---
+
+## 16. Shows
 
 A **show** is a named snapshot of the entire device state — all messages,
 scenes, and oris.  Think of it as a "save file" for everything the device is
@@ -1088,7 +1205,7 @@ between machines, or keep more than the 4-show device limit.
 
 ---
 
-## 15. Troubleshooting
+## 17. Troubleshooting
 
 ### The device is not responding to commands
 

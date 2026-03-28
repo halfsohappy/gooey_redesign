@@ -65,13 +65,22 @@
     /* ── Action buttons (big touch targets) ── */
     .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch); border-radius: var(--radius); border: none; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; padding: 0 16px; transition: filter .1s; }
     .btn:active { filter: brightness(1.2); }
-    .btn-lavender { background: var(--lavender); color: #000; }
-    .btn-danger   { background: var(--danger);   color: #fff; }
-    .btn-success  { background: var(--success);  color: #fff; }
-    .btn-surface  { background: var(--surface2); color: var(--fg); }
-    .btn-outline  { background: transparent; color: var(--lavender); border: 1.5px solid var(--lavender); }
+    .btn-lavender  { background: var(--lavender); color: #000; }
+    .btn-danger    { background: var(--danger);   color: #fff; }
+    .btn-success   { background: var(--success);  color: #fff; }
+    .btn-surface   { background: var(--surface2); color: var(--fg); }
+    .btn-outline   { background: transparent; color: var(--lavender); border: 1.5px solid var(--lavender); }
+    .btn-primary   { background: var(--lavender); color: #000; }
+    .btn-stop      { background: var(--danger);   color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--fg); }
     .btn-row { display: flex; gap: 8px; }
     .btn-row .btn { flex: 1; }
+    .text-input { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 7px; color: var(--fg); font: inherit; font-size: 14px; padding: 10px 12px; outline: none; -webkit-appearance: none; box-sizing: border-box; }
+    .text-input:focus { border-color: var(--lavender); }
+    .rec-name-row { padding: 8px 14px; }
+    .remote-rec-status { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex-wrap: wrap; }
+    .rec-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: rec-blink .8s step-start infinite; flex-shrink: 0; }
+    @keyframes rec-blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
     /* ── Form inputs ── */
     label { display: block; font-size: 11px; color: var(--fg2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .06em; }
@@ -269,7 +278,7 @@
       <div class="card-label">Save Current Orientation As</div>
       <div style="padding:10px 14px;display:flex;gap:8px;align-items:flex-end">
         <div class="field" style="flex:1"><label>Name</label><input type="text" id="oriNewName" placeholder="e.g. upright"></div>
-        <button class="btn btn-lavender" id="btnSaveOri" style="flex:0 0 auto;min-width:80px">Save</button>
+        <button class="btn btn-lavender" id="btnSaveOri" style="flex:0 0 auto;min-width:80px;width:auto">Save</button>
       </div>
     </div>
     <div class="section-label">Saved Oris — tap to manage</div>

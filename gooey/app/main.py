@@ -1,5 +1,7 @@
 """Flask application with SocketIO for TheaterGWD Control Center."""
 
+import datetime
+import json
 import os
 import re
 import threading
@@ -811,6 +813,14 @@ THEATER_GWD_PRESETS = {
         "prepend": "Address mode: scene.adr + msg.adr.",
         "append": "Address mode: msg.adr + scene.adr.",
         "config string": "CSV key:value pairs, e.g. 'value:accelX, ip:192.168.1.50, port:9000'.",
+        "gaccelX": "Gravity-corrected acceleration X — linear acceleration without gravity.",
+        "gaccelY": "Gravity-corrected acceleration Y — linear acceleration without gravity.",
+        "gaccelZ": "Gravity-corrected acceleration Z — linear acceleration without gravity.",
+        "gaccelLength": "Gravity-corrected acceleration magnitude.",
+        "quatI": "Quaternion I component — orientation in quaternion form.",
+        "quatJ": "Quaternion J component — orientation in quaternion form.",
+        "quatK": "Quaternion K component — orientation in quaternion form.",
+        "quatR": "Quaternion R (scalar/real) component — orientation in quaternion form.",
     },
 }
 
@@ -820,11 +830,103 @@ def api_theater_gwd_presets():
     return jsonify({"status": "ok", "presets": THEATER_GWD_PRESETS})
 
 
+# ── Show Library (disk JSON) ──
+
+_SHOWS_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "data", "shows")
+)
+
+
+def _ensure_shows_dir():
+    os.makedirs(_SHOWS_DIR, exist_ok=True)
+
+
+def _show_path(name):
+    """Return the file path for a show, rejecting path-traversal attempts."""
+    safe = re.sub(r"[^\w\-. ]", "_", name)
+    return os.path.join(_SHOWS_DIR, safe + ".json")
+
+
+@app.route("/api/shows", methods=["GET"])
+def api_shows_list():
+    _ensure_shows_dir()
+    shows = []
+    for fname in sorted(os.listdir(_SHOWS_DIR)):
+        if not fname.endswith(".json"):
+            continue
+        fpath = os.path.join(_SHOWS_DIR, fname)
+        try:
+            with open(fpath, encoding="utf-8") as fh:
+                data = json.load(fh)
+            shows.append({
+                "name": data.get("name", fname[:-5]),
+                "saved": data.get("saved", ""),
+                "device": data.get("device", ""),
+            })
+        except Exception:
+            pass
+    return jsonify(shows)
+
+
+@app.route("/api/shows/<name>", methods=["GET"])
+def api_shows_get(name):
+    _ensure_shows_dir()
+    fpath = _show_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Show not found", 404)
+    try:
+        with open(fpath, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return jsonify(data)
+    except Exception as e:
+        return _error(str(e), 500)
+
+
+@app.route("/api/shows/<name>", methods=["POST"])
+def api_shows_save(name):
+    _ensure_shows_dir()
+    body = request.get_json(silent=True) or {}
+    body["name"] = name
+    if not body.get("saved"):
+        body["saved"] = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    fpath = _show_path(name)
+    try:
+        with open(fpath, "w", encoding="utf-8") as fh:
+            json.dump(body, fh, indent=2)
+        return jsonify({"status": "ok", "name": name})
+    except Exception as e:
+        return _error(str(e), 500)
+
+
+@app.route("/api/shows/<name>", methods=["DELETE"])
+def api_shows_delete(name):
+    fpath = _show_path(name)
+    if not os.path.isfile(fpath):
+        return _error("Show not found", 404)
+    try:
+        os.remove(fpath)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        return _error(str(e), 500)
+
+
 # ── Docs ──
 
-_DOCS_ROOT = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "docs")
-)
+def _find_docs_root():
+    """Return the docs directory, checking both source-checkout and brew-install layouts."""
+    base = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(base, "..", "..", "docs"),  # source checkout: repo/docs/
+        os.path.join(base, "..", "docs"),         # brew install:   libexec/docs/
+    ]
+    for path in candidates:
+        path = os.path.normpath(path)
+        if os.path.isdir(path):
+            return path
+    # Fall back to source-checkout path even if absent (produces a clear 404)
+    return os.path.normpath(candidates[0])
+
+_DOCS_ROOT = _find_docs_root()
 
 _DOCS_GUIDES = {
     "user-guide": ("user_guide.md", "User Guide"),

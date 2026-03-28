@@ -14,7 +14,7 @@ class Gooey < Formula
   homepage "https://github.com/halfsohappy/TheaterGWD"
   url "https://github.com/halfsohappy/TheaterGWD.git",
       branch: "main"
-  version "0.2.0"
+  version "2026.3.28.195"
   license "MIT"
 
   depends_on "python@3"
@@ -22,6 +22,9 @@ class Gooey < Formula
   def install
     # Copy gooey application into libexec
     libexec.install Dir["gooey/*"]
+
+    # Bundle the docs so the in-app guide route works after install
+    (libexec/"docs").install Dir["docs/*.md"]
 
     # Create a Python virtual environment
     venv_dir = libexec/"venv"

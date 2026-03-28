@@ -28,6 +28,7 @@
 #define OSC_REGISTRY_H
 
 #include "osc_scene.h"
+#include "ori_tracker.h"
 
 class OscRegistry {
 public:
@@ -407,10 +408,13 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             enabled = (v == "true" || v == "1" || v == "yes" || v == "on");
         } else if (key == "orionly" || key == "ori_only") {
             ori_only = value;
+            { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
         } else if (key == "orinot" || key == "ori_not") {
             ori_not = value;
+            { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
         } else if (key == "ternori") {
             ternori = value;
+            { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
         } else if (key == "period") {
             // Recognised but handled outside from_config_str (scene-level field).
         } else {
