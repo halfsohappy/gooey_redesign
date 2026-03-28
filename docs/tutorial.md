@@ -271,7 +271,7 @@ Or switch to the **Shows** tab to save a named snapshot on the Gooey server.
 
 - Open the **Reference** panel (`Ref` button) for command and keyword look-up
 - Visit the [User Guide](/docs/user-guide) for full documentation
-- Check the [Troubleshooting Guide](/docs/troubleshooting) if something isn't
-  working
+- Check the [Troubleshooting Guide](https://github.com/halfsohappy/TheaterGWD/blob/main/gooey/docs/troubleshooting.md)
+  if something isn't working
 - Report issues at
   [github.com/halfsohappy/TheaterGWD](https://github.com/halfsohappy/TheaterGWD/issues)
