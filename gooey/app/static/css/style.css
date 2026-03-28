@@ -1489,47 +1489,6 @@ input[type="color"] {
 }
 .ref-category-title:first-child { margin-top: 0; }
 
-/* ---- Tutorial section inside Reference panel ---- */
-.ref-tutorial-content {
-  font-size: 11px;
-  color: var(--text-medium);
-  line-height: 1.55;
-  padding: 4px 0;
-}
-.ref-tutorial-content ul,
-.ref-tutorial-content ol {
-  margin: 4px 0 8px 18px;
-  padding: 0;
-}
-.ref-tutorial-content li {
-  margin-bottom: 3px;
-}
-.ref-tutorial-content li b {
-  color: var(--accent);
-}
-.ref-tutorial-section {
-  margin-bottom: 10px;
-}
-.ref-tutorial-section > strong {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  margin-bottom: 2px;
-  color: var(--text-dark);
-}
-.ref-tutorial-link {
-  margin-top: 6px;
-  font-size: 11px;
-}
-.ref-tutorial-link a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 500;
-}
-.ref-tutorial-link a:hover {
-  text-decoration: underline;
-}
-
 /* Remove max-height cap inside the panel so all items show */
 .view-reference .ref-list {
   max-height: none;
