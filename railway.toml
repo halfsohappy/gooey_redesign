@@ -1,6 +1,6 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "pip install -r gooey/requirements.txt"
+builder = "DOCKERFILE"
+dockerfilePath = "gooey/Dockerfile.demo"
 
 [deploy]
-startCommand = "cd gooey && python run.py --host 0.0.0.0 --port $PORT --no-browser"
+startCommand = "python run.py --host 0.0.0.0 --port $PORT --no-browser"
