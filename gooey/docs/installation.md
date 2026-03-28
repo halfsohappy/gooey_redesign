@@ -9,6 +9,8 @@ Pick the method that suits you best, then jump to [First Launch](#first-launch) 
 ## Table of Contents
 
 - [Homebrew (macOS – recommended)](#homebrew-macos--recommended)
+- [snap (Linux)](#snap-linux)
+- [AUR (Arch / Manjaro)](#aur-arch--manjaro)
 - [pip install (any platform)](#pip-install-any-platform)
 - [One-command installer script](#one-command-installer-script)
 - [Manual install](#manual-install)
@@ -49,6 +51,50 @@ That's it — your browser opens automatically.
 
 ---
 
+## snap (Linux)
+
+Works on Ubuntu, Fedora, Debian, Arch, and most Linux distributions with [snapd](https://snapcraft.io/docs/installing-snapd) installed.
+
+### Install
+
+```bash
+sudo snap install gooey-theatergwd
+```
+
+### Run
+
+```bash
+gooey-theatergwd
+```
+
+Optional — alias to `gooey`:
+
+```bash
+sudo snap alias gooey-theatergwd gooey
+gooey
+```
+
+---
+
+## AUR (Arch / Manjaro)
+
+For Arch Linux and Manjaro users via the [Arch User Repository](https://aur.archlinux.org/packages/gooey-theatergwd).
+
+### Install
+
+```bash
+yay -S gooey-theatergwd
+# or: paru -S gooey-theatergwd
+```
+
+### Run
+
+```bash
+gooey
+```
+
+---
+
 ## pip install (any platform)
 
 Works on macOS, Linux, and Windows wherever Python 3.8+ is available.
@@ -61,12 +107,7 @@ Works on macOS, Linux, and Windows wherever Python 3.8+ is available.
 ### Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/halfsohappy/TheaterGWD.git
-cd TheaterGWD/gooey
-
-# Install (creates a `gooey` command)
-pip install .
+pip install gooey-theatergwd
 ```
 
 > **Tip:** Use a virtual environment to keep things tidy:
@@ -74,7 +115,7 @@ pip install .
 > ```bash
 > python3 -m venv .venv
 > source .venv/bin/activate   # Windows: .venv\Scripts\activate
-> pip install .
+> pip install gooey-theatergwd
 > ```
 
 ### Run
@@ -187,17 +228,25 @@ python run.py --port 8080      # Same options work with run.py
 ### Homebrew
 
 ```bash
-brew update
-brew upgrade gooey
+brew update && brew upgrade gooey
+```
+
+### snap
+
+```bash
+sudo snap refresh gooey-theatergwd
+```
+
+### AUR
+
+```bash
+yay -Syu gooey-theatergwd
 ```
 
 ### pip
 
 ```bash
-cd TheaterGWD
-git pull
-cd gooey
-pip install --upgrade .
+pip install --upgrade gooey-theatergwd
 ```
 
 ### Installer script / manual
@@ -218,6 +267,18 @@ pip install -r requirements.txt   # In case deps changed
 ```bash
 brew uninstall gooey
 brew untap halfsohappy/theatergwd    # Optional: remove the tap
+```
+
+### snap
+
+```bash
+sudo snap remove gooey-theatergwd
+```
+
+### AUR
+
+```bash
+yay -R gooey-theatergwd
 ```
 
 ### pip
