@@ -1,7 +1,7 @@
 
 [build]
 providers = ["python"]
-buildCommand = "pip install -r gooey/requirements.txt"
+buildCommand = "mise install python@3.11.9 && pip install -r gooey/requirements.txt"
 
 [deploy]
 startCommand = "cd gooey && python run.py --host 0.0.0.0 --port $PORT --no-browser"
