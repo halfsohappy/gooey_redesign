@@ -18,7 +18,7 @@
 // USAGE:
 //   status_reporter().configure(IPAddress(192,168,1,100), 9000, "/status");
 //   status_reporter().set_level(STATUS_INFO);
-//   status_reporter().send(STATUS_INFO, "patch", "Patch 'mixer1' started");
+//   status_reporter().send(STATUS_INFO, "scene", "Scene 'mixer1' started");
 //   status_reporter().error("cmd", "Unknown command: /foo");
 //
 // The reporter uses the global MicroOscUdp instance and the send mutex

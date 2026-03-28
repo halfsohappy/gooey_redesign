@@ -161,8 +161,8 @@ Dependencies aren't installed. Fix depends on your install method:
 ### Commands work but sensor data isn't flowing
 
 1. **Create a message** with the correct sensor value, target IP, and port
-2. **Create a patch** and add the message to it
-3. **Start the patch** — data only flows when the patch is running
+2. **Create a scene** and add the message to it
+3. **Start the scene** — data only flows when the scene is running
 4. **Check the target application** is listening on the correct port
 
 ---
@@ -205,11 +205,11 @@ Bounds are specified in the config string as `low:0.0, high:1.0`. Make sure:
 
 ### OSC address not what you expected
 
-Check the **address mode** on your patch:
-- `fallback` — uses the message's address, falls back to patch address
-- `override` — always uses the patch address
-- `prepend` — patch address + message address
-- `append` — message address + patch address
+Check the **address mode** on your scene:
+- `fallback` — uses the message's address, falls back to scene address
+- `override` — always uses the scene address
+- `prepend` — scene address + message address
+- `append` — message address + scene address
 
 ---
 

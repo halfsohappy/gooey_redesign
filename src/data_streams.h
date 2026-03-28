@@ -55,7 +55,7 @@
 // task.  Elements 16–17 (CONST_ZERO / CONST_ONE) are fixed at 0.0 / 1.0 and
 // never written by the sensor task — they exist so messages can send constants.
 // Elements 18–21 (QUAT_I/J/K/R) hold the raw (untared) quaternion each cycle.
-// Declared volatile because the sensor task (writer) and patch send tasks
+// Declared volatile because the sensor task (writer) and scene send tasks
 // (readers) run concurrently without a mutex protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
 

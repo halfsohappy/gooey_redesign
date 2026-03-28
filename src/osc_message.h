@@ -6,10 +6,10 @@
 //   - a sensor data stream  (value_ptr  → element of data_streams[])
 //   - a network destination  (ip, port, osc_address)
 //   - optional output bounds  (low / high for value scaling)
-//   - an optional parent OscPatch (provides defaults / overrides)
+//   - an optional parent OscScene (provides defaults / overrides)
 //
 // Each field has a corresponding flag in the `exist` struct.  Fields that are
-// not explicitly set can be inherited from the parent OscPatch at send time.
+// not explicitly set can be inherited from the parent OscScene at send time.
 //
 // OscMessages are stored in the OscRegistry's fixed array and are never
 // heap-allocated.  Pointers to them are stable for the device's lifetime.
@@ -22,20 +22,20 @@
 #include <IPAddress.h>
 #include "data_streams.h"
 
-// Forward declarations — full definitions in osc_patch.h / osc_registry.h.
-class OscPatch;
+// Forward declarations — full definitions in osc_scene.h / osc_registry.h.
+class OscScene;
 class OscRegistry;
 
-// Maximum number of messages and patches the registry can hold.  These
+// Maximum number of messages and scenes the registry can hold.  These
 // determine the size of the fixed arrays allocated at compile time.
-#define MAX_OSC_PATCHES  64
+#define MAX_OSC_SCENES  64
 #define MAX_OSC_MESSAGES 256
 
 // ---------------------------------------------------------------------------
 // ExistFlags — tracks which fields have been explicitly set on an object
 // ---------------------------------------------------------------------------
 //
-// Both OscMessage and OscPatch use this struct.  A field whose flag is false
+// Both OscMessage and OscScene use this struct.  A field whose flag is false
 // has not been configured and should fall back to a default or parent value.
 
 struct ExistFlags {
@@ -43,7 +43,7 @@ struct ExistFlags {
     bool ip    = false;
     bool port  = false;
     bool adr   = false;   // osc_address
-    bool patch = false;
+    bool scene = false;
     bool val   = false;   // value_ptr
     bool low   = false;   // bounds[0]
     bool high  = false;   // bounds[1]
@@ -73,14 +73,14 @@ public:
 
     String        name;
 
-    // Network destination (can be overridden by parent patch).
+    // Network destination (can be overridden by parent scene).
     IPAddress     ip;
     unsigned int  port;
     String        osc_address;
 
-    // Parent patch (optional).  When set, the patch provides fallback or
+    // Parent scene (optional).  When set, the scene provides fallback or
     // override values for ip / port / osc_address.
-    OscPatch*     patch;
+    OscScene*     scene;
 
     // Pointer into data_streams[] for the live sensor value to send.
     // Declared volatile because data_streams[] is updated concurrently by
@@ -92,7 +92,7 @@ public:
     // raw value is sent unmodified.
     float         bounds[2] = {0.0f, 1.0f};
 
-    // Per-message enable flag.  Disabled messages are skipped by the patch
+    // Per-message enable flag.  Disabled messages are skipped by the scene
     // send task even though they remain in the registry.
     bool          enabled = true;
 
@@ -119,10 +119,10 @@ public:
     // --- Constructors -------------------------------------------------------
 
     OscMessage()
-        : ip(0, 0, 0, 0), port(0), patch(nullptr), value_ptr(nullptr) {}
+        : ip(0, 0, 0, 0), port(0), scene(nullptr), value_ptr(nullptr) {}
 
     explicit OscMessage(const String& set_name)
-        : name(set_name), ip(0, 0, 0, 0), port(0), patch(nullptr), value_ptr(nullptr)
+        : name(set_name), ip(0, 0, 0, 0), port(0), scene(nullptr), value_ptr(nullptr)
     {
         exist.name = true;
     }
@@ -134,7 +134,7 @@ public:
         ip         = o.ip;
         port       = o.port;
         osc_address = o.osc_address;
-        patch      = o.patch;
+        scene      = o.scene;
         value_ptr  = o.value_ptr;
         bounds[0]  = o.bounds[0];
         bounds[1]  = o.bounds[1];
@@ -151,7 +151,7 @@ public:
             ip         = o.ip;
             port       = o.port;
             osc_address = o.osc_address;
-            patch      = o.patch;
+            scene      = o.scene;
             value_ptr  = o.value_ptr;
             bounds[0]  = o.bounds[0];
             bounds[1]  = o.bounds[1];
@@ -183,8 +183,8 @@ public:
         r.exist.adr   = exist.adr   || o.exist.adr;
         r.osc_address = exist.adr   ? osc_address : o.osc_address;
 
-        r.exist.patch = exist.patch || o.exist.patch;
-        r.patch       = exist.patch ? patch : o.patch;
+        r.exist.scene = exist.scene || o.exist.scene;
+        r.scene       = exist.scene ? scene : o.scene;
 
         r.exist.val   = exist.val   || o.exist.val;
         r.value_ptr   = exist.val   ? value_ptr : o.value_ptr;
@@ -205,7 +205,7 @@ public:
         return r;
     }
 
-    // --- Declared here, defined after OscPatch is complete -------------------
+    // --- Declared here, defined after OscScene is complete -------------------
 
     /// Returns true if enough information is present to actually send.
     bool sendable() const;

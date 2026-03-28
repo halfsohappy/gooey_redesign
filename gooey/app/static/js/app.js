@@ -25,6 +25,44 @@
     $("#wsLabel").textContent = "Disconnected";
   });
 
+  /* ─�� Theme toggle ── */
+  (function () {
+    var THEME_KEY = "gooey-theme";
+    var btn = $("#btnThemeToggle");
+    var icon = btn ? btn.querySelector("i") : null;
+
+    function isDark() {
+      return document.documentElement.classList.contains("dark");
+    }
+
+    function applyTheme(dark) {
+      var html = document.documentElement;
+      html.classList.add("transitioning");
+      if (dark) html.classList.add("dark");
+      else html.classList.remove("dark");
+      if (icon) icon.className = dark ? "bi bi-sun-fill" : "bi bi-moon-fill";
+      setTimeout(function () { html.classList.remove("transitioning"); }, 250);
+    }
+
+    // Sync button state with class set by inline <script> in <head>
+    applyTheme(isDark());
+
+    if (btn) {
+      btn.addEventListener("click", function () {
+        var dark = !isDark();
+        try { localStorage.setItem(THEME_KEY, dark ? "dark" : "light"); } catch (e) {}
+        applyTheme(dark);
+      });
+    }
+
+    // Follow system preference when user hasn't manually chosen
+    try {
+      window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+        if (!localStorage.getItem(THEME_KEY)) applyTheme(e.matches);
+      });
+    } catch (e) {}
+  }());
+
   /* ── Section nav ── */
   $$(".nav-btn[data-section]").forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -146,7 +184,7 @@
   /* ═══════════════════════════════════════════
      DEVICE MANAGEMENT  (multi-device)
      ═══════════════════════════════════════════ */
-  var devices = {};        // { id: { host, port, name, messages:{}, patches:{} } }
+  var devices = {};        // { id: { host, port, name, messages:{}, scenes:{} } }
   var activeDeviceId = "";  // current tab
 
   function generateDeviceId(host, port, name) {
@@ -156,7 +194,7 @@
   function addDevice(host, port, name) {
     var id = generateDeviceId(host, port, name);
     if (!devices[id]) {
-      devices[id] = { host: host, port: parseInt(port, 10), name: name, messages: {}, patches: {}, oris: {} };
+      devices[id] = { host: host, port: parseInt(port, 10), name: name, messages: {}, scenes: {}, oris: {} };
     }
     activeDeviceId = id;
     renderDeviceTabs();
@@ -172,7 +210,7 @@
     }
     renderDeviceTabs();
     renderMsgTable();
-    renderPatchTable();
+    renderSceneTable();
     renderOriTable();
     refreshAllDropdowns();
   }
@@ -213,7 +251,7 @@
         activeDeviceId = id;
         renderDeviceTabs();
         renderMsgTable();
-        renderPatchTable();
+        renderSceneTable();
         renderOriTable();
         refreshAllDropdowns();
         refreshQueryDeviceSelect();
@@ -264,7 +302,7 @@
   }
 
   /* Auto-resolve "me" in any IP input field on blur */
-  ["statusIP", "msgIP", "directIP", "rawHost", "bridgeOutHost", "patchIP"].forEach(function (fieldId) {
+  ["statusIP", "msgIP", "directIP", "rawHost", "bridgeOutHost", "sceneIP"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
@@ -331,7 +369,7 @@
           if (wasActive) activeDeviceId = "";
         }
         addDevice(resolvedHost, parseInt(port, 10), name);
-        renderMsgTable(); renderPatchTable(); renderOriTable();
+        renderMsgTable(); renderSceneTable(); renderOriTable();
         toast("Device " + (_deviceConfigMode === "edit" ? "updated" : "added") + ": " + name, "success");
       });
     });
@@ -564,7 +602,7 @@
     load:           "/annieData/{device}/load",
     nvs_clear:      "/annieData/{device}/nvs/clear",
     list_messages:  "/annieData/{device}/list/msgs",
-    list_patches:   "/annieData/{device}/list/patches",
+    list_scenes:   "/annieData/{device}/list/scenes",
     list_all:       "/annieData/{device}/list/all",
   };
 
@@ -574,12 +612,12 @@
 
   /**
    * Parse incoming OSC messages from the device. The device sends status
-   * replies that include message and patch info. We try to extract names
+   * replies that include message and scene info. We try to extract names
    * and parameters from them to keep the local registry in sync.
    *
    * Typical reply patterns:
    *   /annieData/{device}/status   "msg: accelX | value:accelX ip:192.168.1.50 ..."
-   *   /annieData/{device}/status   "patch: sensors | period:50 adrMode:fallback msgs:accelX+accelY"
+   *   /annieData/{device}/status   "scene: sensors | period:50 adrMode:fallback msgs:accelX+accelY"
    *   /annieData/{device}/status   "[INFO] list/msgs: accelX, accelY, gyroZ"
    */
   function parseReplyIntoRegistry(entry) {
@@ -608,33 +646,33 @@
     if (!dev) return;
 
     /* ── Parse list replies ──
-       The device sends replies to /reply/{dev}/list/msgs (or /patches, /all)
+       The device sends replies to /reply/{dev}/list/msgs (or /scenes, /all)
        with a multi-line payload: "Messages (N):\n  name1\n  name2\n..."
        Detect by address; fall back to text-pattern for legacy status messages. */
     var listAddr = entry.address || "";
-    var isListReply = /\/list\/(msgs|messages|patches|all)/i.test(listAddr);
-    var isLegacyList = !isListReply && text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
+    var isListReply = /\/list\/(msgs|messages|scenes|all)/i.test(listAddr);
+    var isLegacyList = !isListReply && text.match(/list\/(?:msgs|scenes|all):\s*(.+)/i);
     if (isListReply || isLegacyList) {
       if (isLegacyList) {
-        var legacyMatch = text.match(/list\/(?:msgs|patches|all):\s*(.+)/i);
+        var legacyMatch = text.match(/list\/(?:msgs|scenes|all):\s*(.+)/i);
         var names = legacyMatch[1].split(/[,\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
         var isMsgList = text.match(/list\/msgs/i) || text.match(/list\/all/i);
-        var isPatchList = text.match(/list\/patches/i) || text.match(/list\/all/i);
+        var isSceneList = text.match(/list\/scenes/i) || text.match(/list\/all/i);
         names.forEach(function (n) {
           if (isMsgList   && !dev.messages[n]) dev.messages[n] = {};
-          if (isPatchList && !dev.patches[n])  dev.patches[n]  = {};
+          if (isSceneList && !dev.scenes[n])  dev.scenes[n]  = {};
         });
       } else {
         /* Multi-line reply format from the device. For /list/all, track which
-           block we are in; for /list/msgs or /list/patches use the address. */
+           block we are in; for /list/msgs or /list/scenes use the address. */
         var isAllList  = /\/list\/all/i.test(listAddr);
         var isMsgList  = /\/list\/msgs/i.test(listAddr);
-        var curBlock = isAllList ? "" : (isMsgList ? "msg" : "patch");
+        var curBlock = isAllList ? "" : (isMsgList ? "msg" : "scene");
         text.split(/\n/).forEach(function (line) {
           var trimmed = line.trim();
           if (!trimmed) return;
           if (/^messages\s*\(\d+\):/i.test(trimmed)) { curBlock = "msg";   return; }
-          if (/^patches\s*\(\d+\):/i.test(trimmed))  { curBlock = "patch"; return; }
+          if (/^scenes\s*\(\d+\):/i.test(trimmed))  { curBlock = "scene"; return; }
           var n = trimmed.split(/\s+/)[0];
           if (!n) return;
           if (curBlock === "msg") {
@@ -646,17 +684,17 @@
             if (/\[OFF\]/i.test(trimmed)) mParams.enabled = "false";
             dev.messages[n] = Object.assign(dev.messages[n] || {}, mParams);
           }
-          if (curBlock === "patch") {
+          if (curBlock === "scene") {
             var pParams = parseConfigString(trimmed);
             // Extract send period from "[RUNNING, 50ms, …]" or "[STOPPED, 50ms, …]".
             var periodM = trimmed.match(/\[(?:RUNNING|STOPPED),\s*(\d+)ms/i);
             if (periodM) pParams.period = periodM[1];
-            dev.patches[n] = Object.assign(dev.patches[n] || {}, pParams);
+            dev.scenes[n] = Object.assign(dev.scenes[n] || {}, pParams);
           }
         });
       }
       renderMsgTable();
-      renderPatchTable();
+      renderSceneTable();
       refreshAllDropdowns();
       return;
     }
@@ -672,13 +710,13 @@
       return;
     }
 
-    /* ── Parse patch info reply ── */
-    var patchMatch = text.match(/patch:\s*(\S+)\s*\|\s*(.*)/i);
-    if (patchMatch) {
-      var pName = patchMatch[1];
-      var pParams = parseConfigString(patchMatch[2]);
-      dev.patches[pName] = Object.assign(dev.patches[pName] || {}, pParams);
-      renderPatchTable();
+    /* ── Parse scene info reply ── */
+    var sceneMatch = text.match(/scene:\s*(\S+)\s*\|\s*(.*)/i);
+    if (sceneMatch) {
+      var pName = sceneMatch[1];
+      var pParams = parseConfigString(sceneMatch[2]);
+      dev.scenes[pName] = Object.assign(dev.scenes[pName] || {}, pParams);
+      renderSceneTable();
       refreshAllDropdowns();
       return;
     }
@@ -782,8 +820,8 @@
         refreshAllDropdowns();
       } else if (vRest.indexOf("period:") !== -1 || vRest.indexOf("adrMode:") !== -1 || vRest.indexOf("adr_mode:") !== -1 || vRest.indexOf("msgs:") !== -1) {
         var vpParams = parseConfigString(vRest);
-        dev.patches[vName] = Object.assign(dev.patches[vName] || {}, vpParams);
-        renderPatchTable();
+        dev.scenes[vName] = Object.assign(dev.scenes[vName] || {}, vpParams);
+        renderSceneTable();
         refreshAllDropdowns();
       }
     }
@@ -831,13 +869,13 @@
         '<td class="cell-mono" data-label="Address">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
         '<td class="cell-mono" data-label="Low" data-col="low">' + esc(m.low || m.min || "") + '</td>' +
         '<td class="cell-mono" data-label="High" data-col="high">' + esc(m.high || m.max || "") + '</td>' +
-        '<td class="cell-mono" data-label="Patch" data-col="patch">' + esc(m.patch || "") + '</td>' +
+        '<td class="cell-mono" data-label="Scene" data-col="scene">' + esc(m.scene || "") + '</td>' +
         '<td class="cell-mono ori-section" data-label="Ori" data-col="ori">' + esc(oriStr || "—") + '</td>' +
-        '<td data-label="Enabled">' + (m.enabled === "false" ? "×" : "✓") + '</td>' +
-        '<td class="cell-actions" data-label="Actions">' +
+        '<td data-label="EN">' + (m.enabled === "false" ? '<span class="en-off">×</span>' : '<span class="en-on">✓</span>') + '</td>' +
+        '<td class="cell-actions">' +
           '<button class="tbl-btn" data-act="info" title="Show message info" aria-label="Info">i</button>' +
-          '<button class="tbl-btn tbl-btn-success" data-act="enable" title="Enable message" aria-label="Enable">✓</button>' +
-          '<button class="tbl-btn" data-act="disable" title="Disable message" aria-label="Disable">×</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="enable" title="Enable message" aria-label="Enable"><span class="act-icon">✓</span></button>' +
+          '<button class="tbl-btn" data-act="disable" title="Disable message" aria-label="Disable"><span class="act-icon">×</span></button>' +
           '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
           '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete message" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
         '</td>';
@@ -865,7 +903,7 @@
     $("#msgAdr").value = m.adr || m.addr || m.address || "";
     $("#msgLow").value = m.low || m.min || "";
     $("#msgHigh").value = m.high || m.max || "";
-    $("#msgPatch").value = m.patch || "";
+    $("#msgScene").value = m.scene || "";
     $("#msgOriOnly").value = m.ori_only || m.orionly || "";
     $("#msgOriNot").value = m.ori_not || m.orinot || "";
     $("#msgTernori").value = m.ternori || "";
@@ -897,23 +935,23 @@
   }
 
   /* ═══════════════════════════════════════════
-     PATCH TABLE
+     SCENE TABLE
      ═══════════════════════════════════════════ */
 
-  function renderPatchTable() {
+  function renderSceneTable() {
     var dev = getActiveDev();
-    var tbody = $("#patchTableBody");
+    var tbody = $("#sceneTableBody");
     tbody.innerHTML = "";
-    if (!dev || Object.keys(dev.patches).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No patches tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
+    if (!dev || Object.keys(dev.scenes).length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No scenes tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
       return;
     }
-    Object.keys(dev.patches).forEach(function (name) {
-      var p = dev.patches[name];
+    Object.keys(dev.scenes).forEach(function (name) {
+      var p = dev.scenes[name];
       var msgsStr = p.msgs || "";
       if (typeof msgsStr === "string") msgsStr = msgsStr.replace(/\+/g, ", ");
       var tr = document.createElement("tr");
-      tr.dataset.patchName = name;
+      tr.dataset.sceneName = name;
       tr.innerHTML =
         '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
         '<td class="cell-mono" data-label="Period">' + esc(p.period || "50") + ' ms</td>' +
@@ -921,35 +959,35 @@
         '<td class="cell-mono" data-label="Overrides">' + esc(p.override || "—") + '</td>' +
         '<td class="cell-mono" data-label="Messages" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
         '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn tbl-btn-success" data-act="start" title="Start patch" aria-label="Start patch">▶</button>' +
-          '<button class="tbl-btn tbl-btn-stop" data-act="stop" title="Stop patch" aria-label="Stop patch">■</button>' +
-          '<button class="tbl-btn" data-act="info" title="Show patch info" aria-label="Info">i</button>' +
+          '<button class="tbl-btn tbl-btn-success" data-act="start" title="Start scene" aria-label="Start scene">▶</button>' +
+          '<button class="tbl-btn tbl-btn-stop" data-act="stop" title="Stop scene" aria-label="Stop scene">■</button>' +
+          '<button class="tbl-btn" data-act="info" title="Show scene info" aria-label="Info">i</button>' +
           '<button class="tbl-btn" data-act="enableAll" title="Enable all messages" aria-label="Enable all">✓</button>' +
           '<button class="tbl-btn" data-act="unsolo" title="Unsolo all messages" aria-label="Unsolo">▸</button>' +
           '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete patch" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
+          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete scene" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
         '</td>';
       tr.querySelector(".cell-name").addEventListener("click", function () {
-        populatePatchForm(name, p);
+        populateSceneForm(name, p);
       });
       tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          patchAction(btn.dataset.act, name);
+          sceneAction(btn.dataset.act, name);
         });
       });
       tbody.appendChild(tr);
     });
   }
 
-  function populatePatchForm(name, p) {
-    $("#patchName").value = name;
-    $("#patchPeriod").value = p.period || "50";
-    $("#patchAdrMode").value = p.adrMode || p.adrmode || p.adr_mode || "fallback";
-    $("#patchIP").value = p.ip || "";
-    $("#patchPort").value = p.port || "9000";
-    $("#patchAdr").value = p.adr || "";
-    $("#patchLow").value = p.low || "";
-    $("#patchHigh").value = p.high || "";
+  function populateSceneForm(name, p) {
+    $("#sceneName").value = name;
+    $("#scenePeriod").value = p.period || "50";
+    $("#sceneAdrMode").value = p.adrMode || p.adrmode || p.adr_mode || "fallback";
+    $("#sceneIP").value = p.ip || "";
+    $("#scenePort").value = p.port || "9000";
+    $("#sceneAdr").value = p.adr || "";
+    $("#sceneLow").value = p.low || "";
+    $("#sceneHigh").value = p.high || "";
     /* Accept both legacy "+" and canonical comma-separated override replies. */
     var ov = (p.override || "").split(/[+,]/).map(function (s) { return s.trim(); }).filter(Boolean);
     $("#ovIP").checked = ov.indexOf("ip") !== -1;
@@ -957,21 +995,21 @@
     $("#ovAdr").checked = ov.indexOf("adr") !== -1;
     $("#ovLow").checked = ov.indexOf("low") !== -1;
     $("#ovHigh").checked = ov.indexOf("high") !== -1;
-    /* scroll to form — switch to patches tab */
-    $(".nav-btn[data-section='patches']").click();
-    $("#patchName").focus();
+    /* scroll to form — switch to scenes tab */
+    $(".nav-btn[data-section='scenes']").click();
+    $("#sceneName").focus();
   }
 
-  function patchAction(act, name) {
+  function sceneAction(act, name) {
     var template;
     switch (act) {
-      case "start":     template = "/annieData/{device}/patch/{name}/start"; break;
-      case "stop":      template = "/annieData/{device}/patch/{name}/stop"; break;
-      case "info":      template = "/annieData/{device}/patch/{name}/info"; break;
-      case "enableAll": template = "/annieData/{device}/patch/{name}/enableAll"; break;
-      case "unsolo":    template = "/annieData/{device}/patch/{name}/unsolo"; break;
-      case "save":      sendCmd(addr("/annieData/{device}/save/patch"), name); return;
-      case "delete":    template = "/annieData/{device}/patch/{name}/delete"; break;
+      case "start":     template = "/annieData/{device}/scene/{name}/start"; break;
+      case "stop":      template = "/annieData/{device}/scene/{name}/stop"; break;
+      case "info":      template = "/annieData/{device}/scene/{name}/info"; break;
+      case "enableAll": template = "/annieData/{device}/scene/{name}/enableAll"; break;
+      case "unsolo":    template = "/annieData/{device}/scene/{name}/unsolo"; break;
+      case "save":      sendCmd(addr("/annieData/{device}/save/scene"), name); return;
+      case "delete":    template = "/annieData/{device}/scene/{name}/delete"; break;
       default: return;
     }
     sendCmd(addr(template, name), null).then(function (res) {
@@ -979,7 +1017,7 @@
         toast(act + ": " + name, "success");
         if (act === "delete") {
           var dev = getActiveDev();
-          if (dev) { delete dev.patches[name]; renderPatchTable(); refreshAllDropdowns(); }
+          if (dev) { delete dev.scenes[name]; renderSceneTable(); refreshAllDropdowns(); }
         }
       }
     });
@@ -1001,7 +1039,7 @@
 
   /* ── Ori Registration (immediate send) ──
      Sends /ori/register/{name} with color directly to the device.
-     No local pending list — same pattern as messages and patches.
+     No local pending list — same pattern as messages and scenes.
   ─────────────────────────────────────────────────────────────── */
 
   function _hexToRgb(hex) {
@@ -1298,13 +1336,13 @@
       });
     });
 
-    /* Patch name datalists */
-    var patchNames = Object.keys(dev.patches);
-    ["#patchNameList", "#patchNameList2", "#patchNameList3", "#patchNameList4", "#patchNameListSetAll"].forEach(function (sel) {
+    /* Scene name datalists */
+    var sceneNames = Object.keys(dev.scenes);
+    ["#sceneNameList", "#sceneNameList2", "#sceneNameList3", "#sceneNameList4", "#sceneNameListSetAll"].forEach(function (sel) {
       var dl = $(sel);
       if (!dl) return;
       dl.innerHTML = "";
-      patchNames.forEach(function (n) {
+      sceneNames.forEach(function (n) {
         var o = document.createElement("option");
         o.value = n;
         dl.appendChild(o);
@@ -1417,7 +1455,7 @@
     rateCounter++;
     appendToFeed(entry);
     /* Auto-parse replies into registry */
-    var prevMsgCount = 0, prevPatchCount = 0;
+    var prevMsgCount = 0, prevSceneCount = 0;
     var matchedDevId = "";
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
@@ -1430,16 +1468,16 @@
     if (matchedDevId && devices[matchedDevId] && /\/list\/(all|msgs|messages)/i.test(entry.address || "")) {
       var preDev = devices[matchedDevId];
       prevMsgCount = Object.keys(preDev.messages || {}).length;
-      prevPatchCount = Object.keys(preDev.patches || {}).length;
+      prevSceneCount = Object.keys(preDev.scenes || {}).length;
     }
     parseReplyIntoRegistry(entry);
     /* Show query feedback toast after list/all replies add new data */
     if (matchedDevId && devices[matchedDevId] && /\/list\/(all|msgs|messages)/i.test(entry.address || "")) {
       var postDev = devices[matchedDevId];
       var newMsgCount = Object.keys(postDev.messages || {}).length;
-      var newPatchCount = Object.keys(postDev.patches || {}).length;
-      if ((newMsgCount > 0 || newPatchCount > 0) && (newMsgCount !== prevMsgCount || newPatchCount !== prevPatchCount)) {
-        showToast("Loaded " + newMsgCount + " message" + (newMsgCount !== 1 ? "s" : "") + " and " + newPatchCount + " patch" + (newPatchCount !== 1 ? "es" : "") + " from device.", "success");
+      var newSceneCount = Object.keys(postDev.scenes || {}).length;
+      if ((newMsgCount > 0 || newSceneCount > 0) && (newMsgCount !== prevMsgCount || newSceneCount !== prevSceneCount)) {
+        showToast("Loaded " + newMsgCount + " message" + (newMsgCount !== 1 ? "s" : "") + " and " + newSceneCount + " scene" + (newSceneCount !== 1 ? "es" : "") + " from device.", "success");
       }
     }
   });
@@ -1518,14 +1556,14 @@
     var port = $("#msgPort").value; if (port) parts.push("port:" + port);
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
-    var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    var pa = $("#msgScene").value.trim(); if (pa) parts.push("scene:" + pa);
     var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + oo);
     var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + on);
     var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + tn);
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
+  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -1546,7 +1584,7 @@
     var port = $("#msgPort").value; if (port) parts.push("port:" + port);
     var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
-    var pa = $("#msgPatch").value.trim(); if (pa) parts.push("patch:" + pa);
+    var pa = $("#msgScene").value.trim(); if (pa) parts.push("scene:" + pa);
     var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + resolveName(oo, true));
     var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + resolveName(on, true));
     var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + resolveName(tn, true));
@@ -1575,7 +1613,7 @@
 
   /* Clear form */
   $("#btnMsgClear").addEventListener("click", function () {
-    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgPatch", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";
@@ -1612,20 +1650,20 @@
   });
 
   /* ═══════════════════════════════════════════
-     PATCHES
+     SCENES
      ═══════════════════════════════════════════ */
 
-  /* Apply patch config */
-  $("#btnPatchApply").addEventListener("click", function () {
-    var name = ($("#patchName").value || "").trim();
-    if (!name) { toast("Patch name required", "error"); return; }
-    var period = ($("#patchPeriod").value || "").trim();
-    var mode = ($("#patchAdrMode").value || "").trim();
-    var ip = ($("#patchIP").value || "").trim();
-    var port = ($("#patchPort").value || "").trim();
-    var patchAdr = ($("#patchAdr").value || "").trim();
-    var low = ($("#patchLow").value || "").trim();
-    var high = ($("#patchHigh").value || "").trim();
+  /* Apply scene config */
+  $("#btnSceneApply").addEventListener("click", function () {
+    var name = ($("#sceneName").value || "").trim();
+    if (!name) { toast("Scene name required", "error"); return; }
+    var period = ($("#scenePeriod").value || "").trim();
+    var mode = ($("#sceneAdrMode").value || "").trim();
+    var ip = ($("#sceneIP").value || "").trim();
+    var port = ($("#scenePort").value || "").trim();
+    var sceneAdr = ($("#sceneAdr").value || "").trim();
+    var low = ($("#sceneLow").value || "").trim();
+    var high = ($("#sceneHigh").value || "").trim();
 
     /* Build override string from checkboxes */
     var ovParts = [];
@@ -1635,125 +1673,125 @@
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
 
-    /* Build assign config and send primary patch config command */
+    /* Build assign config and send primary scene config command */
     var cfgParts = [];
     if (ip) cfgParts.push("ip:" + ip);
     if (port) cfgParts.push("port:" + port);
-    if (patchAdr) cfgParts.push("adr:" + patchAdr);
+    if (sceneAdr) cfgParts.push("adr:" + sceneAdr);
     if (low) cfgParts.push("low:" + low);
     if (high) cfgParts.push("high:" + high);
     var cfg = cfgParts.join(", ");
 
-    /* Send commands for patch settings */
+    /* Send commands for scene settings */
     var promises = [];
-    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}", name), cfg || null));
+    promises.push(sendCmd(addr("/annieData/{device}/scene/{name}", name), cfg || null));
     // Wrap period in quotes so python-osc sends it as OSC string type 's'.
     // Without quotes, _coerce_arg converts "50" → int 50 → type 'i', and the
     // firmware's nextAsString() returns "" on an integer arg → period gets
     // clamped to 1ms regardless of the value sent.
-    if (period) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/period", name), '"' + period + '"'));
-    if (mode) promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/adrMode", name), mode));
-    promises.push(sendCmd(addr("/annieData/{device}/patch/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
+    if (period) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/period", name), '"' + period + '"'));
+    if (mode) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/adrMode", name), mode));
+    promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
 
     Promise.all(promises).then(function () {
-      toast("Patch config applied: " + name, "success");
+      toast("Scene config applied: " + name, "success");
       var dev = getActiveDev();
       if (dev) {
-        dev.patches[name] = Object.assign(dev.patches[name] || {}, {
-          ip: ip, port: port, adr: patchAdr, low: low, high: high,
+        dev.scenes[name] = Object.assign(dev.scenes[name] || {}, {
+          ip: ip, port: port, adr: sceneAdr, low: low, high: high,
           period: period, adrMode: mode, override: ovParts.join(", ")
         });
-        renderPatchTable();
+        renderSceneTable();
         refreshAllDropdowns();
       }
     });
   });
 
   /* Start/Stop */
-  $("#btnPatchStart").addEventListener("click", function () {
-    var name = ($("#patchName").value || "").trim();
-    if (!name) { toast("Patch name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/start", name), null).then(function (res) {
+  $("#btnSceneStart").addEventListener("click", function () {
+    var name = ($("#sceneName").value || "").trim();
+    if (!name) { toast("Scene name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/start", name), null).then(function (res) {
       if (res.status === "ok") toast("Started: " + name, "success");
     });
   });
 
-  $("#btnPatchStop").addEventListener("click", function () {
-    var name = ($("#patchName").value || "").trim();
-    if (!name) { toast("Patch name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/stop", name), null).then(function (res) {
+  $("#btnSceneStop").addEventListener("click", function () {
+    var name = ($("#sceneName").value || "").trim();
+    if (!name) { toast("Scene name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/stop", name), null).then(function (res) {
       if (res.status === "ok") toast("Stopped: " + name, "success");
     });
   });
 
   /* Add/Remove/Solo/Move messages */
-  $("#btnPatchAddMsg").addEventListener("click", function () {
-    var pname = ($("#patchMsgPatch").value || "").trim();
-    var mnames = ($("#patchMsgNames").value || "").trim();
-    if (!pname || !mnames) { toast("Patch and message name(s) required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/addMsg", pname), mnames).then(function (res) {
+  $("#btnSceneAddMsg").addEventListener("click", function () {
+    var pname = ($("#sceneMsgScene").value || "").trim();
+    var mnames = ($("#sceneMsgNames").value || "").trim();
+    if (!pname || !mnames) { toast("Scene and message name(s) required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/addMsg", pname), mnames).then(function (res) {
       if (res.status === "ok") toast("Added to " + pname, "success");
     });
   });
 
-  $("#btnPatchRemoveMsg").addEventListener("click", function () {
-    var pname = ($("#patchMsgPatch").value || "").trim();
-    var mnames = ($("#patchMsgNames").value || "").trim();
-    if (!pname || !mnames) { toast("Patch and message name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/removeMsg", pname), mnames).then(function (res) {
+  $("#btnSceneRemoveMsg").addEventListener("click", function () {
+    var pname = ($("#sceneMsgScene").value || "").trim();
+    var mnames = ($("#sceneMsgNames").value || "").trim();
+    if (!pname || !mnames) { toast("Scene and message name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/removeMsg", pname), mnames).then(function (res) {
       if (res.status === "ok") toast("Removed from " + pname, "success");
     });
   });
 
-  $("#btnPatchSolo").addEventListener("click", function () {
-    var pname = ($("#patchMsgPatch").value || "").trim();
-    var mname = ($("#patchMsgNames").value || "").trim();
-    if (!pname || !mname) { toast("Patch and message name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/solo", pname), mname).then(function (res) {
+  $("#btnSceneSolo").addEventListener("click", function () {
+    var pname = ($("#sceneMsgScene").value || "").trim();
+    var mname = ($("#sceneMsgNames").value || "").trim();
+    if (!pname || !mname) { toast("Scene and message name required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/solo", pname), mname).then(function (res) {
       if (res.status === "ok") toast("Solo: " + mname + " in " + pname, "success");
     });
   });
 
-  $("#btnPatchMove").addEventListener("click", function () {
-    var mname = ($("#patchMsgNames").value || "").trim();
-    var pname = ($("#patchMsgPatch").value || "").trim();
-    if (!pname || !mname) { toast("Message and patch name required", "error"); return; }
+  $("#btnSceneMove").addEventListener("click", function () {
+    var mname = ($("#sceneMsgNames").value || "").trim();
+    var pname = ($("#sceneMsgScene").value || "").trim();
+    if (!pname || !mname) { toast("Message and scene name required", "error"); return; }
     sendCmd(addr("/annieData/{device}/move"), mname + ", " + pname).then(function (res) {
       if (res.status === "ok") toast("Moved: " + mname + " → " + pname, "success");
     });
   });
 
-  $("#btnPatchSetAll").addEventListener("click", function () {
-    var pname = ($("#patchSetAllPatch").value || "").trim();
-    var cfg = ($("#patchSetAllCfg").value || "").trim();
-    if (!pname || !cfg) { toast("Patch and config string required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/patch/{name}/setAll", pname), cfg).then(function (res) {
+  $("#btnSceneSetAll").addEventListener("click", function () {
+    var pname = ($("#sceneSetAllScene").value || "").trim();
+    var cfg = ($("#sceneSetAllCfg").value || "").trim();
+    if (!pname || !cfg) { toast("Scene and config string required", "error"); return; }
+    sendCmd(addr("/annieData/{device}/scene/{name}/setAll", pname), cfg).then(function (res) {
       if (res.status === "ok") toast("setAll applied: " + pname, "success");
     });
   });
 
   /* Clone / Rename */
-  $("#btnPatchClone").addEventListener("click", function () {
-    var src = ($("#patchSrcName").value || "").trim();
-    var dest = ($("#patchDestName").value || "").trim();
+  $("#btnSceneClone").addEventListener("click", function () {
+    var src = ($("#sceneSrcName").value || "").trim();
+    var dest = ($("#sceneDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/clone/patch"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/clone/scene"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") toast("Cloned: " + src + " → " + dest, "success");
     });
   });
 
-  $("#btnPatchRename").addEventListener("click", function () {
-    var src = ($("#patchSrcName").value || "").trim();
-    var dest = ($("#patchDestName").value || "").trim();
+  $("#btnSceneRename").addEventListener("click", function () {
+    var src = ($("#sceneSrcName").value || "").trim();
+    var dest = ($("#sceneDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/rename/patch"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/rename/scene"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") {
         toast("Renamed: " + src + " → " + dest, "success");
         var dev = getActiveDev();
-        if (dev && dev.patches[src]) {
-          dev.patches[dest] = dev.patches[src];
-          delete dev.patches[src];
-          renderPatchTable();
+        if (dev && dev.scenes[src]) {
+          dev.scenes[dest] = dev.scenes[src];
+          delete dev.scenes[src];
+          renderSceneTable();
           refreshAllDropdowns();
         }
       }
@@ -2152,7 +2190,7 @@
           if (d.host && d.port && d.name) addDevice(d.host, parseInt(d.port, 10), d.name);
         });
         renderMsgTable();
-        renderPatchTable();
+        renderSceneTable();
         renderOriTable();
         toast("Loaded " + list.length + " device(s)", "success");
       } catch (_) { toast("Invalid device file", "error"); }
@@ -2239,7 +2277,7 @@
         { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
-        { title: "Patch Commands", keys: ["patch","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/patch"] },
+        { title: "Scene Commands", keys: ["scene","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/scene"] },
         { title: "Address Modes", keys: ["fallback","prepend","append"] },
         { title: "Other", keys: ["config string"] }
       ];
@@ -2317,7 +2355,7 @@
       var headers = card.querySelectorAll("h2, .card-title-row, .tbl-toolbar");
       headers.forEach(function (hdr) {
         hdr.addEventListener("click", function (e) {
-          if (e.target.closest("button, input, select, textarea, a")) return;
+          if (e.target.closest("button, input, select, textarea, a, .col-picker-wrap")) return;
           card.classList.toggle("card-collapsed");
         });
       });
@@ -2327,22 +2365,22 @@
   initCollapsibleCards();
 
   /* ═══════════════════════════════════════════
-     PATCH PREVIEW
+     SCENE PREVIEW
      ═══════════════════════════════════════════ */
 
-  function updatePatchPreview() {
-    var name = ($("#patchName") ? $("#patchName").value.trim() : "");
-    var adrEl = $("#patchPreviewAdr");
-    var cfgEl = $("#patchPreviewCfg");
-    if (adrEl) adrEl.textContent = name ? "patch: " + name : "(no patch name)";
+  function updateScenePreview() {
+    var name = ($("#sceneName") ? $("#sceneName").value.trim() : "");
+    var adrEl = $("#scenePreviewAdr");
+    var cfgEl = $("#scenePreviewCfg");
+    if (adrEl) adrEl.textContent = name ? "scene: " + name : "(no scene name)";
     var parts = [];
-    var ip = ($("#patchIP").value || "").trim(); if (ip) parts.push("ip:" + ip);
-    var port = ($("#patchPort").value || "").trim(); if (port) parts.push("port:" + port);
-    var patchAdr = ($("#patchAdr").value || "").trim(); if (patchAdr) parts.push("adr:" + patchAdr);
-    var low = ($("#patchLow").value || "").trim(); if (low) parts.push("low:" + low);
-    var high = ($("#patchHigh").value || "").trim(); if (high) parts.push("high:" + high);
-    var period = ($("#patchPeriod").value || "").trim(); if (period) parts.push("period:" + period);
-    var mode = ($("#patchAdrMode").value || "").trim(); if (mode) parts.push("adrMode:" + mode);
+    var ip = ($("#sceneIP").value || "").trim(); if (ip) parts.push("ip:" + ip);
+    var port = ($("#scenePort").value || "").trim(); if (port) parts.push("port:" + port);
+    var sceneAdr = ($("#sceneAdr").value || "").trim(); if (sceneAdr) parts.push("adr:" + sceneAdr);
+    var low = ($("#sceneLow").value || "").trim(); if (low) parts.push("low:" + low);
+    var high = ($("#sceneHigh").value || "").trim(); if (high) parts.push("high:" + high);
+    var period = ($("#scenePeriod").value || "").trim(); if (period) parts.push("period:" + period);
+    var mode = ($("#sceneAdrMode").value || "").trim(); if (mode) parts.push("adrMode:" + mode);
     var ovParts = [];
     if ($("#ovIP").checked) ovParts.push("ip");
     if ($("#ovPort").checked) ovParts.push("port");
@@ -2353,16 +2391,16 @@
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["patchName", "patchIP", "patchPort", "patchAdr", "patchLow", "patchHigh", "patchPeriod", "patchAdrMode"].forEach(function (id) {
+  ["sceneName", "sceneIP", "scenePort", "sceneAdr", "sceneLow", "sceneHigh", "scenePeriod", "sceneAdrMode"].forEach(function (id) {
     var el = $("#" + id);
-    if (el) el.addEventListener("input", updatePatchPreview);
-    if (el) el.addEventListener("change", updatePatchPreview);
+    if (el) el.addEventListener("input", updateScenePreview);
+    if (el) el.addEventListener("change", updateScenePreview);
   });
   ["ovIP", "ovPort", "ovAdr", "ovLow", "ovHigh"].forEach(function (id) {
     var el = $("#" + id);
-    if (el) el.addEventListener("change", updatePatchPreview);
+    if (el) el.addEventListener("change", updateScenePreview);
   });
-  updatePatchPreview();
+  updateScenePreview();
 
   /* ═══════════════════════════════════════════
      DEBUG MODE — confirm before send
@@ -2530,7 +2568,7 @@
             if (!getActiveDev()) { toast("Select a device first", "error"); return; }
             showConfirm(
               "Load Show '" + name + "'",
-              "Loading replaces all current messages, patches, and oris on the device. Continue?",
+              "Loading replaces all current messages, scenes, and oris on the device. Continue?",
               function () {
                 /* Two-step: first send load, then confirm */
                 sendCmd(addr("/annieData/{device}/show/load/" + name), null).then(function () {
@@ -2586,7 +2624,7 @@
             if (!getActiveDev()) { toast("Select a device first", "error"); return; }
             showConfirm(
               "Load Library Show '" + s.name + "'",
-              "Push all messages, patches, and oris to device and save as show '" + s.name + "'?",
+              "Push all messages, scenes, and oris to device and save as show '" + s.name + "'?",
               function () {
                 fetch("/api/shows/" + encodeURIComponent(s.name)).then(function (r) { return r.json(); })
                   .then(function (showData) {
@@ -2625,12 +2663,12 @@
       if (m.high !== undefined) cfg += ",high:" + m.high;
       sendCmd(addr("/annieData/{device}/msg/" + m.name), '"' + cfg + '"');
     });
-    /* Push patches */
-    (showData.patches || []).forEach(function (p) {
+    /* Push scenes */
+    (showData.scenes || []).forEach(function (p) {
       var cfg = "ip:" + p.ip + ",port:" + p.port + ",period:" + p.period;
-      sendCmd(addr("/annieData/{device}/patch/" + p.name), '"' + cfg + '"');
+      sendCmd(addr("/annieData/{device}/scene/" + p.name), '"' + cfg + '"');
       (p.msgs || []).forEach(function (mName) {
-        sendCmd(addr("/annieData/{device}/patch/" + p.name + "/addMsg"), '"' + mName + '"');
+        sendCmd(addr("/annieData/{device}/scene/" + p.name + "/addMsg"), '"' + mName + '"');
       });
     });
     /* Push oris */
@@ -2681,7 +2719,7 @@
       if (!dev) { toast("Select a device first", "error"); return; }
       /* Build show JSON from current Gooey registry */
       var msgs = Object.entries(dev.messages || {}).map(function (kv) { return Object.assign({ name: kv[0] }, kv[1]); });
-      var patches = Object.entries(dev.patches || {}).map(function (kv) { return Object.assign({ name: kv[0] }, kv[1]); });
+      var scenes = Object.entries(dev.scenes || {}).map(function (kv) { return Object.assign({ name: kv[0] }, kv[1]); });
       var oris = Object.entries(dev.oris || {}).map(function (kv) {
         return { name: kv[0], color: kv[1].color, samples: kv[1].samples, use_axis: kv[1].useAxis };
       });
@@ -2690,7 +2728,7 @@
         saved: new Date().toISOString(),
         device: dev.name,
         messages: msgs,
-        patches: patches,
+        scenes: scenes,
         oris: oris
       };
       fetch("/api/shows/" + encodeURIComponent(name), {
@@ -2736,7 +2774,7 @@
   }
 
   /* Port validation */
-  ["statusPort", "msgPort", "patchPort", "directPort", "rawPort", "bridgeInPort", "bridgeOutPort", "replyPort"].forEach(function (fieldId) {
+  ["statusPort", "msgPort", "scenePort", "directPort", "rawPort", "bridgeInPort", "bridgeOutPort", "replyPort"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
@@ -2746,7 +2784,7 @@
   });
 
   /* IP validation */
-  ["statusIP", "msgIP", "patchIP", "directIP", "rawHost", "bridgeOutHost"].forEach(function (fieldId) {
+  ["statusIP", "msgIP", "sceneIP", "directIP", "rawHost", "bridgeOutHost"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
@@ -2757,7 +2795,7 @@
   });
 
   /* Name validation */
-  ["msgName", "patchName"].forEach(function (fieldId) {
+  ["msgName", "sceneName"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
@@ -2791,13 +2829,21 @@
   function applyColVisibility() {
     var prefs = loadColPrefs();
     if (!prefs) return;
+    var hiddenCount = 0;
     Object.keys(prefs).forEach(function (col) {
       var visible = prefs[col];
-      /* Toggle header th */
+      if (!visible) hiddenCount++;
       $$('[data-col="' + col + '"]').forEach(function (el) {
         el.style.display = visible ? "" : "none";
       });
     });
+    /* Update caret indicator when columns are hidden */
+    var btn = $("#btnColPicker");
+    if (btn) {
+      btn.classList.toggle("has-hidden", hiddenCount > 0);
+      btn.textContent = hiddenCount > 0 ? "▾ " + hiddenCount : "▾";
+      btn.title = hiddenCount > 0 ? hiddenCount + " column(s) hidden" : "Choose visible columns";
+    }
   }
 
   /* Init column picker checkboxes from localStorage */
@@ -2846,15 +2892,15 @@
 
     var devCount = Object.keys(devices).length;
     var hasMsgs = false;
-    var hasPatches = false;
+    var hasScenes = false;
     Object.keys(devices).forEach(function (id) {
       var d = devices[id];
       if (Object.keys(d.messages || {}).length > 0) hasMsgs = true;
-      if (Object.keys(d.patches || {}).length > 0) hasPatches = true;
+      if (Object.keys(d.scenes || {}).length > 0) hasScenes = true;
     });
 
     /* Show banner if incomplete */
-    if (!hasPatches) {
+    if (!hasScenes) {
       banner.classList.remove("hidden");
     } else {
       banner.classList.add("hidden");
@@ -2863,9 +2909,9 @@
     /* Mark completed steps */
     var s1 = $("#onboard1"), s2 = $("#onboard2"), s3 = $("#onboard3"), s4 = $("#onboard4");
     if (s1) { if (devCount > 0) s1.classList.add("done"); else s1.classList.remove("done"); }
-    if (s2) { if (hasMsgs || hasPatches) s2.classList.add("done"); else s2.classList.remove("done"); }
+    if (s2) { if (hasMsgs || hasScenes) s2.classList.add("done"); else s2.classList.remove("done"); }
     if (s3) { if (hasMsgs) s3.classList.add("done"); else s3.classList.remove("done"); }
-    if (s4) { if (hasPatches) s4.classList.add("done"); else s4.classList.remove("done"); }
+    if (s4) { if (hasScenes) s4.classList.add("done"); else s4.classList.remove("done"); }
   }
 
   var onboardDismiss = $("#onboardDismiss");

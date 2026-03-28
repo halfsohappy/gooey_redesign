@@ -4,12 +4,12 @@
 //
 // This file contains the main handler that is called every time an OSC
 // message arrives.  It parses the address, identifies the target (message,
-// patch, or system command), and dispatches to the appropriate action.
+// scene, or system command), and dispatches to the appropriate action.
 //
 // CASE HANDLING:
 //   All command segments accept camelCase, snake_case, and lowercase.
 //   For example, "addMsg", "add_msg", and "addmsg" are all equivalent.
-//   User-defined names (message and patch names) preserve their original case.
+//   User-defined names (message and scene names) preserve their original case.
 //
 // PAYLOAD FORMAT:
 //   All incoming payloads are a single string (CSV when multiple values are
@@ -20,9 +20,9 @@
 //   /annieData{device_adr}/{category}/{name}/{command}
 //
 //   {device_adr}  — the device's provisioned name (e.g. "/bart")
-//   {category}    — "msg", "patch", "list", "clone", "rename", "save",
+//   {category}    — "msg", "scene", "list", "clone", "rename", "save",
 //                    "load", "nvs", or a top-level command
-//   {name}        — the name of the target message or patch
+//   {name}        — the name of the target message or scene
 //   {command}     — the action to perform (defaults to "assign" if omitted)
 //
 // COMMAND REFERENCE  (see user_guide.md for full documentation):
@@ -35,58 +35,58 @@
 //   disable / mute         — disable message (skip during send)
 //   info                   — reply with message details
 //
-// ── PATCH COMMANDS (/annieData{dev}/patch/{name}/...) ──────────────────────
-//   (no command / assign)  — create or update a patch from config string
-//   delete                 — remove patch and its task
+// ── SCENE COMMANDS (/annieData{dev}/scene/{name}/...) ──────────────────────
+//   (no command / assign)  — create or update a scene from config string
+//   delete                 — remove scene and its task
 //   start                  — create FreeRTOS task and begin sending
 //   stop                   — stop the send task
-//   enable                 — re-enable a stopped patch (same as start)
+//   enable                 — re-enable a stopped scene (same as start)
 //   disable / mute         — stop sending without deleting the task
-//   addMsg                 — add message(s) to this patch (CSV payload)
-//   removeMsg              — remove a message from this patch
+//   addMsg                 — add message(s) to this scene (CSV payload)
+//   removeMsg              — remove a message from this scene
 //   period                 — set the send period in milliseconds
-//   override               — set which fields the patch forces on its messages
+//   override               — set which fields the scene forces on its messages
 //   adrMode                — set address composition mode
-//   setAll                 — set a property on all messages in this patch
-//   solo                   — enable one message, disable all others in patch
-//   unsolo                 — re-enable all messages in this patch
-//   enableAll              — enable all messages in this patch
-//   info                   — reply with patch details
+//   setAll                 — set a property on all messages in this scene
+//   solo                   — enable one message, disable all others in scene
+//   unsolo                 — re-enable all messages in this scene
+//   enableAll              — enable all messages in this scene
+//   info                   — reply with scene details
 //
 // ── CLONE COMMANDS (/annieData{dev}/clone/...) ─────────────────────────────
 //   msg     "src, dest"    — duplicate a message under a new name
-//   patch   "src, dest"    — duplicate a patch (and optionally its messages)
+//   scene   "src, dest"    — duplicate a scene (and optionally its messages)
 //
 // ── RENAME COMMANDS (/annieData{dev}/rename/...) ───────────────────────────
 //   msg     "old, new"     — rename a message
-//   patch   "old, new"     — rename a patch
+//   scene   "old, new"     — rename a scene
 //
 // ── MOVE COMMAND (/annieData{dev}/move) ────────────────────────────────────
-//   "msgName, patchName"   — move a message into a different patch
+//   "msgName, sceneName"   — move a message into a different scene
 //
 // ── LIST COMMANDS (/annieData{dev}/list/...) ───────────────────────────────
 //   msgs     [verbose?]    — reply with all message names (+ params if verbose)
-//   patches  [verbose?]    — reply with all patch names (+ params if verbose)
+//   scenes  [verbose?]    — reply with all scene names (+ params if verbose)
 //   all      [verbose?]    — reply with everything
 //
 // ── GLOBAL COMMANDS (/annieData{dev}/...) ──────────────────────────────────
-//   blackout               — stop ALL patch tasks immediately
-//   restore                — restart all patches that have messages
+//   blackout               — stop ALL scene tasks immediately
+//   restore                — restart all scenes that have messages
 //   dedup                  — toggle duplicate value suppression (payload: on/off/1/0)
 //
 // ── DIRECT COMMAND (/annieData{dev}/direct/{name}) ────────────────────────
-//   (config string payload) — one-step: create msg + patch, add, and start
+//   (config string payload) — one-step: create msg + scene, add, and start
 //
 // ── STATUS COMMANDS (/annieData{dev}/status/...) ───────────────────────────
 //   config   [config_str]  — set status destination (ip, port, address)
 //   level    [level_str]   — set minimum importance level
 //
 // ── SAVE / LOAD COMMANDS (/annieData{dev}/...) ─────────────────────────────
-//   save                   — save all patches and messages to NVS
+//   save                   — save all scenes and messages to NVS
 //   save/all               — same as save
 //   save/msg    "name"     — save one message to NVS
-//   save/patch  "name"     — save one patch to NVS
-//   load                   — load all patches and messages from NVS
+//   save/scene  "name"     — save one scene to NVS
+//   load                   — load all scenes and messages from NVS
 //   load/all               — same as load
 //   nvs/clear              — erase all saved OSC data from NVS
 //
@@ -266,17 +266,17 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── DIRECT COMMAND ────────────────────────────────────────────────────
-    //    One-step: create a message + patch, add the message, and start
+    //    One-step: create a message + scene, add the message, and start
     //    sending — all from a single OSC command.
     //
     //    Address:  /annieData{dev}/direct/{name}
     //    Payload:  config string with value, ip, port, adr, and optionally
     //              period, low, high.
     //
-    //    Creates a message named "{name}" and a patch named "{name}" (or
+    //    Creates a message named "{name}" and a scene named "{name}" (or
     //    updates them if they exist).  The message gets the sensor value and
-    //    destination fields.  The patch gets the destination and period.
-    //    The message is added to the patch, and the patch is started.
+    //    destination fields.  The scene gets the destination and period.
+    //    The message is added to the scene, and the scene is started.
     //
     //    Example:
     //      /annieData/bart/direct/mySetup
@@ -315,7 +315,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                          : cfg_str.substring(vstart, vend);
                 pval.trim();
                 int pms = pval.toInt();
-                if (pms > 0) period_ms = clamp_patch_period_ms(pms);
+                if (pms > 0) period_ms = clamp_scene_period_ms(pms);
             }
         }
 
@@ -337,10 +337,10 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         if (parsed.exist.high) { m->bounds[1] = parsed.bounds[1];     m->exist.high = true; }
         m->enabled = true;
 
-        // Create or update the patch.
-        OscPatch* p = reg.get_or_create_patch(dname);
+        // Create or update the scene.
+        OscScene* p = reg.get_or_create_scene(dname);
         if (!p) {
-            status_reporter().error("direct", "Registry full (patches)");
+            status_reporter().error("direct", "Registry full (scenes)");
             reg.unlock();
             return;
         }
@@ -351,17 +351,17 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         if (parsed.exist.high) { p->bounds[1] = parsed.bounds[1];     p->exist.high = true; }
         p->send_period_ms = period_ms;
 
-        // Add the message to the patch (no-op if already there).
+        // Add the message to the scene (no-op if already there).
         int mi = reg.msg_index(m);
         p->add_msg(mi);
-        m->patch = p;
-        m->exist.patch = true;
+        m->scene = p;
+        m->exist.scene = true;
 
-        // Start the patch (stop first if already running to pick up changes).
+        // Start the scene (stop first if already running to pick up changes).
         if (p->task_handle) {
-            stop_patch(p);
+            stop_scene(p);
         }
-        start_patch(p);
+        start_scene(p);
 
         reg.unlock();
 
@@ -459,26 +459,26 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 result += "  " + reg.messages[i].to_info_string(verbose) + "\n";
             }
             osc_reply(reply_ip, reply_port, reply_adr + "/list/msgs", result);
-        } else if (sub == "/patches") {
-            String result = "Patches (" + String(reg.patch_count) + "):";
-            if (reg.patch_count == 0) {
+        } else if (sub == "/scenes") {
+            String result = "Scenes (" + String(reg.scene_count) + "):";
+            if (reg.scene_count == 0) {
                 result += " none\n";
             } else {
                 result += "\n";
             }
-            for (uint16_t i = 0; i < reg.patch_count; i++) {
-                result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
+            for (uint16_t i = 0; i < reg.scene_count; i++) {
+                result += "  " + reg.scenes[i].to_info_string(verbose) + "\n";
             }
-            osc_reply(reply_ip, reply_port, reply_adr + "/list/patches", result);
+            osc_reply(reply_ip, reply_port, reply_adr + "/list/scenes", result);
         } else if (sub == "/all" || sub == "") {
-            String result = "Patches (" + String(reg.patch_count) + "):";
-            if (reg.patch_count == 0) {
+            String result = "Scenes (" + String(reg.scene_count) + "):";
+            if (reg.scene_count == 0) {
                 result += " none\n";
             } else {
                 result += "\n";
             }
-            for (uint16_t i = 0; i < reg.patch_count; i++) {
-                result += "  " + reg.patches[i].to_info_string(verbose) + "\n";
+            for (uint16_t i = 0; i < reg.scene_count; i++) {
+                result += "  " + reg.scenes[i].to_info_string(verbose) + "\n";
             }
             result += "Messages (" + String(reg.msg_count) + "):";
             if (reg.msg_count == 0) {
@@ -538,16 +538,16 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->name = dest_name;
             dest->exist.name = true;
             status_reporter().info("cmd", "Cloned msg '" + src_name + "' → '" + dest_name + "'");
-        } else if (sub == "/patch") {
-            OscPatch* src = reg.find_patch(src_name);
+        } else if (sub == "/scene") {
+            OscScene* src = reg.find_scene(src_name);
             if (!src) {
-                status_reporter().error("cmd", "clone/patch: source '" + src_name + "' not found");
+                status_reporter().error("cmd", "clone/scene: source '" + src_name + "' not found");
                 reg.unlock();
                 return;
             }
-            OscPatch* dest = reg.get_or_create_patch(dest_name);
+            OscScene* dest = reg.get_or_create_scene(dest_name);
             if (!dest) {
-                status_reporter().error("cmd", "clone/patch: registry full");
+                status_reporter().error("cmd", "clone/scene: registry full");
                 reg.unlock();
                 return;
             }
@@ -557,7 +557,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->osc_address    = src->osc_address;
             dest->bounds[0]      = src->bounds[0];
             dest->bounds[1]      = src->bounds[1];
-            dest->send_period_ms = clamp_patch_period_ms(src->send_period_ms);
+            dest->send_period_ms = clamp_scene_period_ms(src->send_period_ms);
             dest->address_mode   = src->address_mode;
             dest->overrides      = src->overrides;
             dest->exist          = src->exist;
@@ -567,7 +567,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             dest->msg_count = src->msg_count;
             memcpy(dest->msg_indices, src->msg_indices,
                    src->msg_count * sizeof(int));
-            status_reporter().info("cmd", "Cloned patch '" + src_name + "' → '" + dest_name + "'");
+            status_reporter().info("cmd", "Cloned scene '" + src_name + "' → '" + dest_name + "'");
         } else {
             status_reporter().warning("cmd", "Unknown clone target: " + sub);
         }
@@ -605,13 +605,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 m->name = new_name;
                 status_reporter().info("cmd", "Renamed msg '" + old_name + "' → '" + new_name + "'");
             }
-        } else if (sub == "/patch") {
-            OscPatch* p = reg.find_patch(old_name);
+        } else if (sub == "/scene") {
+            OscScene* p = reg.find_scene(old_name);
             if (!p) {
-                status_reporter().error("cmd", "rename/patch: '" + old_name + "' not found");
+                status_reporter().error("cmd", "rename/scene: '" + old_name + "' not found");
             } else {
                 p->name = new_name;
-                status_reporter().info("cmd", "Renamed patch '" + old_name + "' → '" + new_name + "'");
+                status_reporter().info("cmd", "Renamed scene '" + old_name + "' → '" + new_name + "'");
             }
         } else {
             status_reporter().warning("cmd", "Unknown rename target: " + sub);
@@ -622,61 +622,61 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── MOVE COMMAND ───────────────────────────────────────────────────────
-    //    Payload: single CSV string "msgName, patchName"
+    //    Payload: single CSV string "msgName, sceneName"
 
     if (norm_adr == "/move") {
         String arg = osc_msg.nextAsString();
         arg.trim();
         int comma = arg.indexOf(',');
         if (comma < 0) {
-            status_reporter().error("cmd", "move requires a CSV string: \"msgName, patchName\"");
+            status_reporter().error("cmd", "move requires a CSV string: \"msgName, sceneName\"");
             return;
         }
         String msg_name   = osc_trim_copy(arg.substring(0, comma));
-        String patch_name = osc_trim_copy(arg.substring(comma + 1));
-        if (msg_name.length() == 0 || patch_name.length() == 0) {
-            status_reporter().error("cmd", "move requires two non-empty names: \"msgName, patchName\"");
+        String scene_name = osc_trim_copy(arg.substring(comma + 1));
+        if (msg_name.length() == 0 || scene_name.length() == 0) {
+            status_reporter().error("cmd", "move requires two non-empty names: \"msgName, sceneName\"");
             return;
         }
 
         reg.lock();
 
         OscMessage* m = reg.find_msg(msg_name);
-        OscPatch*   p = reg.find_patch(patch_name);
+        OscScene*   p = reg.find_scene(scene_name);
         if (!m) {
             status_reporter().error("cmd", "move: msg '" + msg_name + "' not found");
             reg.unlock();
             return;
         }
         if (!p) {
-            status_reporter().error("cmd", "move: patch '" + patch_name + "' not found");
+            status_reporter().error("cmd", "move: scene '" + scene_name + "' not found");
             reg.unlock();
             return;
         }
 
         int mi = reg.msg_index(m);
 
-        // Remove from current patch (if any).
-        if (m->patch) {
-            m->patch->remove_msg(mi);
+        // Remove from current scene (if any).
+        if (m->scene) {
+            m->scene->remove_msg(mi);
         }
 
-        // Add to new patch.
+        // Add to new scene.
         p->add_msg(mi);
-        m->patch = p;
-        m->exist.patch = true;
+        m->scene = p;
+        m->exist.scene = true;
 
         status_reporter().info("cmd", "Moved msg '" + msg_name
-                               + "' → patch '" + patch_name + "'");
+                               + "' → scene '" + scene_name + "'");
         reg.unlock();
         return;
     }
 
     // ── SAVE COMMANDS ──────────────────────────────────────────────────────
-    //    /save          — save all patches and messages to NVS
+    //    /save          — save all scenes and messages to NVS
     //    /save/all      — same as /save
     //    /save/msg      — save one message (payload: name)
-    //    /save/patch    — save one patch (payload: name)
+    //    /save/scene    — save one scene (payload: name)
 
     if (norm_adr.startsWith("/save")) {
         String sub = normalise_cmd(address.substring(5));  // after "/save"
@@ -695,14 +695,14 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             } else {
                 status_reporter().error("nvs", "save/msg: '" + name + "' not found");
             }
-        } else if (sub == "/patch") {
+        } else if (sub == "/scene") {
             String name = osc_trim_copy(osc_msg.nextAsString());
             if (name.length() == 0) {
-                status_reporter().error("nvs", "save/patch requires a patch name");
-            } else if (nvs_save_patch(name)) {
-                status_reporter().info("nvs", "Saved patch '" + name + "' to NVS");
+                status_reporter().error("nvs", "save/scene requires a scene name");
+            } else if (nvs_save_scene(name)) {
+                status_reporter().info("nvs", "Saved scene '" + name + "' to NVS");
             } else {
-                status_reporter().error("nvs", "save/patch: '" + name + "' not found");
+                status_reporter().error("nvs", "save/scene: '" + name + "' not found");
             }
         } else {
             status_reporter().warning("cmd", "Unknown save target: " + sub);
@@ -713,7 +713,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     }
 
     // ── LOAD COMMANDS ──────────────────────────────────────────────────────
-    //    /load          — load all patches and messages from NVS
+    //    /load          — load all scenes and messages from NVS
     //    /load/all      — same as /load
 
     if (norm_adr.startsWith("/load")) {
@@ -1432,19 +1432,19 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
-    // ── CATEGORY DISPATCH: /msg or /patch ──────────────────────────────────
+    // ── CATEGORY DISPATCH: /msg or /scene ──────────────────────────────────
 
     bool is_msg   = norm_adr.startsWith("/msg");
-    bool is_patch = norm_adr.startsWith("/patch");
+    bool is_scene = norm_adr.startsWith("/scene");
 
-    if (!is_msg && !is_patch) {
+    if (!is_msg && !is_scene) {
         status_reporter().warning("cmd", "Unknown category in: " + address);
         return;
     }
 
     // Strip category prefix to get /{name}/{command}.
     if (is_msg)   address = address.substring(4);   // strip "/msg"
-    if (is_patch) address = address.substring(6);    // strip "/patch"
+    if (is_scene) address = address.substring(6);    // strip "/scene"
 
     // Parse name and command from the remaining /{name}/{command}.
     //   /name/command  →  name, command
@@ -1474,17 +1474,17 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     Serial.println("  name=" + name_mp + "  cmd=" + command);
 
     // ════════════════════════════════════════════════════════════════════════
-    // PATCH COMMANDS
+    // SCENE COMMANDS
     // ════════════════════════════════════════════════════════════════════════
 
-    if (is_patch) {
+    if (is_scene) {
         reg.lock();
 
         // ── assign (create / update) ───────────────────────────────────────
         if (command == "assign") {
-            OscPatch* p = reg.get_or_create_patch(name_mp);
+            OscScene* p = reg.get_or_create_scene(name_mp);
             if (!p) {
-                status_reporter().error("patch", "Registry full");
+                status_reporter().error("scene", "Registry full");
                 reg.unlock();
                 return;
             }
@@ -1493,7 +1493,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 OscMessage csv;
                 String err;
                 if (!csv.from_config_str(arg, &err)) {
-                    status_reporter().warning("patch", "Parse warning: " + err);
+                    status_reporter().warning("scene", "Parse warning: " + err);
                 }
                 if (csv.exist.ip)   { p->ip = csv.ip;                   p->exist.ip   = true; }
                 if (csv.exist.port) { p->port = csv.port;               p->exist.port = true; }
@@ -1514,48 +1514,48 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                                  : String(arg).substring(vstart, vend);
                         pval.trim();
                         int pms = pval.toInt();
-                        if (pms > 0) p->send_period_ms = clamp_patch_period_ms(pms);
+                        if (pms > 0) p->send_period_ms = clamp_scene_period_ms(pms);
                     }
                 }
             }
-            status_reporter().info("patch", "Patch '" + name_mp + "' updated");
+            status_reporter().info("scene", "Scene '" + name_mp + "' updated");
         }
 
         // ── delete ─────────────────────────────────────────────────────────
         else if (command == "delete" || command == "remove") {
-            if (reg.delete_patch(name_mp)) {
-                status_reporter().info("patch", "Deleted patch '" + name_mp + "'");
+            if (reg.delete_scene(name_mp)) {
+                status_reporter().info("scene", "Deleted scene '" + name_mp + "'");
             } else {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             }
         }
 
         // ── start ──────────────────────────────────────────────────────────
         else if (command == "start" || command == "enable" || command == "go") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             } else {
-                start_patch(p);
+                start_scene(p);
             }
         }
 
         // ── stop ───────────────────────────────────────────────────────────
         else if (command == "stop" || command == "disable" || command == "mute") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             } else {
-                stop_patch(p);
+                stop_scene(p);
             }
         }
 
         // ── addmsg ─────────────────────────────────────────────────────────
         //    Payload: comma-separated message names.
         else if (command == "addmsg" || command == "add") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1572,23 +1572,23 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
                 OscMessage* m = reg.find_msg(mname);
                 if (!m) {
-                    status_reporter().warning("patch", "addmsg: msg '" + mname + "' not found");
+                    status_reporter().warning("scene", "addmsg: msg '" + mname + "' not found");
                     continue;
                 }
                 int mi = reg.msg_index(m);
                 p->add_msg(mi);
-                m->patch = p;
-                m->exist.patch = true;
-                status_reporter().debug("patch", "Added msg '" + mname + "' to patch '" + name_mp + "'");
+                m->scene = p;
+                m->exist.scene = true;
+                status_reporter().debug("scene", "Added msg '" + mname + "' to scene '" + name_mp + "'");
             }
-            status_reporter().info("patch", "addmsg complete for '" + name_mp + "'");
+            status_reporter().info("scene", "addmsg complete for '" + name_mp + "'");
         }
 
         // ── removemsg ──────────────────────────────────────────────────────
         else if (command == "removemsg" || command == "rmmsg") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1596,25 +1596,25 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             mname = osc_trim_copy(mname);
             OscMessage* m = reg.find_msg(mname);
             if (!m) {
-                status_reporter().warning("patch", "removemsg: msg '" + mname + "' not found");
+                status_reporter().warning("scene", "removemsg: msg '" + mname + "' not found");
             } else {
                 int mi = reg.msg_index(m);
                 p->remove_msg(mi);
-                if (m->patch == p) {
-                    m->patch = nullptr;
-                    m->exist.patch = false;
+                if (m->scene == p) {
+                    m->scene = nullptr;
+                    m->exist.scene = false;
                 }
-                status_reporter().info("patch", "Removed msg '" + mname
-                                       + "' from patch '" + name_mp + "'");
+                status_reporter().info("scene", "Removed msg '" + mname
+                                       + "' from scene '" + name_mp + "'");
             }
         }
 
         // ── period ─────────────────────────────────────────────────────────
         //    Payload: a string or integer with the period in milliseconds.
         else if (command == "period" || command == "rate") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             } else {
                 // Accept either a numeric argument or a string like "50".
                 int ms = 0;
@@ -1637,11 +1637,11 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 }
 
                 if (!have_period || ms <= 0) {
-                    status_reporter().warning("patch", "Period for '" + name_mp
+                    status_reporter().warning("scene", "Period for '" + name_mp
                                               + "' ignored (missing/invalid payload)");
                 } else {
-                    p->send_period_ms = clamp_patch_period_ms(ms);
-                    status_reporter().info("patch", "Period for '" + name_mp
+                    p->send_period_ms = clamp_scene_period_ms(ms);
+                    status_reporter().info("scene", "Period for '" + name_mp
                                            + "' set to " + String(p->send_period_ms) + " ms");
                 }
             }
@@ -1656,9 +1656,9 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         //               "all"            →  override everything
         //               "none"           →  override nothing
         else if (command == "override") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1698,10 +1698,10 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                         p->overrides.low = enable;
                         p->overrides.high = enable;
                     }
-                    else status_reporter().warning("patch", "Unknown override field: " + f);
+                    else status_reporter().warning("scene", "Unknown override field: " + f);
                 }
             }
-            status_reporter().info("patch", "Override for '" + name_mp + "': ip="
+            status_reporter().info("scene", "Override for '" + name_mp + "': ip="
                                    + String(p->overrides.ip ? "ON" : "OFF")
                                    + " port=" + String(p->overrides.port ? "ON" : "OFF")
                                    + " adr=" + String(p->overrides.adr ? "ON" : "OFF")
@@ -1710,30 +1710,30 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
 
         // ── adrmode ────────────────────────────────────────────────────────
-        //    Set how patch and message OSC addresses are combined:
-        //      "fallback"  — message's address, patch as fallback (default)
-        //      "override"  — patch address replaces message address
-        //      "prepend"   — patch.adr + msg.adr  (e.g. /mixer + /fader1)
-        //      "append"    — msg.adr + patch.adr  (e.g. /fader1 + /mixer)
+        //    Set how scene and message OSC addresses are combined:
+        //      "fallback"  — message's address, scene as fallback (default)
+        //      "override"  — scene address replaces message address
+        //      "prepend"   — scene.adr + msg.adr  (e.g. /mixer + /fader1)
+        //      "append"    — msg.adr + scene.adr  (e.g. /fader1 + /mixer)
         else if (command == "adrmode" || command == "addressmode") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             } else {
                 String mode_str = osc_msg.nextAsString();
                 p->address_mode = address_mode_from_string(mode_str);
-                status_reporter().info("patch", "Address mode for '" + name_mp
+                status_reporter().info("scene", "Address mode for '" + name_mp
                                        + "' set to: " + address_mode_label(p->address_mode));
             }
         }
 
         // ── setall ─────────────────────────────────────────────────────────
-        //    Apply a config string to every message in this patch.
+        //    Apply a config string to every message in this scene.
         //    Example: setall "ip:192.168.1.100, port:9000"
         else if (command == "setall") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1754,16 +1754,16 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                     applied++;
                 }
             }
-            status_reporter().info("patch", "setall on '" + name_mp + "': applied to "
+            status_reporter().info("scene", "setall on '" + name_mp + "': applied to "
                                    + String(applied) + " messages");
         }
 
         // ── solo ───────────────────────────────────────────────────────────
-        //    Enable one message, disable all others in this patch.
+        //    Enable one message, disable all others in this scene.
         else if (command == "solo") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1771,7 +1771,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             solo_name = osc_trim_copy(solo_name);
             OscMessage* solo_m = reg.find_msg(solo_name);
             if (!solo_m) {
-                status_reporter().warning("patch", "solo: msg '" + solo_name + "' not found");
+                status_reporter().warning("scene", "solo: msg '" + solo_name + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1782,15 +1782,15 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                     reg.messages[mi].enabled = (mi == solo_idx);
                 }
             }
-            status_reporter().info("patch", "Solo '" + solo_name + "' in patch '" + name_mp + "'");
+            status_reporter().info("scene", "Solo '" + solo_name + "' in scene '" + name_mp + "'");
         }
 
         // ── unsolo / enableall ──────────────────────────────────────────────
-        //    Re-enable all messages in this patch.
+        //    Re-enable all messages in this scene.
         else if (command == "unsolo" || command == "unmute" || command == "enableall") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
                 reg.unlock();
                 return;
             }
@@ -1800,14 +1800,14 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                     reg.messages[mi].enabled = true;
                 }
             }
-            status_reporter().info("patch", "Unsolo: all messages in '" + name_mp + "' enabled");
+            status_reporter().info("scene", "Unsolo: all messages in '" + name_mp + "' enabled");
         }
 
         // ── info ───────────────────────────────────────────────────────────
         else if (command == "info") {
-            OscPatch* p = reg.find_patch(name_mp);
+            OscScene* p = reg.find_scene(name_mp);
             if (!p) {
-                status_reporter().warning("patch", "Patch '" + name_mp + "' not found");
+                status_reporter().warning("scene", "Scene '" + name_mp + "' not found");
             } else {
                 String info = p->to_info_string(true) + "\n  Messages:";
                 for (uint8_t i = 0; i < p->msg_count; i++) {
@@ -1823,12 +1823,12 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                     info_port = status_reporter().dest_port;
                 }
                 osc_reply(info_ip, info_port,
-                          reply_adr + "/patch/" + name_mp + "/info", info);
+                          reply_adr + "/scene/" + name_mp + "/info", info);
             }
         }
 
         else {
-            status_reporter().warning("cmd", "Unknown patch command: " + command);
+            status_reporter().warning("cmd", "Unknown scene command: " + command);
         }
 
         reg.unlock();
@@ -1862,10 +1862,10 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 m->name = name_mp;
                 m->exist.name = true;
 
-                // If a patch was specified, auto-add to that patch.
-                if (m->exist.patch && m->patch) {
+                // If a scene was specified, auto-add to that scene.
+                if (m->exist.scene && m->scene) {
                     int mi = reg.msg_index(m);
-                    m->patch->add_msg(mi);
+                    m->scene->add_msg(mi);
                 }
             }
             status_reporter().info("msg", "Message '" + name_mp + "' updated");

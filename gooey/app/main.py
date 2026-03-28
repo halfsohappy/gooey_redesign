@@ -54,11 +54,11 @@ def _error(msg, code=400):
 
 
 # ── Client-side device registry ──
-# Stores per-device known messages/patches so the UI can show dropdowns/tables.
+# Stores per-device known messages/scenes so the UI can show dropdowns/tables.
 # This is updated by parsing reply messages and manual user edits.
 
 _device_registry_lock = threading.Lock()
-_device_registry = {}  # {device_id: {"host","port","name","messages":{},"patches":{}}}
+_device_registry = {}  # {device_id: {"host","port","name","messages":{},"scenes":{}}}
 
 
 def _get_device(device_id):
@@ -67,7 +67,7 @@ def _get_device(device_id):
         if device_id not in _device_registry:
             _device_registry[device_id] = {
                 "messages": {},
-                "patches": {},
+                "scenes": {},
             }
         return _device_registry[device_id]
 
@@ -323,40 +323,40 @@ def api_device_message_delete(device_id, msg_name):
     return jsonify({"status": "ok"})
 
 
-@app.route("/api/devices/<device_id>/patches", methods=["GET"])
-def api_device_patches(device_id):
-    """Return tracked patches for a device."""
+@app.route("/api/devices/<device_id>/scenes", methods=["GET"])
+def api_device_scenes(device_id):
+    """Return tracked scenes for a device."""
     dev = _get_device(device_id)
-    return jsonify({"status": "ok", "patches": dev["patches"]})
+    return jsonify({"status": "ok", "scenes": dev["scenes"]})
 
 
-@app.route("/api/devices/<device_id>/patches", methods=["POST"])
-def api_device_patches_update(device_id):
-    """Update (merge) tracked patches for a device."""
+@app.route("/api/devices/<device_id>/scenes", methods=["POST"])
+def api_device_scenes_update(device_id):
+    """Update (merge) tracked scenes for a device."""
     data = request.get_json(silent=True) or {}
-    patches = data.get("patches", {})
+    scenes = data.get("scenes", {})
     dev = _get_device(device_id)
     with _device_registry_lock:
-        dev["patches"].update(patches)
-    return jsonify({"status": "ok", "patches": dev["patches"]})
+        dev["scenes"].update(scenes)
+    return jsonify({"status": "ok", "scenes": dev["scenes"]})
 
 
-@app.route("/api/devices/<device_id>/patches/<patch_name>", methods=["PUT"])
-def api_device_patch_put(device_id, patch_name):
-    """Create or replace a single tracked patch."""
+@app.route("/api/devices/<device_id>/scenes/<scene_name>", methods=["PUT"])
+def api_device_scene_put(device_id, scene_name):
+    """Create or replace a single tracked scene."""
     data = request.get_json(silent=True) or {}
     dev = _get_device(device_id)
     with _device_registry_lock:
-        dev["patches"][patch_name] = data
+        dev["scenes"][scene_name] = data
     return jsonify({"status": "ok"})
 
 
-@app.route("/api/devices/<device_id>/patches/<patch_name>", methods=["DELETE"])
-def api_device_patch_delete(device_id, patch_name):
-    """Remove a tracked patch."""
+@app.route("/api/devices/<device_id>/scenes/<scene_name>", methods=["DELETE"])
+def api_device_scene_delete(device_id, scene_name):
+    """Remove a tracked scene."""
     dev = _get_device(device_id)
     with _device_registry_lock:
-        dev["patches"].pop(patch_name, None)
+        dev["scenes"].pop(scene_name, None)
     return jsonify({"status": "ok"})
 
 
@@ -523,25 +523,25 @@ THEATER_GWD_PRESETS = {
     "commands": {
         "blackout": {
             "address": "/annieData/{device}/blackout",
-            "description": "Stop all patches — all sensor output halts.",
+            "description": "Stop all scenes — all sensor output halts.",
             "payload": None,
             "category": "device",
         },
         "restore": {
             "address": "/annieData/{device}/restore",
-            "description": "Restart all patches that were running before blackout.",
+            "description": "Restart all scenes that were running before blackout.",
             "payload": None,
             "category": "device",
         },
         "save": {
             "address": "/annieData/{device}/save",
-            "description": "Persist all messages and patches to NVS.",
+            "description": "Persist all messages and scenes to NVS.",
             "payload": None,
             "category": "device",
         },
         "load": {
             "address": "/annieData/{device}/load",
-            "description": "Reload all messages and patches from NVS.",
+            "description": "Reload all messages and scenes from NVS.",
             "payload": None,
             "category": "device",
         },
@@ -557,15 +557,15 @@ THEATER_GWD_PRESETS = {
             "payload": "optional: 'verbose'",
             "category": "list",
         },
-        "list_patches": {
-            "address": "/annieData/{device}/list/patches",
-            "description": "List all configured patches.",
+        "list_scenes": {
+            "address": "/annieData/{device}/list/scenes",
+            "description": "List all configured scenes.",
             "payload": "optional: 'verbose'",
             "category": "list",
         },
         "list_all": {
             "address": "/annieData/{device}/list/all",
-            "description": "List all messages and patches.",
+            "description": "List all messages and scenes.",
             "payload": "optional: 'verbose'",
             "category": "list",
         },
@@ -629,117 +629,117 @@ THEATER_GWD_PRESETS = {
             "payload": "oldName, newName",
             "category": "message",
         },
-        "create_patch": {
-            "address": "/annieData/{device}/patch/{name}",
-            "description": "Create or update a named patch.",
+        "create_scene": {
+            "address": "/annieData/{device}/scene/{name}",
+            "description": "Create or update a named scene.",
             "payload": "config string",
-            "category": "patch",
+            "category": "scene",
         },
-        "start_patch": {
-            "address": "/annieData/{device}/patch/{name}/start",
-            "description": "Start streaming all messages in a patch.",
+        "start_scene": {
+            "address": "/annieData/{device}/scene/{name}/start",
+            "description": "Start streaming all messages in a scene.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
-        "stop_patch": {
-            "address": "/annieData/{device}/patch/{name}/stop",
-            "description": "Stop streaming all messages in a patch.",
+        "stop_scene": {
+            "address": "/annieData/{device}/scene/{name}/stop",
+            "description": "Stop streaming all messages in a scene.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
-        "delete_patch": {
-            "address": "/annieData/{device}/patch/{name}/delete",
-            "description": "Remove a patch and its task.",
+        "delete_scene": {
+            "address": "/annieData/{device}/scene/{name}/delete",
+            "description": "Remove a scene and its task.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
-        "info_patch": {
-            "address": "/annieData/{device}/patch/{name}/info",
-            "description": "Request the parameters of a specific patch.",
+        "info_scene": {
+            "address": "/annieData/{device}/scene/{name}/info",
+            "description": "Request the parameters of a specific scene.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
         "add_msg": {
-            "address": "/annieData/{device}/patch/{name}/addMsg",
-            "description": "Add message(s) to a patch.",
+            "address": "/annieData/{device}/scene/{name}/addMsg",
+            "description": "Add message(s) to a scene.",
             "payload": "msgName or comma-separated names",
-            "category": "patch",
+            "category": "scene",
         },
         "remove_msg": {
-            "address": "/annieData/{device}/patch/{name}/removeMsg",
-            "description": "Remove a message from a patch.",
+            "address": "/annieData/{device}/scene/{name}/removeMsg",
+            "description": "Remove a message from a scene.",
             "payload": "msgName",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_period": {
-            "address": "/annieData/{device}/patch/{name}/period",
-            "description": "Set how often a patch sends messages (ms).",
+        "scene_period": {
+            "address": "/annieData/{device}/scene/{name}/period",
+            "description": "Set how often a scene sends messages (ms).",
             "payload": "period in ms (e.g. 50)",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_override": {
-            "address": "/annieData/{device}/patch/{name}/override",
-            "description": "Set which fields a patch forces on its messages.",
+        "scene_override": {
+            "address": "/annieData/{device}/scene/{name}/override",
+            "description": "Set which fields a scene forces on its messages.",
             "payload": "ip+port+adr+low+high (+-separated)",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_adr_mode": {
-            "address": "/annieData/{device}/patch/{name}/adrMode",
-            "description": "Set how the patch composes OSC addresses.",
+        "scene_adr_mode": {
+            "address": "/annieData/{device}/scene/{name}/adrMode",
+            "description": "Set how the scene composes OSC addresses.",
             "payload": "fallback | override | prepend | append",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_set_all": {
-            "address": "/annieData/{device}/patch/{name}/setAll",
-            "description": "Apply a config string to every message in a patch.",
+        "scene_set_all": {
+            "address": "/annieData/{device}/scene/{name}/setAll",
+            "description": "Apply a config string to every message in a scene.",
             "payload": "config string",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_solo": {
-            "address": "/annieData/{device}/patch/{name}/solo",
-            "description": "Enable one message, mute all others in patch.",
+        "scene_solo": {
+            "address": "/annieData/{device}/scene/{name}/solo",
+            "description": "Enable one message, mute all others in scene.",
             "payload": "msgName",
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_unsolo": {
-            "address": "/annieData/{device}/patch/{name}/unsolo",
+        "scene_unsolo": {
+            "address": "/annieData/{device}/scene/{name}/unsolo",
             "description": "Unmute all messages after a solo.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
-        "patch_enable_all": {
-            "address": "/annieData/{device}/patch/{name}/enableAll",
-            "description": "Enable all messages in a patch.",
+        "scene_enable_all": {
+            "address": "/annieData/{device}/scene/{name}/enableAll",
+            "description": "Enable all messages in a scene.",
             "payload": None,
-            "category": "patch",
+            "category": "scene",
         },
-        "save_patch": {
-            "address": "/annieData/{device}/save/patch",
-            "description": "Save one specific patch to NVS.",
-            "payload": "patch name",
-            "category": "patch",
+        "save_scene": {
+            "address": "/annieData/{device}/save/scene",
+            "description": "Save one specific scene to NVS.",
+            "payload": "scene name",
+            "category": "scene",
         },
-        "clone_patch": {
-            "address": "/annieData/{device}/clone/patch",
-            "description": "Duplicate a patch to a new name.",
+        "clone_scene": {
+            "address": "/annieData/{device}/clone/scene",
+            "description": "Duplicate a scene to a new name.",
             "payload": "sourceName, destName",
-            "category": "patch",
+            "category": "scene",
         },
-        "rename_patch": {
-            "address": "/annieData/{device}/rename/patch",
-            "description": "Rename a patch.",
+        "rename_scene": {
+            "address": "/annieData/{device}/rename/scene",
+            "description": "Rename a scene.",
             "payload": "oldName, newName",
-            "category": "patch",
+            "category": "scene",
         },
         "move_msg": {
             "address": "/annieData/{device}/move",
-            "description": "Move a message from one patch to another.",
-            "payload": "msgName, patchName",
-            "category": "patch",
+            "description": "Move a message from one scene to another.",
+            "payload": "msgName, sceneName",
+            "category": "scene",
         },
         "direct": {
             "address": "/annieData/{device}/direct/{name}",
-            "description": "One-step: create msg + patch, link, and start.",
+            "description": "One-step: create msg + scene, link, and start.",
             "payload": "config string",
             "category": "direct",
         },
@@ -751,52 +751,52 @@ THEATER_GWD_PRESETS = {
         "adr": "OSC address path (e.g. /fader/1). Aliases: addr, address.",
         "low": "Output range minimum. Alias: min.",
         "high": "Output range maximum. Alias: max.",
-        "patch": "Assign this message to a named patch.",
-        "period": "Send interval in ms (patch-level or direct only).",
+        "scene": "Assign this message to a named scene.",
+        "period": "Send interval in ms (scene-level or direct only).",
         "adrmode": "Address mode: fallback, override, prepend, append.",
         "override": "Override flags: ip+port+adr+low+high (+-separated).",
-        "msgs": "Message list for a patch: msg1+msg2+msg3 (+-separated).",
+        "msgs": "Message list for a scene: msg1+msg2+msg3 (+-separated).",
         "enabled": "Enable flag: true or false.",
     },
     "address_modes": {
-        "fallback": "Use message address; patch address only if message has none.",
-        "override": "Patch address replaces message address.",
-        "prepend": "patch.adr + msg.adr (e.g. /mixer + /fader1 → /mixer/fader1).",
-        "append": "msg.adr + patch.adr (e.g. /fader1 + /mixer → /fader1/mixer).",
+        "fallback": "Use message address; scene address only if message has none.",
+        "override": "Scene address replaces message address.",
+        "prepend": "scene.adr + msg.adr (e.g. /mixer + /fader1 → /mixer/fader1).",
+        "append": "msg.adr + scene.adr (e.g. /fader1 + /mixer → /fader1/mixer).",
     },
     "status_levels": ["error", "warn", "info", "debug"],
     "keywords": {
-        "blackout": "Stop all patches immediately — all sensor output halts.",
-        "restore": "Restart all patches that were running before blackout.",
-        "save": "Persist all messages and patches to NVS so they survive reboot.",
-        "load": "Reload all messages and patches from NVS.",
+        "blackout": "Stop all scenes immediately — all sensor output halts.",
+        "restore": "Restart all scenes that were running before blackout.",
+        "save": "Persist all messages and scenes to NVS so they survive reboot.",
+        "load": "Reload all messages and scenes from NVS.",
         "nvs/clear": "Erase all saved OSC data from NVS — factory reset for OSC config.",
         "msg": "A named message — maps a sensor value to a target IP, port, and OSC address.",
-        "patch": "A named group of messages that can be started/stopped together.",
-        "direct": "One-step command: creates msg + patch, links them, and starts sending.",
-        "start": "Begin streaming all messages belonging to a patch.",
-        "stop": "Stop streaming all messages belonging to a patch.",
-        "delete": "Remove a message or patch from the device registry.",
+        "scene": "A named group of messages that can be started/stopped together.",
+        "direct": "One-step command: creates msg + scene, links them, and starts sending.",
+        "start": "Begin streaming all messages belonging to a scene.",
+        "stop": "Stop streaming all messages belonging to a scene.",
+        "delete": "Remove a message or scene from the device registry.",
         "enable": "Enable a previously disabled message so it sends again.",
         "disable": "Mute a message — it stays registered but does not send.",
-        "info": "Request the parameters of a specific message or patch.",
-        "addMsg": "Add one or more existing messages to a patch (comma-separated).",
-        "removeMsg": "Remove a message from a patch.",
-        "period": "Set how often a patch sends its messages, in milliseconds.",
-        "override": "Set which fields (ip, port, adr, low, high) a patch forces on its messages.",
-        "adrMode": "Set how the patch composes OSC addresses for its messages.",
-        "setAll": "Apply a config string to every message in a patch at once.",
-        "solo": "Enable one message in a patch, mute all others.",
-        "unsolo": "Unmute all messages in a patch after a solo.",
-        "enableAll": "Enable all messages in a patch.",
-        "clone": "Copy a message or patch to a new name (payload: srcName, destName).",
-        "rename": "Rename a message or patch (payload: oldName, newName).",
-        "move": "Move a message from one patch to another (payload: msgName, patchName).",
-        "list": "Request the device to list configured messages, patches, or both.",
+        "info": "Request the parameters of a specific message or scene.",
+        "addMsg": "Add one or more existing messages to a scene (comma-separated).",
+        "removeMsg": "Remove a message from a scene.",
+        "period": "Set how often a scene sends its messages, in milliseconds.",
+        "override": "Set which fields (ip, port, adr, low, high) a scene forces on its messages.",
+        "adrMode": "Set how the scene composes OSC addresses for its messages.",
+        "setAll": "Apply a config string to every message in a scene at once.",
+        "solo": "Enable one message in a scene, mute all others.",
+        "unsolo": "Unmute all messages in a scene after a solo.",
+        "enableAll": "Enable all messages in a scene.",
+        "clone": "Copy a message or scene to a new name (payload: srcName, destName).",
+        "rename": "Rename a message or scene (payload: oldName, newName).",
+        "move": "Move a message from one scene to another (payload: msgName, sceneName).",
+        "list": "Request the device to list configured messages, scenes, or both.",
         "status/config": "Set where the device sends status/reply messages (config string).",
         "status/level": "Set minimum status level: error, warn, info, or debug.",
         "save/msg": "Save one specific message to NVS (payload: message name).",
-        "save/patch": "Save one specific patch to NVS (payload: patch name).",
+        "save/scene": "Save one specific scene to NVS (payload: scene name).",
         "accelX": "Accelerometer X-axis — tilt left/right.",
         "accelY": "Accelerometer Y-axis — tilt forward/back.",
         "accelZ": "Accelerometer Z-axis — vertical acceleration.",
@@ -809,9 +809,9 @@ THEATER_GWD_PRESETS = {
         "eulerX": "Euler angle X (roll) — orientation around X-axis.",
         "eulerY": "Euler angle Y (pitch) — orientation around Y-axis.",
         "eulerZ": "Euler angle Z (yaw) — orientation around Z-axis.",
-        "fallback": "Address mode: use msg address, patch address as fallback.",
-        "prepend": "Address mode: patch.adr + msg.adr.",
-        "append": "Address mode: msg.adr + patch.adr.",
+        "fallback": "Address mode: use msg address, scene address as fallback.",
+        "prepend": "Address mode: scene.adr + msg.adr.",
+        "append": "Address mode: msg.adr + scene.adr.",
         "config string": "CSV key:value pairs, e.g. 'value:accelX, ip:192.168.1.50, port:9000'.",
         "gaccelX": "Gravity-corrected acceleration X — linear acceleration without gravity.",
         "gaccelY": "Gravity-corrected acceleration Y — linear acceleration without gravity.",

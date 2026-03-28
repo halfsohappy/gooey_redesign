@@ -27,9 +27,9 @@ static void _build_main_menu();
 static void _build_msg_list();
 static void _build_msg_form(bool is_edit);
 static void _build_msg_detail(const char* name);
-static void _build_patch_list();
-static void _build_patch_form();
-static void _build_patch_detail(const char* name);
+static void _build_scene_list();
+static void _build_scene_form();
+static void _build_scene_detail(const char* name);
 static void _build_ori_menu();
 static void _build_ori_detail(const char* name);
 static void _build_monitor_menu();
@@ -120,13 +120,13 @@ static struct {
     char address[MAX_INPUT_LEN];
     char low[12];
     char high[12];
-    char patch[MAX_INPUT_LEN];
+    char scene[MAX_INPUT_LEN];
     char ori_only[MAX_INPUT_LEN];
     char ori_not[MAX_INPUT_LEN];
     bool editing;               // true = edit existing, false = new
 } _mf;
 
-// Form state — patch creation
+// Form state — scene creation
 static struct {
     char name[MAX_INPUT_LEN];
     uint8_t ip[4];
@@ -317,7 +317,7 @@ static void _build_main_menu() {
         s.count++;
     };
     add("Messages");
-    add("Patches");
+    add("Scenes");
     add("Oris");
     add("Monitor");
     add("Quick Actions");
@@ -327,7 +327,7 @@ static void _build_main_menu() {
 static void _on_main(int idx) {
     switch (idx) {
         case 0: _build_msg_list();     break;
-        case 1: _build_patch_list();   break;
+        case 1: _build_scene_list();   break;
         case 2: _build_ori_menu();     break;
         case 3: _build_monitor_menu(); break;
         case 4: _build_quick_menu();   break;
@@ -402,7 +402,7 @@ static void _rebuild_msg_form() {
     _add_item(buf);
     snprintf(buf, MAX_ITEM_LEN, "high:  %s", _mf.high);
     _add_item(buf);
-    snprintf(buf, MAX_ITEM_LEN, "patch: %s", _mf.patch[0] ? _mf.patch : "(none)");
+    snprintf(buf, MAX_ITEM_LEN, "scene: %s", _mf.scene[0] ? _mf.scene : "(none)");
     _add_item(buf);
     _add_item("ori_only / ori_not...");
     _add_item(_mf.editing ? ">> UPDATE <<" : ">> CREATE <<");
@@ -424,7 +424,7 @@ static void _mf_port_cb(int v) { snprintf(_mf.port, sizeof(_mf.port), "%d", v); 
 static void _mf_addr_cb(const char* t) { strncpy(_mf.address, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_msg_form(); }
 static void _mf_low_cb(const char* t) { strncpy(_mf.low, t, sizeof(_mf.low)-1); _mode = MODE_MENU; _rebuild_msg_form(); }
 static void _mf_high_cb(const char* t) { strncpy(_mf.high, t, sizeof(_mf.high)-1); _mode = MODE_MENU; _rebuild_msg_form(); }
-static void _mf_patch_cb(const char* t) { strncpy(_mf.patch, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_msg_form(); }
+static void _mf_scene_cb(const char* t) { strncpy(_mf.scene, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_msg_form(); }
 
 static void _on_msg_ori_select(int idx);
 
@@ -454,7 +454,7 @@ static void _on_msg_form_select(int idx) {
         case 4: _start_text("OSC Address", _mf.address, _mf_addr_cb); break;
         case 5: _start_text("Low bound", _mf.low, _mf_low_cb); break;
         case 6: _start_text("High bound", _mf.high, _mf_high_cb); break;
-        case 7: _start_text("Patch name", _mf.patch, _mf_patch_cb); break;
+        case 7: _start_text("Scene name", _mf.scene, _mf_scene_cb); break;
         case 8: _build_msg_ori_menu(); break;
         case 9: {
             // CREATE / UPDATE — compose config string and send
@@ -475,7 +475,7 @@ static void _on_msg_form_select(int idx) {
             ap("adr", _mf.address);
             ap("low", _mf.low);
             ap("high", _mf.high);
-            ap("patch", _mf.patch);
+            ap("scene", _mf.scene);
             ap("ori_only", _mf.ori_only);
             ap("ori_not", _mf.ori_not);
             _send_and_wait(_osc_addr3("msg", _mf.name, ""), cfg);
@@ -518,23 +518,23 @@ static void _on_msg_detail(int idx) {
     }
 }
 
-// ── Patches List ────────────────────────────────────────────────────────────
+// ── Scenes List ────────────────────────────────────────────────────────────
 
-static void _on_patch_list(int idx);
+static void _on_scene_list(int idx);
 
-static void _build_patch_list() {
-    _push("Patches", _on_patch_list);
+static void _build_scene_list() {
+    _push("Scenes", _on_scene_list);
     _add_item("< Refresh >");
-    _add_item("< + New Patch >");
+    _add_item("< + New Scene >");
     for (int i = 0; i < _dyn_count; i++) _add_item(_dyn_items[i]);
 }
 
-static void _on_patch_form_select(int idx);
-static void _on_patch_detail(int idx);
+static void _on_scene_form_select(int idx);
+static void _on_scene_detail(int idx);
 
-static void _on_patch_list(int idx) {
+static void _on_scene_list(int idx) {
     if (idx == 0) {
-        _send_and_wait(_osc_addr("list/patches"));
+        _send_and_wait(_osc_addr("list/scenes"));
     } else if (idx == 1) {
         memset(&_pf, 0, sizeof(_pf));
         _pf.ip[0] = target_ip[0]; _pf.ip[1] = target_ip[1];
@@ -544,26 +544,26 @@ static void _on_patch_list(int idx) {
         strncpy(_pf.low, "0", sizeof(_pf.low));
         strncpy(_pf.high, "1", sizeof(_pf.high));
         strncpy(_pf.adr_mode, "fallback", sizeof(_pf.adr_mode));
-        _build_patch_form();
+        _build_scene_form();
     } else {
         int di = idx - 2;
         if (di >= 0 && di < _dyn_count) {
             strncpy(_sel_name, _dyn_items[di], MAX_INPUT_LEN - 1);
-            _build_patch_detail(_sel_name);
+            _build_scene_detail(_sel_name);
         }
     }
 }
 
-// ── Patch Form (New) ────────────────────────────────────────────────────────
+// ── Scene Form (New) ────────────────────────────────────────────────────────
 
-static void _rebuild_patch_form();
+static void _rebuild_scene_form();
 
-static void _build_patch_form() {
-    _push("New Patch", _on_patch_form_select);
-    _rebuild_patch_form();
+static void _build_scene_form() {
+    _push("New Scene", _on_scene_form_select);
+    _rebuild_scene_form();
 }
 
-static void _rebuild_patch_form() {
+static void _rebuild_scene_form() {
     MenuScreen& s = _cur();
     int saved_sel = s.selected;
     s.count = 0;
@@ -595,18 +595,18 @@ static void _rebuild_patch_form() {
         s.scroll = s.selected - VISIBLE_ITEMS + 1;
 }
 
-static void _pf_name_cb(const char* t) { strncpy(_pf.name, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_ip_cb(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { _pf.ip[0]=a; _pf.ip[1]=b; _pf.ip[2]=c; _pf.ip[3]=d; _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_port_cb(int v) { snprintf(_pf.port, sizeof(_pf.port), "%d", v); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_addr_cb(const char* t) { strncpy(_pf.address, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_period_cb(int v) { snprintf(_pf.period, sizeof(_pf.period), "%d", v); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_low_cb(const char* t) { strncpy(_pf.low, t, sizeof(_pf.low)-1); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_high_cb(const char* t) { strncpy(_pf.high, t, sizeof(_pf.high)-1); _mode = MODE_MENU; _rebuild_patch_form(); }
-static void _pf_adr_mode_cb(int i) { strncpy(_pf.adr_mode, ADR_MODES[i], sizeof(_pf.adr_mode)-1); _mode = MODE_MENU; _rebuild_patch_form(); }
+static void _pf_name_cb(const char* t) { strncpy(_pf.name, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_ip_cb(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { _pf.ip[0]=a; _pf.ip[1]=b; _pf.ip[2]=c; _pf.ip[3]=d; _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_port_cb(int v) { snprintf(_pf.port, sizeof(_pf.port), "%d", v); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_addr_cb(const char* t) { strncpy(_pf.address, t, MAX_INPUT_LEN-1); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_period_cb(int v) { snprintf(_pf.period, sizeof(_pf.period), "%d", v); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_low_cb(const char* t) { strncpy(_pf.low, t, sizeof(_pf.low)-1); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_high_cb(const char* t) { strncpy(_pf.high, t, sizeof(_pf.high)-1); _mode = MODE_MENU; _rebuild_scene_form(); }
+static void _pf_adr_mode_cb(int i) { strncpy(_pf.adr_mode, ADR_MODES[i], sizeof(_pf.adr_mode)-1); _mode = MODE_MENU; _rebuild_scene_form(); }
 
-static void _on_patch_form_select(int idx) {
+static void _on_scene_form_select(int idx) {
     switch (idx) {
-        case 0: _start_text("Patch Name", _pf.name, _pf_name_cb); break;
+        case 0: _start_text("Scene Name", _pf.name, _pf_name_cb); break;
         case 1: _start_ip("IP Address", _pf.ip, _pf_ip_cb); break;
         case 2: _start_num("Port", atoi(_pf.port), 1, 65535, _pf_port_cb); break;
         case 3: _start_text("OSC Address", _pf.address, _pf_addr_cb); break;
@@ -632,17 +632,17 @@ static void _on_patch_form_select(int idx) {
             ap("period", _pf.period);
             ap("low", _pf.low);
             ap("high", _pf.high);
-            _send_and_wait(_osc_addr3("patch", _pf.name, ""), cfg);
+            _send_and_wait(_osc_addr3("scene", _pf.name, ""), cfg);
             break;
         }
     }
 }
 
-// ── Patch Detail ────────────────────────────────────────────────────────────
+// ── Scene Detail ────────────────────────────────────────────────────────────
 
-static void _build_patch_detail(const char* name) {
+static void _build_scene_detail(const char* name) {
     strncpy(_sel_name, name, MAX_INPUT_LEN - 1);
-    _push(name, _on_patch_detail);
+    _push(name, _on_scene_detail);
     _add_item("Info");
     _add_item("Start");
     _add_item("Stop");
@@ -655,41 +655,41 @@ static void _build_patch_detail(const char* name) {
 
 static void _pd_period_done(int v) {
     char buf[8]; snprintf(buf, sizeof(buf), "%d", v);
-    _send_and_wait(_osc_addr3("patch", _sel_name, "period"), buf);
+    _send_and_wait(_osc_addr3("scene", _sel_name, "period"), buf);
 }
 static void _pd_add_msg_done(const char* t) {
-    _send_and_wait(_osc_addr3("patch", _sel_name, "addMsg"), t);
+    _send_and_wait(_osc_addr3("scene", _sel_name, "addMsg"), t);
 }
 static void _pd_rm_msg_done(const char* t) {
-    _send_and_wait(_osc_addr3("patch", _sel_name, "removeMsg"), t);
+    _send_and_wait(_osc_addr3("scene", _sel_name, "removeMsg"), t);
 }
 static void _pd_setall_done(const char* t) {
-    _send_and_wait(_osc_addr3("patch", _sel_name, "setAll"), t);
+    _send_and_wait(_osc_addr3("scene", _sel_name, "setAll"), t);
 }
-static void _patch_del_cb(bool yes) {
+static void _scene_del_cb(bool yes) {
     _mode = MODE_MENU;
-    if (yes) _send_and_wait(_osc_addr3("patch", _sel_name, "delete"));
+    if (yes) _send_and_wait(_osc_addr3("scene", _sel_name, "delete"));
     else _pop();
 }
 
-static void _on_patch_detail(int idx) {
+static void _on_scene_detail(int idx) {
     switch (idx) {
-        case 0: _send_and_wait(_osc_addr3("patch", _sel_name, "info")); break;
+        case 0: _send_and_wait(_osc_addr3("scene", _sel_name, "info")); break;
         case 1:
             osc_send_empty(target_ip_addr(), target_port,
-                           _osc_addr3("patch", _sel_name, "start"));
+                           _osc_addr3("scene", _sel_name, "start"));
             _show_reply("Sent start");
             break;
         case 2:
             osc_send_empty(target_ip_addr(), target_port,
-                           _osc_addr3("patch", _sel_name, "stop"));
+                           _osc_addr3("scene", _sel_name, "stop"));
             _show_reply("Sent stop");
             break;
         case 3: _start_num("Period (ms)", 50, 20, 60000, _pd_period_done); break;
         case 4: _start_text("Msg name(s)", "", _pd_add_msg_done); break;
         case 5: _start_text("Msg to remove", "", _pd_rm_msg_done); break;
         case 6: _start_text("Config (k:v,...)", "", _pd_setall_done); break;
-        case 7: _start_confirm("Delete patch?", _patch_del_cb); break;
+        case 7: _start_confirm("Delete scene?", _scene_del_cb); break;
     }
 }
 
@@ -820,7 +820,7 @@ static void _build_monitor_menu() {
     _push("Monitor", _on_monitor);
     _add_item("List All (verbose)");
     _add_item("List Messages");
-    _add_item("List Patches");
+    _add_item("List Scenes");
     _add_item("List Oris");
     _add_item("Device Status");
 }
@@ -829,7 +829,7 @@ static void _on_monitor(int idx) {
     switch (idx) {
         case 0: _send_and_wait(_osc_addr("list/all"), "verbose"); break;
         case 1: _send_and_wait(_osc_addr("list/msgs"), "verbose"); break;
-        case 2: _send_and_wait(_osc_addr("list/patches"), "verbose"); break;
+        case 2: _send_and_wait(_osc_addr("list/scenes"), "verbose"); break;
         case 3: _send_and_wait(_osc_addr("ori/list")); break;
         case 4: _send_and_wait(_osc_addr("status/config")); break;
     }
