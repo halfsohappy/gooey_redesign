@@ -9,8 +9,6 @@ Requires:  markdown>=3.7  (pip install markdown)
 """
 
 import os
-import re
-import shutil
 import sys
 
 try:
@@ -24,9 +22,6 @@ DOCS_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(DOCS_DIR)
 OUT_DIR = os.path.join(REPO_ROOT, "docs-site")
 
-GOOEY_STATIC   = os.path.join(REPO_ROOT, "gooey", "app", "static")
-GOOEY_TEMPLATE = os.path.join(REPO_ROOT, "gooey", "app", "templates", "index.html")
-
 GUIDES = [
     ("user_guide.md",      "user-guide.html",      "User Guide"),
     ("technical_guide.md", "technical-guide.html",  "Technical Guide"),
@@ -37,82 +32,6 @@ MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
 MD_EXT_CONFIG = {
     "toc": {"permalink": True, "toc_depth": "2-3"},
 }
-
-# ── Demo page constants ───────────────────────────────────────────────────────
-
-# Injected as static/js/demo-init.js in the Gooey demo page.
-# Provides a no-op Socket.IO stub and a fetch interceptor so the UI loads and
-# remains interactive without a running backend.
-DEMO_INIT_JS = """\
-(function () {
-    "use strict";
-
-    /* Stub Socket.IO so the app loads without a backend. */
-    window.io = function () {
-        var _handlers = {};
-        var sock = {
-            on:        function (ev, cb) { (_handlers[ev] = _handlers[ev] || []).push(cb); },
-            off:       function () {},
-            emit:      function () {},
-            connected: false,
-            id:        null,
-        };
-        /* Fire disconnect once app.js has registered its listeners. */
-        setTimeout(function () {
-            (_handlers["disconnect"] || []).forEach(function (cb) { cb({ reason: "demo" }); });
-        }, 300);
-        return sock;
-    };
-
-    /* Return a demo-mode error for all /api/ requests. */
-    var _orig = window.fetch;
-    window.fetch = function (url, opts) {
-        if (typeof url === "string" && url.slice(0, 5) === "/api/") {
-            var body = JSON.stringify({ ok: false, message: "Demo mode \u2014 no backend running." });
-            return Promise.resolve({
-                ok:     false,
-                status: 503,
-                json:   function () { return Promise.resolve(JSON.parse(body)); },
-                text:   function () { return Promise.resolve(body); },
-            });
-        }
-        return _orig.apply(this, arguments);
-    };
-}());
-"""
-
-DEMO_BANNER_CSS = """\
-#demo-banner {
-    background: #DAC7FF;
-    color: #2A2F36;
-    text-align: center;
-    padding: 7px 16px;
-    font-family: "Martian Mono", monospace;
-    font-size: 12px;
-    font-weight: 400;
-    border-bottom: 1px solid rgba(0,0,0,0.12);
-    position: sticky;
-    top: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-}
-#demo-banner a {
-    color: #90849c;
-    font-weight: 500;
-    text-decoration: none;
-}
-#demo-banner a:hover { text-decoration: underline; }
-"""
-
-DEMO_BANNER_HTML = (
-    '<div id="demo-banner">'
-    "<span>\u2726 Live demo &mdash; no backend connected. Controls are for display only.</span>"
-    '<a href="../">&#8592; Back to docs</a>'
-    "</div>"
-)
 
 # ── Embedded CSS ─────────────────────────────────────────────────────────────
 # Mirrors Gooey's design language (fonts/colours/variables) without requiring
@@ -674,61 +593,6 @@ def _index_page(guides):
 """
 
 
-# ── Demo builder ─────────────────────────────────────────────────────────────
-
-def build_demo():
-    """Copy Gooey assets and render the Jinja2 template as a static demo page."""
-    if not os.path.exists(GOOEY_STATIC) or not os.path.exists(GOOEY_TEMPLATE):
-        print("  skip  demo (gooey source not found)")
-        return
-
-    demo_dir    = os.path.join(OUT_DIR, "demo")
-    demo_static = os.path.join(demo_dir, "static")
-
-    # Copy CSS, JS, images and other static assets verbatim
-    if os.path.exists(demo_static):
-        shutil.rmtree(demo_static, ignore_errors=True)
-    shutil.copytree(GOOEY_STATIC, demo_static)
-
-    # Write the Socket.IO / fetch stub used in place of the real socket.io client
-    with open(os.path.join(demo_static, "js", "demo-init.js"), "w", encoding="utf-8") as fh:
-        fh.write(DEMO_INIT_JS)
-
-    # Process the Jinja2 template into plain HTML
-    with open(GOOEY_TEMPLATE, encoding="utf-8") as fh:
-        html = fh.read()
-
-    # Replace {{ url_for('static', filename='…') }} → static/…
-    html = re.sub(
-        r"\{\{\s*url_for\('static',\s*filename='([^']+)'\)\s*\}\}",
-        r"static/\1",
-        html,
-    )
-
-    # Swap socket.io.min.js for demo-init.js (stub must load before app.js)
-    html = html.replace(
-        '<script src="static/js/socket.io.min.js"></script>',
-        '<script src="static/js/demo-init.js"></script>',
-    )
-
-    # Inject demo-banner CSS into <head> (count=1 guards against edge cases)
-    html = re.sub(r"</head>", f"  <style>\n    {DEMO_BANNER_CSS.strip()}\n  </style>\n</head>", html, count=1)
-
-    # Inject the demo banner as the first element inside <body>
-    html = re.sub(
-        r"(<body[^>]*>)",
-        lambda m: m.group(0) + "\n" + DEMO_BANNER_HTML,
-        html,
-        count=1,
-    )
-
-    os.makedirs(demo_dir, exist_ok=True)
-    out_path = os.path.join(demo_dir, "index.html")
-    with open(out_path, "w", encoding="utf-8") as fh:
-        fh.write(html)
-    print(f"  wrote {out_path}")
-
-
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 def build():
@@ -783,22 +647,13 @@ def build():
             "Beryl Guide",
             "Run Gooey on a GL.iNet Beryl travel router for a self-contained, portable show control hub.",
         ),
-        (
-            "demo/",
-            "🎛️",
-            "Live Demo",
-            "Explore the Gooey control interface without any hardware — tour the UI and get familiar with the layout.",
-        ),
     ]
     index_html = _index_page(index_guides)
     index_path = os.path.join(OUT_DIR, "index.html")
     with open(index_path, "w", encoding="utf-8") as fh:
         fh.write(index_html)
     print(f"  wrote {index_path}")
-
-    build_demo()
-    extra = 2 if (os.path.exists(GOOEY_STATIC) and os.path.exists(GOOEY_TEMPLATE)) else 1
-    print(f"\nDone — {len(built) + extra} file(s) in {OUT_DIR}/")
+    print(f"\nDone — {len(built) + 1} file(s) in {OUT_DIR}/")
 
 
 if __name__ == "__main__":
