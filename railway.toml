@@ -1,4 +1,6 @@
+
 [build]
+providers = ["python"]
 buildCommand = "pip install -r gooey/requirements.txt"
 
 [deploy]
