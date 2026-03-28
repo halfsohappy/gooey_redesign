@@ -14,7 +14,7 @@ class Gooey < Formula
   homepage "https://github.com/halfsohappy/TheaterGWD"
   url "https://github.com/halfsohappy/TheaterGWD.git",
       branch: "main"
-  version "2026.3.28.200"
+  version "2026.3.28.203"
   license "MIT"
 
   depends_on "python@3"
