@@ -2,6 +2,7 @@
 """Entry point for TheaterGWD Control Center."""
 
 import argparse
+import os
 import threading
 import webbrowser
 
@@ -20,8 +21,8 @@ examples:
 """,
     )
     parser.add_argument(
-        "--port", type=int, default=5000,
-        help="Web server port (default: 5000)",
+        "--port", type=int, default=int(os.environ.get("PORT", 5000)),
+        help="Web server port (default: $PORT env var, or 5000)",
     )
     parser.add_argument(
         "--host", type=str, default="127.0.0.1",
