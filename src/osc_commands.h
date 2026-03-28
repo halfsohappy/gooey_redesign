@@ -96,6 +96,10 @@
 //   cancel                 — discard recording without saving
 //   status                 — reply: active, name, sample_count, elapsed_ms
 //
+// ── FLUSH COMMAND (/annieData{dev}/flush) ──────────────────────────────────
+//   Replies "OK" once all preceding commands have been processed.
+//   Used by gooey for transactional library-to-device push.
+//
 // ── SHOW COMMANDS (/annieData{dev}/show/...) ────────────────────────────────
 //   save/{name}            — snapshot current state as named show in NVS
 //   load/{name}            — load named show (two-step: pending → confirm)
@@ -354,8 +358,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         // Add the message to the scene (no-op if already there).
         int mi = reg.msg_index(m);
         p->add_msg(mi);
-        m->scene = p;
-        m->exist.scene = true;
+        m->add_scene(p);
 
         // Start the scene (stop first if already running to pick up changes).
         if (p->task_handle) {
@@ -471,7 +474,11 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             }
             osc_reply(reply_ip, reply_port, reply_adr + "/list/scenes", result);
         } else if (sub == "/all" || sub == "") {
-            String result = "Scenes (" + String(reg.scene_count) + "):";
+            String result = "";
+            if (verbose) {
+                result += "dedup:" + String(get_dedup_enabled() ? "on" : "off") + "\n";
+            }
+            result += "Scenes (" + String(reg.scene_count) + "):";
             if (reg.scene_count == 0) {
                 result += " none\n";
             } else {
@@ -656,15 +663,15 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         int mi = reg.msg_index(m);
 
-        // Remove from current scene (if any).
-        if (m->scene) {
-            m->scene->remove_msg(mi);
+        // Remove from all current scenes.
+        for (uint8_t si = 0; si < m->scene_count; si++) {
+            if (m->scenes[si]) m->scenes[si]->remove_msg(mi);
         }
+        m->clear_scenes();
 
         // Add to new scene.
         p->add_msg(mi);
-        m->scene = p;
-        m->exist.scene = true;
+        m->add_scene(p);
 
         status_reporter().info("cmd", "Moved msg '" + msg_name
                                + "' → scene '" + scene_name + "'");
@@ -1241,6 +1248,14 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
+    // ── FLUSH COMMAND (/annieData{dev}/flush) ────────────────────────────────
+    //    Since commands are processed sequentially, /flush arriving means all
+    //    preceding commands have been handled.  Reply immediately.
+    if (norm_adr == "/flush") {
+        osc_reply(sender_ip, sender_port, reply_adr + "/flush", "OK");
+        return;
+    }
+
     // ── SHOW COMMANDS (/annieData{dev}/show/...) ────────────────────────────
     //    show/save/{name}    — snapshot current RAM state as a named NVS show
     //    show/load/{name}    — two-step: set pending, wait for confirm
@@ -1309,7 +1324,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             pending_show_ms   = 0;
             int n = nvs_load_show(sname);
             if (n >= 0) {
-                nvs_set_active_show(sname);
                 status_reporter().info("show", "Loaded show '" + sname
                                       + "' (" + String(n) + " objects)");
                 osc_reply(sender_ip, sender_port, reply_adr + "/show/load/confirm",
@@ -1382,8 +1396,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 return;
             }
             if (nvs_delete_show(show_name)) {
-                // Clear active show if it was the one deleted.
-                if (nvs_get_active_show() == show_name) nvs_set_active_show("");
                 status_reporter().info("show", "Deleted show '" + show_name + "'");
                 osc_reply(sender_ip, sender_port, reply_adr + "/show/delete",
                           "Deleted: " + show_name);
@@ -1415,7 +1427,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 return;
             }
             if (nvs_rename_show(old_name, new_name)) {
-                if (nvs_get_active_show() == old_name) nvs_set_active_show(new_name);
                 status_reporter().info("show", "Renamed show '" + old_name
                                       + "' → '" + new_name + "'");
                 osc_reply(sender_ip, sender_port, reply_adr + "/show/rename",
@@ -1472,6 +1483,152 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     command.toLowerCase();
     command = normalise_cmd(command);  // "addMsg" / "add_msg" / "addmsg" → "addmsg"
     Serial.println("  name=" + name_mp + "  cmd=" + command);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PATTERN MATCHING — OSC 1.0 wildcards in the {name} segment
+    // ════════════════════════════════════════════════════════════════════════
+    //
+    // When the name contains pattern metacharacters (*, ?, [, {) the command
+    // is applied to ALL matching entities.  The "assign" command is rejected
+    // for patterns — you cannot create an entity named "*".
+
+    if (osc_has_pattern(name_mp.c_str())) {
+
+        // Reject create/update with pattern names.
+        if (command == "assign") {
+            status_reporter().warning("cmd", "Cannot create with pattern name '" + name_mp + "'");
+            return;
+        }
+
+        reg.lock();
+
+        if (is_scene) {
+            OscScene* matches[MAX_OSC_SCENES];
+            uint16_t n = reg.find_scenes_matching(name_mp.c_str(), matches, MAX_OSC_SCENES);
+            if (n == 0) {
+                status_reporter().warning("scene", "No scenes match pattern '" + name_mp + "'");
+                reg.unlock();
+                return;
+            }
+
+            // For delete: collect names first, then delete (avoids index invalidation).
+            if (command == "delete" || command == "remove") {
+                String names[MAX_OSC_SCENES];
+                for (uint16_t i = 0; i < n; i++) names[i] = matches[i]->name;
+                uint16_t deleted = 0;
+                for (uint16_t i = 0; i < n; i++) {
+                    if (reg.delete_scene(names[i])) deleted++;
+                }
+                status_reporter().info("scene", "Deleted " + String(deleted) + " scenes matching '" + name_mp + "'");
+            }
+            else if (command == "start" || command == "enable" || command == "go") {
+                for (uint16_t i = 0; i < n; i++) start_scene(matches[i]);
+                status_reporter().info("scene", "Started " + String(n) + " scenes matching '" + name_mp + "'");
+            }
+            else if (command == "stop" || command == "disable" || command == "mute") {
+                for (uint16_t i = 0; i < n; i++) stop_scene(matches[i]);
+                status_reporter().info("scene", "Stopped " + String(n) + " scenes matching '" + name_mp + "'");
+            }
+            else if (command == "info") {
+                IPAddress info_ip = sender_ip;
+                unsigned int info_port = sender_port;
+                if (status_reporter().configured && status_reporter().dest_port != 0) {
+                    info_ip = status_reporter().dest_ip;
+                    info_port = status_reporter().dest_port;
+                }
+                for (uint16_t i = 0; i < n; i++) {
+                    String info = matches[i]->to_info_string(true);
+                    osc_reply(info_ip, info_port,
+                              reply_adr + "/scene/" + matches[i]->name + "/info", info);
+                }
+            }
+            else if (command == "period" || command == "rate") {
+                int ms = 0;
+                bool have_period = false;
+                const char* typetags = osc_msg.getTypeTags();
+                if (typetags && typetags[0] == ',' && (typetags[1] == 'i' || typetags[1] == 'f')) {
+                    ms = (int)osc_msg.nextAsFloat(); have_period = true;
+                }
+                if (!have_period) {
+                    const char* raw = osc_msg.nextAsString();
+                    if (raw) { String s = String(raw); s.trim(); if (s.length() > 0) { ms = s.toInt(); have_period = true; } }
+                }
+                if (have_period && ms > 0) {
+                    ms = clamp_scene_period_ms(ms);
+                    for (uint16_t i = 0; i < n; i++) matches[i]->send_period_ms = ms;
+                    status_reporter().info("scene", "Period set to " + String(ms) + " ms for " + String(n) + " scenes matching '" + name_mp + "'");
+                } else {
+                    status_reporter().warning("scene", "Period ignored (missing/invalid payload)");
+                }
+            }
+            else if (command == "unsolo" || command == "unmute" || command == "enableall") {
+                for (uint16_t i = 0; i < n; i++) {
+                    OscScene* p = matches[i];
+                    for (uint8_t j = 0; j < p->msg_count; j++) {
+                        int mi = p->msg_indices[j];
+                        if (mi >= 0 && mi < (int)reg.msg_count) reg.messages[mi].enabled = true;
+                    }
+                }
+                status_reporter().info("scene", "Unsolo: enabled all msgs in " + String(n) + " scenes matching '" + name_mp + "'");
+            }
+            else {
+                status_reporter().warning("cmd", "Pattern not supported for scene command: " + command);
+            }
+
+            reg.unlock();
+            return;
+        }
+
+        if (is_msg) {
+            OscMessage* matches[MAX_OSC_MESSAGES];
+            uint16_t n = reg.find_msgs_matching(name_mp.c_str(), matches, MAX_OSC_MESSAGES);
+            if (n == 0) {
+                status_reporter().warning("msg", "No messages match pattern '" + name_mp + "'");
+                reg.unlock();
+                return;
+            }
+
+            if (command == "delete" || command == "remove") {
+                String names[MAX_OSC_MESSAGES];
+                for (uint16_t i = 0; i < n; i++) names[i] = matches[i]->name;
+                uint16_t deleted = 0;
+                for (uint16_t i = 0; i < n; i++) {
+                    if (reg.delete_msg(names[i])) deleted++;
+                }
+                status_reporter().info("msg", "Deleted " + String(deleted) + " msgs matching '" + name_mp + "'");
+            }
+            else if (command == "enable" || command == "unmute") {
+                for (uint16_t i = 0; i < n; i++) matches[i]->enabled = true;
+                status_reporter().info("msg", "Enabled " + String(n) + " msgs matching '" + name_mp + "'");
+            }
+            else if (command == "disable" || command == "mute") {
+                for (uint16_t i = 0; i < n; i++) matches[i]->enabled = false;
+                status_reporter().info("msg", "Disabled " + String(n) + " msgs matching '" + name_mp + "'");
+            }
+            else if (command == "info") {
+                IPAddress info_ip = sender_ip;
+                unsigned int info_port = sender_port;
+                if (status_reporter().configured && status_reporter().dest_port != 0) {
+                    info_ip = status_reporter().dest_ip;
+                    info_port = status_reporter().dest_port;
+                }
+                for (uint16_t i = 0; i < n; i++) {
+                    osc_reply(info_ip, info_port,
+                              reply_adr + "/msg/" + matches[i]->name + "/info",
+                              matches[i]->to_info_string(true));
+                }
+            }
+            else {
+                status_reporter().warning("cmd", "Pattern not supported for msg command: " + command);
+            }
+
+            reg.unlock();
+            return;
+        }
+
+        reg.unlock();
+        return;
+    }
 
     // ════════════════════════════════════════════════════════════════════════
     // SCENE COMMANDS
@@ -1577,8 +1734,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 }
                 int mi = reg.msg_index(m);
                 p->add_msg(mi);
-                m->scene = p;
-                m->exist.scene = true;
+                m->add_scene(p);
                 status_reporter().debug("scene", "Added msg '" + mname + "' to scene '" + name_mp + "'");
             }
             status_reporter().info("scene", "addmsg complete for '" + name_mp + "'");
@@ -1600,10 +1756,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             } else {
                 int mi = reg.msg_index(m);
                 p->remove_msg(mi);
-                if (m->scene == p) {
-                    m->scene = nullptr;
-                    m->exist.scene = false;
-                }
+                m->remove_scene(p);
                 status_reporter().info("scene", "Removed msg '" + mname
                                        + "' from scene '" + name_mp + "'");
             }
@@ -1862,10 +2015,12 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 m->name = name_mp;
                 m->exist.name = true;
 
-                // If a scene was specified, auto-add to that scene.
-                if (m->exist.scene && m->scene) {
+                // If scenes were specified, auto-add to those scenes.
+                if (m->scene_count > 0) {
                     int mi = reg.msg_index(m);
-                    m->scene->add_msg(mi);
+                    for (uint8_t si = 0; si < m->scene_count; si++) {
+                        if (m->scenes[si]) m->scenes[si]->add_msg(mi);
+                    }
                 }
             }
             status_reporter().info("msg", "Message '" + name_mp + "' updated");

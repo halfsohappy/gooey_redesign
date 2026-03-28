@@ -28,6 +28,7 @@
 #define OSC_REGISTRY_H
 
 #include "osc_scene.h"
+#include "osc_pattern.h"
 #include "ori_tracker.h"
 
 class OscRegistry {
@@ -67,6 +68,26 @@ public:
                 return &messages[i];
         }
         return nullptr;
+    }
+
+    // --- Pattern-matching lookup (OSC 1.0 wildcards) -------------------------
+
+    uint16_t find_msgs_matching(const char* pattern, OscMessage** out, uint16_t max_out) {
+        uint16_t count = 0;
+        for (uint16_t i = 0; i < msg_count && count < max_out; i++) {
+            if (osc_pattern_match(pattern, messages[i].name.c_str()))
+                out[count++] = &messages[i];
+        }
+        return count;
+    }
+
+    uint16_t find_scenes_matching(const char* pattern, OscScene** out, uint16_t max_out) {
+        uint16_t count = 0;
+        for (uint16_t i = 0; i < scene_count && count < max_out; i++) {
+            if (osc_pattern_match(pattern, scenes[i].name.c_str()))
+                out[count++] = &scenes[i];
+        }
+        return count;
     }
 
     // --- Index helpers (pointers ↔ indices) ----------------------------------
@@ -120,7 +141,7 @@ public:
         if (src.exist.ip)    { m->ip = src.ip;                   m->exist.ip    = true; }
         if (src.exist.port)  { m->port = src.port;               m->exist.port  = true; }
         if (src.exist.adr)   { m->osc_address = src.osc_address; m->exist.adr   = true; }
-        if (src.exist.scene) { m->scene = src.scene;             m->exist.scene = true; }
+        for (uint8_t i = 0; i < src.scene_count; i++) m->add_scene(src.scenes[i]);
         if (src.exist.val)   { m->value_ptr = src.value_ptr;     m->exist.val   = true; }
         if (src.exist.low)   { m->bounds[0] = src.bounds[0];     m->exist.low   = true; }
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
@@ -146,24 +167,23 @@ public:
 
         int idx = scene_index(p);
 
-        // Clear scene pointers in all messages that reference this scene.
+        // Remove this scene from all messages that reference it.
         for (uint16_t i = 0; i < msg_count; i++) {
-            if (messages[i].scene == p) {
-                messages[i].scene = nullptr;
-                messages[i].exist.scene = false;
-            }
+            messages[i].remove_scene(p);
         }
 
         // Swap with last and shrink.
         if (idx < (int)(scene_count - 1)) {
             scenes[idx] = scenes[scene_count - 1];
 
-            // Fix message indices and scene pointers referencing the moved scene.
+            // Fix scene pointers in all messages referencing the moved scene.
             OscScene* moved = &scenes[idx];
-            int old_idx = scene_count - 1;
+            OscScene* old_ptr = &scenes[scene_count - 1];
             for (uint16_t i = 0; i < msg_count; i++) {
-                if (messages[i].scene == &scenes[old_idx]) {
-                    messages[i].scene = moved;
+                for (uint8_t si = 0; si < messages[i].scene_count; si++) {
+                    if (messages[i].scenes[si] == old_ptr) {
+                        messages[i].scenes[si] = moved;
+                    }
                 }
             }
             // Fix msg_indices inside other scenes that pointed at old_idx.
@@ -235,9 +255,17 @@ static inline OscRegistry& osc_registry() {
 /// a value to send, and a resolvable destination (ip, port, address).
 inline bool OscMessage::sendable() const {
     bool has_val = (value_ptr != nullptr) || (ternori.length() > 0);
-    bool has_ip  = exist.ip  || (scene && scene->exist.ip);
-    bool has_port = exist.port || (scene && scene->exist.port);
-    bool has_adr = exist.adr || (scene && scene->exist.adr);
+    bool has_ip  = exist.ip;
+    bool has_port = exist.port;
+    bool has_adr = exist.adr;
+    // Check if any parent scene can provide missing fields.
+    for (uint8_t i = 0; i < scene_count && !(has_ip && has_port && has_adr); i++) {
+        if (scenes[i]) {
+            if (!has_ip   && scenes[i]->exist.ip)   has_ip   = true;
+            if (!has_port && scenes[i]->exist.port)  has_port = true;
+            if (!has_adr  && scenes[i]->exist.adr)   has_adr  = true;
+        }
+    }
     return has_val && has_ip && has_port && has_adr;
 }
 
@@ -258,7 +286,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     ip         = IPAddress(0, 0, 0, 0);
     port       = 0;
     osc_address = "";
-    scene      = nullptr;
+    clear_scenes();
     value_ptr  = nullptr;
     bounds[0]  = 0.0f;
     bounds[1]  = 1.0f;
@@ -322,8 +350,8 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                 else if (ref_m && ref_m->exist.adr) { osc_address = ref_m->osc_address; exist.adr = true; }
                 else { if (error) *error = "Ref '" + value + "' has no adr"; return false; }
             } else if (key == "scene") {
-                scene = ref_p ? ref_p : reg.get_or_create_scene(value);
-                exist.scene = true;
+                OscScene* sp = ref_p ? ref_p : reg.get_or_create_scene(value);
+                if (sp) add_scene(sp);
             } else if (key == "value") {
                 if (ref_m && ref_m->exist.val) { value_ptr = ref_m->value_ptr; exist.val = true; }
                 else { if (error) *error = "Ref '" + value + "' has no value"; return false; }
@@ -347,7 +375,7 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                     if (ref_m->exist.ip    && !exist.ip)    { ip = ref_m->ip;                   exist.ip    = true; }
                     if (ref_m->exist.port  && !exist.port)  { port = ref_m->port;               exist.port  = true; }
                     if (ref_m->exist.adr   && !exist.adr)   { osc_address = ref_m->osc_address; exist.adr   = true; }
-                    if (ref_m->exist.scene && !exist.scene) { scene = ref_m->scene;             exist.scene = true; }
+                    for (uint8_t si = 0; si < ref_m->scene_count; si++) add_scene(ref_m->scenes[si]);
                     if (ref_m->exist.val   && !exist.val)   { value_ptr = ref_m->value_ptr;     exist.val   = true; }
                     if (ref_m->exist.low   && !exist.low)   { bounds[0] = ref_m->bounds[0];     exist.low   = true; }
                     if (ref_m->exist.high  && !exist.high)  { bounds[1] = ref_m->bounds[1];     exist.high  = true; }
@@ -383,12 +411,19 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             osc_address = value;
             exist.adr = true;
         } else if (key == "scene") {
+            // Support multiple scenes separated by '+': "scene:mixer1+mixer2"
             OscRegistry& reg = osc_registry();
-            scene = reg.find_scene(value);
-            if (!scene) {
-                scene = reg.get_or_create_scene(value);
+            int s2 = 0;
+            while (s2 < (int)value.length()) {
+                int plus = value.indexOf('+', s2);
+                String sn = (plus < 0) ? value.substring(s2) : value.substring(s2, plus);
+                sn = osc_trim_copy(sn);
+                s2 = (plus < 0) ? value.length() : plus + 1;
+                if (sn.length() == 0) continue;
+                OscScene* sp = reg.find_scene(sn);
+                if (!sp) sp = reg.get_or_create_scene(sn);
+                if (sp) add_scene(sp);
             }
-            exist.scene = true;
         } else if (key == "value" || key == "val") {
             int vi = data_stream_index_from_name(value);
             if (vi < 0 || vi >= NUM_DATA_STREAMS) {
@@ -444,7 +479,13 @@ inline String OscMessage::to_info_string(bool verbose) const {
     }
     if (exist.low)  { s += " low:" + String(bounds[0], 2); }
     if (exist.high) { s += " high:" + String(bounds[1], 2); }
-    if (exist.scene && scene) { s += " scene:" + scene->name; }
+    if (scene_count > 0) {
+        s += " scene:";
+        for (uint8_t i = 0; i < scene_count; i++) {
+            if (i > 0) s += "+";
+            s += scenes[i] ? scenes[i]->name : "?";
+        }
+    }
     if (ori_only.length() > 0) { s += " ori_only:" + ori_only; }
     if (ori_not.length() > 0)  { s += " ori_not:" + ori_not; }
     if (ternori.length() > 0)  { s += " ternori:" + ternori; }

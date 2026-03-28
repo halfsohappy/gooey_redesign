@@ -8,16 +8,17 @@
 //     Namespace "ori_store" — oris (o_count, o_0..o_N, o_thr, o_tol, o_str)
 //
 //   Shows (named snapshots of the full device state):
-//     Namespace "shows_idx" — s_count (uint8), s_0..s_3 (names), active (String)
-//     Namespace "sw_0".."sw_3" — p_count, p_0..., m_count, m_0..., o_count, o_0...
+//     Namespace "shows_idx" — s_count (uint8), s_0..s_15 (names)
+//     Namespace "sw_0".."sw_15" — p_count, p_0..., m_count, m_0..., o_count, o_0...
 //       (shows store all data — osc + ori — in a single combined namespace)
 //
-// MAX SHOWS: 4 (on-device NVS; unlimited in Gooey library on disk)
+// MAX SHOWS: 16 (on-device NVS; unlimited in Gooey library on disk)
 //
-// SHOW ACTIVATION:
-//   When a show is loaded, it becomes the "active" slot.  Subsequent /save
-//   commands write to that show's namespace.  /load reads from it.
-//   If no active show is set, /save and /load use "osc_store"/"ori_store".
+// SHOW MODEL:
+//   Shows are explicit snapshots.  /save and /load always use "osc_store"
+//   (the live workspace).  Shows are saved-to and loaded-from by name only
+//   via /show/save/{name} and /show/load/{name}.  There is no "active show"
+//   concept — this keeps the mental model simple and unambiguous.
 //
 // ORI SERIALIZATION FORMAT (new — v2):
 //   "name:xxx,sc:N,r:R,g:G,b:B,tol:T,axis:A,ax:X,ay:Y,az:Z,
@@ -31,7 +32,7 @@
 //   as a single-sample ori with no axis.  hw: key is ignored.
 //
 // COMMANDS:
-//   /save, /load, /nvs/clear — operate on active show or osc_store/ori_store
+//   /save, /load, /nvs/clear — always use osc_store
 //   /show/save/{name}  — snapshot current state as a named show
 //   /show/load/{name}  — load a named show (two-step with confirm)
 //   /show/list         — list show names
@@ -46,7 +47,7 @@
 #include "osc_registry.h"
 #include "ori_tracker.h"
 
-#define MAX_SHOWS 4
+#define MAX_SHOWS 16
 
 // ---------------------------------------------------------------------------
 // Message serialisation (unchanged)
@@ -75,9 +76,13 @@ static inline String msg_to_save_string(const OscMessage& m) {
     s += String("enabled:") + (m.enabled ? "true" : "false");
 
 
-    if (m.exist.scene && m.scene) {
+    if (m.scene_count > 0) {
         if (s.length() > 0) s += ", ";
-        s += "scene:" + m.scene->name;
+        s += "scene:";
+        for (uint8_t i = 0; i < m.scene_count; i++) {
+            if (i > 0) s += "+";
+            s += m.scenes[i] ? m.scenes[i]->name : "";
+        }
     }
 
     // Ori-conditional fields (ab7 only).
@@ -214,8 +219,7 @@ static inline void scene_from_save_string(OscScene* p, const String& saved) {
                 if (m) {
                     int mi = reg.msg_index(m);
                     p->add_msg(mi);
-                    m->scene = p;
-                    m->exist.scene = true;
+                    m->add_scene(p);
                 }
                 // If the message doesn't exist yet, it will be loaded later
                 // and linked in a second pass.
@@ -343,25 +347,8 @@ static inline void ori_from_save_string(OriTracker& ot, const String& s) {
 // Show index helpers
 // ---------------------------------------------------------------------------
 
-/// Returns the active show name ("" if none).
-static inline String nvs_get_active_show() {
-    Preferences prefs;
-    prefs.begin("shows_idx", true);
-    String active = prefs.getString("active", "");
-    prefs.end();
-    return active;
-}
-
-/// Sets the active show name ("" to clear).
-static inline void nvs_set_active_show(const String& name) {
-    Preferences prefs;
-    prefs.begin("shows_idx", false);
-    prefs.putString("active", name);
-    prefs.end();
-}
-
-/// Returns the namespace for the active show, or "" if none.
-/// Format: "sw_0".."sw_3"
+/// Returns the NVS namespace for a named show, or "" if not found.
+/// Format: "sw_0".."sw_15"
 static inline String _show_namespace(const String& show_name) {
     if (show_name.length() == 0) return "";
     Preferences prefs;
@@ -377,15 +364,6 @@ static inline String _show_namespace(const String& show_name) {
     }
     prefs.end();
     return "";
-}
-
-/// Returns the NVS namespace to use for /save and /load.
-/// If a show is active and has a namespace, returns that; else "osc_store".
-static inline String nvs_active_osc_ns() {
-    String active = nvs_get_active_show();
-    if (active.length() == 0) return "osc_store";
-    String ns = _show_namespace(active);
-    return ns.length() > 0 ? ns : "osc_store";
 }
 
 // ---------------------------------------------------------------------------
@@ -490,9 +468,11 @@ static inline int _nvs_load_combined(const String& ns) {
             ev.trim(); ev.toLowerCase();
             m->enabled = (ev == "true" || ev == "1" || ev == "yes");
         }
-        if (m->exist.scene && m->scene) {
-            int mi = reg.msg_index(m);
-            m->scene->add_msg(mi);
+        for (uint8_t si = 0; si < m->scene_count; si++) {
+            if (m->scenes[si]) {
+                int mi = reg.msg_index(m);
+                m->scenes[si]->add_msg(mi);
+            }
         }
     }
 
@@ -522,7 +502,7 @@ static inline int _nvs_load_combined(const String& ns) {
             s2 = (plus < 0) ? mv.length() : plus + 1;
             if (mname.length() == 0) continue;
             OscMessage* m = reg.find_msg(mname);
-            if (m) { int mi = reg.msg_index(m); p->add_msg(mi); m->scene = p; m->exist.scene = true; }
+            if (m) { int mi = reg.msg_index(m); p->add_msg(mi); m->add_scene(p); }
         }
     }
 
@@ -542,7 +522,7 @@ static inline int _nvs_load_combined(const String& ns) {
 }
 
 // ---------------------------------------------------------------------------
-// Ori NVS persistence — legacy dual-namespace (used when no active show)
+// Ori NVS persistence — standalone ori_store namespace
 // ---------------------------------------------------------------------------
 
 static inline int nvs_save_oris() {
@@ -591,114 +571,27 @@ static inline void nvs_clear_oris() {
 }
 
 // ---------------------------------------------------------------------------
-// Save / load all — respects active show
+// Save / load all — always uses osc_store
 // ---------------------------------------------------------------------------
 
 static inline int nvs_save_all() {
-    String ns = nvs_active_osc_ns();
-    if (ns == "osc_store") {
-        // Legacy dual-namespace path.
-        OscRegistry& reg = osc_registry();
-        Preferences prefs;
-        prefs.begin("osc_store", false);
-        prefs.clear();
-        prefs.putUShort("p_count", reg.scene_count);
-        for (uint16_t i = 0; i < reg.scene_count; i++)
-            prefs.putString(("p_" + String(i)).c_str(), scene_to_save_string(reg.scenes[i]));
-        prefs.putUShort("m_count", reg.msg_count);
-        for (uint16_t i = 0; i < reg.msg_count; i++)
-            prefs.putString(("m_" + String(i)).c_str(), msg_to_save_string(reg.messages[i]));
-        prefs.end();
-        nvs_save_oris();
-        return (int)(reg.scene_count + reg.msg_count);
-    } else {
-        // Active show path: save to combined namespace.
-        return _nvs_save_combined(ns);
-    }
+    return _nvs_save_combined("osc_store");
 }
 
 static inline int nvs_load_all() {
-    String ns = nvs_active_osc_ns();
-    if (ns == "osc_store") {
-        // Legacy dual-namespace path (identical to original nvs_load_all logic).
-        OscRegistry& reg = osc_registry();
-        Preferences prefs;
-        prefs.begin("osc_store", true);
-        uint16_t p_count = prefs.getUShort("p_count", 0);
-        uint16_t m_count = prefs.getUShort("m_count", 0);
-        if (p_count == 0 && m_count == 0) { prefs.end(); return 0; }
-        for (uint16_t i = 0; i < reg.scene_count; i++) {
-            if (reg.scenes[i].task_handle) {
-                vTaskDelete(reg.scenes[i].task_handle);
-                reg.scenes[i].task_handle = nullptr;
-            }
-        }
-        reg.scene_count = 0; reg.msg_count = 0;
-        for (uint16_t i = 0; i < p_count && i < MAX_OSC_SCENES; i++) {
-            String saved = prefs.getString(("p_" + String(i)).c_str(), "");
-            if (!saved.length()) continue;
-            String pname; int ni = saved.indexOf("name:");
-            if (ni >= 0) { int e = saved.indexOf(',', ni); pname = (e<0)?saved.substring(ni+5):saved.substring(ni+5,e); pname.trim(); }
-            if (!pname.length()) pname = "scene_" + String(i);
-            OscScene* p = reg.get_or_create_scene(pname);
-            if (p) scene_from_save_string(p, saved);
-        }
-        for (uint16_t i = 0; i < m_count && i < MAX_OSC_MESSAGES; i++) {
-            String saved = prefs.getString(("m_" + String(i)).c_str(), "");
-            if (!saved.length()) continue;
-            String mname; int ni = saved.indexOf("name:");
-            if (ni >= 0) { int e = saved.indexOf(',', ni); mname = (e<0)?saved.substring(ni+5):saved.substring(ni+5,e); mname.trim(); }
-            if (!mname.length()) mname = "msg_" + String(i);
-            OscMessage* m = reg.get_or_create_msg(mname);
-            if (!m) continue;
-            OscMessage parsed; String err;
-            if (parsed.from_config_str(saved, &err)) { *m = parsed * (*m); m->name = mname; m->exist.name = true; }
-            int en_idx = saved.indexOf("enabled:");
-            if (en_idx >= 0) {
-                int e = saved.indexOf(',', en_idx);
-                String ev = (e<0)?saved.substring(en_idx+8):saved.substring(en_idx+8,e);
-                ev.trim(); ev.toLowerCase();
-                m->enabled = (ev=="true"||ev=="1"||ev=="yes");
-            }
-            if (m->exist.scene && m->scene) { int mi = reg.msg_index(m); m->scene->add_msg(mi); }
-        }
-        for (uint16_t i = 0; i < p_count && i < MAX_OSC_SCENES; i++) {
-            String saved = prefs.getString(("p_" + String(i)).c_str(), "");
-            if (!saved.length()) continue;
-            int msgs_idx = saved.indexOf("msgs:"); if (msgs_idx < 0) continue;
-            String pname; int ni = saved.indexOf("name:");
-            if (ni >= 0) { int e = saved.indexOf(',', ni); pname = (e<0)?saved.substring(ni+5):saved.substring(ni+5,e); pname.trim(); }
-            OscScene* p = reg.find_scene(pname); if (!p) continue;
-            int e = saved.indexOf(',', msgs_idx);
-            String mv = (e<0)?saved.substring(msgs_idx+5):saved.substring(msgs_idx+5,e); mv.trim();
-            int s2 = 0;
-            while (s2 < (int)mv.length()) {
-                int plus = mv.indexOf('+', s2);
-                String mname = (plus<0)?mv.substring(s2):mv.substring(s2,plus); mname.trim();
-                s2 = (plus<0)?mv.length():plus+1; if (!mname.length()) continue;
-                OscMessage* m = reg.find_msg(mname);
-                if (m) { int mi = reg.msg_index(m); p->add_msg(mi); m->scene = p; m->exist.scene = true; }
-            }
-        }
-        prefs.end();
-        nvs_load_oris();
-        return (int)(p_count + m_count);
-    } else {
-        return _nvs_load_combined(ns);
-    }
+    return _nvs_load_combined("osc_store");
 }
 
 // ---------------------------------------------------------------------------
-// Single-object save helpers (respect active show)
+// Single-object save helpers (always use osc_store)
 // ---------------------------------------------------------------------------
 
 static inline bool nvs_save_msg(const String& name) {
     OscRegistry& reg = osc_registry();
     OscMessage* m = reg.find_msg(name);
     if (!m) return false;
-    String ns = nvs_active_osc_ns();
     Preferences prefs;
-    prefs.begin(ns.c_str(), false);
+    prefs.begin("osc_store", false);
     uint16_t count = prefs.getUShort("m_count", 0);
     int slot = -1;
     for (uint16_t i = 0; i < count; i++) {
@@ -721,9 +614,8 @@ static inline bool nvs_save_scene(const String& name) {
     OscRegistry& reg = osc_registry();
     OscScene* p = reg.find_scene(name);
     if (!p) return false;
-    String ns = nvs_active_osc_ns();
     Preferences prefs;
-    prefs.begin(ns.c_str(), false);
+    prefs.begin("osc_store", false);
     uint16_t count = prefs.getUShort("p_count", 0);
     int slot = -1;
     for (uint16_t i = 0; i < count; i++) {
@@ -775,7 +667,6 @@ static inline bool nvs_save_show(const String& show_name) {
 }
 
 /// Load a named show into RAM.
-/// Does NOT set the active show — caller must call nvs_set_active_show() after confirm.
 /// Returns total objects loaded, or -1 if show not found.
 static inline int nvs_load_show(const String& show_name) {
     String ns = _show_namespace(show_name);
@@ -799,7 +690,42 @@ static inline String nvs_list_shows() {
     return result.length() > 0 ? result : String("(none)");
 }
 
-/// Delete a named show from NVS.  Returns false if not found.
+/// Copy all show data from one NVS namespace to another.
+static inline void _nvs_copy_namespace(const String& src_ns, const String& dst_ns) {
+    Preferences src, dst;
+    src.begin(src_ns.c_str(), true);
+    dst.begin(dst_ns.c_str(), false);
+    dst.clear();
+    // Scenes
+    uint16_t pc = src.getUShort("p_count", 0);
+    dst.putUShort("p_count", pc);
+    for (uint16_t j = 0; j < pc; j++) {
+        dst.putString(("p_" + String(j)).c_str(),
+                      src.getString(("p_" + String(j)).c_str(), ""));
+    }
+    // Messages
+    uint16_t mc = src.getUShort("m_count", 0);
+    dst.putUShort("m_count", mc);
+    for (uint16_t j = 0; j < mc; j++) {
+        dst.putString(("m_" + String(j)).c_str(),
+                      src.getString(("m_" + String(j)).c_str(), ""));
+    }
+    // Oris
+    uint8_t oc = src.getUChar("o_count", 0);
+    dst.putUChar("o_count", oc);
+    for (uint8_t j = 0; j < oc; j++) {
+        dst.putString(("o_" + String(j)).c_str(),
+                      src.getString(("o_" + String(j)).c_str(), ""));
+    }
+    dst.putFloat("o_thr", src.getFloat("o_thr", 1.5f));
+    dst.putFloat("o_tol", src.getFloat("o_tol", 10.0f));
+    dst.putBool ("o_str", src.getBool ("o_str", false));
+    src.end(); dst.end();
+}
+
+/// Delete a named show from NVS.  Compacts remaining shows into contiguous
+/// slots so that the index always matches the namespace layout.
+/// Returns false if not found.
 static inline bool nvs_delete_show(const String& show_name) {
     Preferences idx_prefs;
     idx_prefs.begin("shows_idx", false);
@@ -812,52 +738,20 @@ static inline bool nvs_delete_show(const String& show_name) {
     }
     if (slot < 0) { idx_prefs.end(); return false; }
 
-    // Clear the show namespace.
-    String ns = "sw_" + String(slot);
-    { Preferences sp; sp.begin(ns.c_str(), false); sp.clear(); sp.end(); }
+    // Clear the deleted show's namespace.
+    { Preferences sp; sp.begin(("sw_" + String(slot)).c_str(), false); sp.clear(); sp.end(); }
 
-    // Remove from index: shift entries down.
+    // Shift remaining entries down to keep slots contiguous.
     for (uint8_t i = slot; i < count - 1 && i < MAX_SHOWS - 1; i++) {
-        String next = idx_prefs.getString(("s_" + String(i + 1)).c_str(), "");
-        idx_prefs.putString(("s_" + String(i)).c_str(), next);
-        // Also move the data namespace.
-        // (NVS doesn't support rename; data stays in sw_{i+1} but index now points to sw_{i}.
-        //  This leaves a gap.  Simplest fix: rebuild namespaces on load.
-        //  For now, copy data from sw_{i+1} to sw_{i}.)
-        Preferences src, dst;
-        src.begin(("sw_" + String(i + 1)).c_str(), true);
-        dst.begin(("sw_" + String(i)).c_str(), false);
-        dst.clear();
-        uint16_t pc = src.getUShort("p_count", 0);
-        dst.putUShort("p_count", pc);
-        for (uint16_t j = 0; j < pc; j++) {
-            String v = src.getString(("p_" + String(j)).c_str(), "");
-            dst.putString(("p_" + String(j)).c_str(), v);
-        }
-        uint16_t mc = src.getUShort("m_count", 0);
-        dst.putUShort("m_count", mc);
-        for (uint16_t j = 0; j < mc; j++) {
-            String v = src.getString(("m_" + String(j)).c_str(), "");
-            dst.putString(("m_" + String(j)).c_str(), v);
-        }
-        uint8_t oc = src.getUChar("o_count", 0);
-        dst.putUChar("o_count", oc);
-        for (uint8_t j = 0; j < oc; j++) {
-            String v = src.getString(("o_" + String(j)).c_str(), "");
-            dst.putString(("o_" + String(j)).c_str(), v);
-        }
-        dst.putFloat("o_thr", src.getFloat("o_thr", 1.5f));
-        dst.putFloat("o_tol", src.getFloat("o_tol", 10.0f));
-        dst.putBool ("o_str", src.getBool ("o_str", false));
-        src.end(); dst.end();
-        // Clear the old slot.
-        Preferences old; old.begin(("sw_" + String(i + 1)).c_str(), false); old.clear(); old.end();
+        // Move index entry.
+        String next_name = idx_prefs.getString(("s_" + String(i + 1)).c_str(), "");
+        idx_prefs.putString(("s_" + String(i)).c_str(), next_name);
+        // Move data namespace.
+        _nvs_copy_namespace("sw_" + String(i + 1), "sw_" + String(i));
+        // Clear the source namespace (now duplicated).
+        { Preferences old; old.begin(("sw_" + String(i + 1)).c_str(), false); old.clear(); old.end(); }
     }
     idx_prefs.putUChar("s_count", count - 1);
-
-    // If the deleted show was active, clear the active slot.
-    String active = idx_prefs.getString("active", "");
-    if (active.equalsIgnoreCase(show_name)) idx_prefs.putString("active", "");
 
     idx_prefs.end();
     return true;
@@ -877,8 +771,6 @@ static inline bool nvs_rename_show(const String& old_name, const String& new_nam
     }
     if (slot < 0) { prefs.end(); return false; }
     prefs.putString(("s_" + String(slot)).c_str(), new_name);
-    String active = prefs.getString("active", "");
-    if (active.equalsIgnoreCase(old_name)) prefs.putString("active", new_name);
     prefs.end();
     return true;
 }
@@ -891,8 +783,6 @@ static inline void nvs_clear_osc_data() {
     Preferences prefs;
     prefs.begin("osc_store", false); prefs.clear(); prefs.end();
     nvs_clear_oris();
-    // Also clear any active show.
-    nvs_set_active_show("");
 }
 
 #endif // OSC_STORAGE_H

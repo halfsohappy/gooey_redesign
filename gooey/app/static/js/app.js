@@ -141,6 +141,11 @@
     if (danger === undefined) danger = true;
     var modal = document.getElementById("confirmModal");
     if (!modal) { if (onConfirm) onConfirm(); return; }
+    var box = modal.querySelector(".modal-box");
+    var isVerbose = title.indexOf("Verbose") !== -1;
+    if (box) {
+      box.classList.toggle("modal-box--verbose", isVerbose);
+    }
     document.getElementById("confirmTitle").textContent = title;
     document.getElementById("confirmBody").textContent = body;
     var okBtn = document.getElementById("confirmOk");
@@ -191,6 +196,41 @@
     return name + "@" + host + ":" + port;
   }
 
+  /** Persist device connection info to localStorage. */
+  function saveDevicesToStorage() {
+    try {
+      var data = Object.keys(devices).map(function (id) {
+        var d = devices[id];
+        return { host: d.host, port: d.port, name: d.name };
+      });
+      localStorage.setItem("gooey_devices", JSON.stringify(data));
+      localStorage.setItem("gooey_active_device", activeDeviceId);
+    } catch (e) { /* storage full or unavailable */ }
+  }
+
+  /** Restore devices from localStorage on page load. */
+  function restoreDevicesFromStorage() {
+    try {
+      var raw = localStorage.getItem("gooey_devices");
+      if (!raw) return;
+      var list = JSON.parse(raw);
+      list.forEach(function (d) {
+        if (d.host && d.port && d.name) {
+          var id = generateDeviceId(d.host, d.port, d.name);
+          if (!devices[id]) {
+            devices[id] = { host: d.host, port: parseInt(d.port, 10), name: d.name, messages: {}, scenes: {}, oris: {} };
+          }
+        }
+      });
+      var savedActive = localStorage.getItem("gooey_active_device");
+      if (savedActive && devices[savedActive]) activeDeviceId = savedActive;
+      else {
+        var keys = Object.keys(devices);
+        if (keys.length > 0) activeDeviceId = keys[0];
+      }
+    } catch (e) { /* corrupt data */ }
+  }
+
   function addDevice(host, port, name) {
     var id = generateDeviceId(host, port, name);
     if (!devices[id]) {
@@ -199,6 +239,7 @@
     activeDeviceId = id;
     renderDeviceTabs();
     refreshAllDropdowns();
+    saveDevicesToStorage();
     return id;
   }
 
@@ -213,6 +254,7 @@
     renderSceneTable();
     renderOriTable();
     refreshAllDropdowns();
+    saveDevicesToStorage();
   }
 
   function getActiveDev() {
@@ -289,6 +331,10 @@
     /* Sync the header query-device select */
     refreshQueryDeviceSelect();
   }
+
+  /* ── Restore devices from previous session ── */
+  restoreDevicesFromStorage();
+  renderDeviceTabs();
 
   /* ── IP resolver: type "me" to use this computer's IP ── */
   var _myIpCache = null;
@@ -409,6 +455,16 @@
     dd.style.display = "block";
     $("#devDdTitle").textContent = d.name;
     $("#devDdInfo").textContent = d.host + ":" + d.port;
+    /* Reflect dedup state: highlight the active mode */
+    var dedupOn = d.dedup === true;
+    var dedupOff = d.dedup === false;
+    var onSpan = $("#devDdDedupOn .dd-toggle-on") || $("#devDdDedupOn").querySelector(".dd-toggle-on");
+    var offSpan = $("#devDdDedupOff .dd-toggle-off") || $("#devDdDedupOff").querySelector(".dd-toggle-off");
+    if (onSpan) onSpan.classList.toggle("dd-toggle-active", dedupOn);
+    if (offSpan) offSpan.classList.toggle("dd-toggle-active", dedupOff);
+    /* Reflect verbose mode state */
+    var verbBtn = $("#devDdVerbose");
+    if (verbBtn) verbBtn.textContent = d.verbose ? "◉ Verbose Mode ON" : "○ Verbose Mode";
   }
 
   function closeDevDropdown() {
@@ -433,15 +489,6 @@
   }
 
   /* Per-device dropdown action handlers */
-  $("#devDdQuery").addEventListener("click", function () {
-    var id = _dropdownDeviceId;
-    if (!id || !devices[id]) { closeDevDropdown(); return; }
-    var d = devices[id];
-    sendToDevice(id, "/annieData/" + d.name + "/list/all", "verbose").then(function (res) {
-      if (res.status === "ok") toast("Querying " + d.name + "…", "info");
-    });
-    closeDevDropdown();
-  });
 
   /* ── Status config modal helpers ── */
   function openDevSettingsModal() {
@@ -553,6 +600,15 @@
     closeDevDropdown();
   });
 
+  $("#devDdVerbose").addEventListener("click", function () {
+    var id = _dropdownDeviceId;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    var d = devices[id];
+    d.verbose = !d.verbose;
+    toast("Verbose mode " + (d.verbose ? "ON" : "OFF") + " for " + d.name, d.verbose ? "success" : "info");
+    closeDevDropdown();
+  });
+
   $("#devDdEdit").addEventListener("click", function () {
     var id = _dropdownDeviceId;
     closeDevDropdown();
@@ -584,6 +640,34 @@
       data.args = [payload];
     }
     return api("send", data);
+  }
+
+  /* ── Flush: send /flush and wait for the device's reply in the feed ── */
+  var _flushResolvers = [];
+  function _onFlushReply(entry) {
+    if (entry.direction !== "recv") return;
+    if (!entry.address || !/\/flush$/i.test(entry.address)) return;
+    var resolvers = _flushResolvers.splice(0);
+    resolvers.forEach(function (r) { r(); });
+  }
+
+  /**
+   * Send /flush and return a promise that resolves when the device replies.
+   * Falls back to a 2s timeout if no reply is received (e.g. old firmware).
+   */
+  function sendFlush() {
+    return new Promise(function (resolve) {
+      var timer = setTimeout(function () {
+        var idx = _flushResolvers.indexOf(resolve);
+        if (idx >= 0) _flushResolvers.splice(idx, 1);
+        resolve();
+      }, 2000);
+      _flushResolvers.push(function () {
+        clearTimeout(timer);
+        resolve();
+      });
+      sendCmd(addr("/annieData/{device}/flush"), null);
+    });
   }
 
   /** Build an OSC address from a template, substituting {device} and {name}. */
@@ -671,6 +755,12 @@
         text.split(/\n/).forEach(function (line) {
           var trimmed = line.trim();
           if (!trimmed) return;
+          /* Parse device-level state lines (dedup:on/off) */
+          var dedupMatch = trimmed.match(/^dedup:(on|off)$/i);
+          if (dedupMatch) {
+            dev.dedup = dedupMatch[1].toLowerCase() === "on";
+            return;
+          }
           if (/^messages\s*\(\d+\):/i.test(trimmed)) { curBlock = "msg";   return; }
           if (/^scenes\s*\(\d+\):/i.test(trimmed))  { curBlock = "scene"; return; }
           var n = trimmed.split(/\s+/)[0];
@@ -804,6 +894,13 @@
         ];
         renderOriTable();
       }
+      return;
+    }
+
+    /* ── Parse dedup reply ── */
+    var dedupReply = text.match(/^DEDUP\s+(ON|OFF)$/i);
+    if (dedupReply) {
+      dev.dedup = dedupReply[1].toUpperCase() === "ON";
       return;
     }
 
@@ -1022,6 +1119,121 @@
       }
     });
   }
+
+  /* ═══════════════════════════════════════════
+     BULK ACTIONS — OSC pattern matching
+     ═══════════════════════════════════════════ */
+
+  /** Returns true if s contains OSC pattern metacharacters. */
+  function hasPattern(s) { return /[*?\[{]/.test(s); }
+
+  /** Highlight the input when it contains a pattern. */
+  function updatePatternHint(inputEl, hintEl, registry) {
+    var val = inputEl.value.trim();
+    if (hasPattern(val)) {
+      inputEl.classList.add("has-pattern");
+      if (registry) {
+        var names = Object.keys(registry);
+        var count = names.filter(function (n) {
+          return oscPatternMatch(val, n);
+        }).length;
+        hintEl.textContent = count + " match" + (count !== 1 ? "es" : "");
+      }
+    } else {
+      inputEl.classList.remove("has-pattern");
+      hintEl.textContent = "";
+    }
+  }
+
+  /**
+   * Simple client-side OSC pattern matcher for preview hints.
+   * Supports * ? [charset] {alt1,alt2}. Case-insensitive.
+   */
+  function oscPatternMatch(pattern, text) {
+    // Convert OSC pattern to a JS regex.
+    var re = "^";
+    var i = 0;
+    var p = pattern.toLowerCase();
+    while (i < p.length) {
+      var c = p[i];
+      if (c === "*") { re += ".*"; i++; }
+      else if (c === "?") { re += "."; i++; }
+      else if (c === "[") {
+        var j = p.indexOf("]", i);
+        if (j < 0) { re += "\\["; i++; continue; }
+        var inner = p.substring(i + 1, j);
+        if (inner[0] === "!") inner = "^" + inner.substring(1);
+        re += "[" + inner + "]";
+        i = j + 1;
+      }
+      else if (c === "{") {
+        var j2 = p.indexOf("}", i);
+        if (j2 < 0) { re += "\\{"; i++; continue; }
+        var alts = p.substring(i + 1, j2).split(",").map(function (a) {
+          return a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        });
+        re += "(?:" + alts.join("|") + ")";
+        i = j2 + 1;
+      }
+      else {
+        re += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        i++;
+      }
+    }
+    re += "$";
+    try { return new RegExp(re, "i").test(text); }
+    catch (e) { return false; }
+  }
+
+  /* ── Message bulk action ── */
+  (function () {
+    var inp  = $("#msgBulkPattern");
+    var sel  = $("#msgBulkAction");
+    var btn  = $("#btnMsgBulk");
+    var hint = $("#msgBulkHint");
+    if (!inp || !btn) return;
+
+    inp.addEventListener("input", function () {
+      var dev = getActiveDev();
+      updatePatternHint(inp, hint, dev ? dev.messages : null);
+    });
+
+    btn.addEventListener("click", function () {
+      var pattern = inp.value.trim();
+      if (!pattern) { toast("Enter a pattern", "warn"); return; }
+      var act = sel.value;
+      if (act === "delete" && !confirm("Delete all messages matching '" + pattern + "'?")) return;
+      var template = "/annieData/{device}/msg/{name}/" + act;
+      sendCmd(addr(template, pattern), null).then(function (res) {
+        if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
+      });
+    });
+  }());
+
+  /* ── Scene bulk action ── */
+  (function () {
+    var inp  = $("#sceneBulkPattern");
+    var sel  = $("#sceneBulkAction");
+    var btn  = $("#btnSceneBulk");
+    var hint = $("#sceneBulkHint");
+    if (!inp || !btn) return;
+
+    inp.addEventListener("input", function () {
+      var dev = getActiveDev();
+      updatePatternHint(inp, hint, dev ? dev.scenes : null);
+    });
+
+    btn.addEventListener("click", function () {
+      var pattern = inp.value.trim();
+      if (!pattern) { toast("Enter a pattern", "warn"); return; }
+      var act = sel.value;
+      if (act === "delete" && !confirm("Delete all scenes matching '" + pattern + "'?")) return;
+      var template = "/annieData/{device}/scene/{name}/" + act;
+      sendCmd(addr(template, pattern), null).then(function (res) {
+        if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
+      });
+    });
+  }());
 
   /* ── Ori explainer dismiss ── */
   (function () {
@@ -1471,6 +1683,7 @@
       prevSceneCount = Object.keys(preDev.scenes || {}).length;
     }
     parseReplyIntoRegistry(entry);
+    _onFlushReply(entry);
     /* Show query feedback toast after list/all replies add new data */
     if (matchedDevId && devices[matchedDevId] && /\/list\/(all|msgs|messages)/i.test(entry.address || "")) {
       var postDev = devices[matchedDevId];
@@ -1577,14 +1790,22 @@
     function resolveName(val, ori) {
       return val.toLowerCase() === "name" ? (ori ? "ori_" + name : "/" + name) : val;
     }
+    /* Build key:value or key-refName pairs.
+       If a field value starts with ">", the rest is a registry reference name
+       and the separator becomes "-" instead of ":" (firmware key-refName syntax).
+       Example: typing ">myScene" in the IP field sends "ip-myScene". */
+    function cfgPair(key, val) {
+      if (val.charAt(0) === ">") return key + "-" + val.substring(1);
+      return key + ":" + val;
+    }
     var parts = [];
-    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push("adr:" + resolveName(a, false));
-    var v = $("#msgValue").value; if (v) parts.push("value:" + v);
-    var ip = $("#msgIP").value.trim(); if (ip) parts.push("ip:" + ip);
-    var port = $("#msgPort").value; if (port) parts.push("port:" + port);
-    var lo = $("#msgLow").value.trim(); if (lo) parts.push("low:" + lo);
-    var hi = $("#msgHigh").value.trim(); if (hi) parts.push("high:" + hi);
-    var pa = $("#msgScene").value.trim(); if (pa) parts.push("scene:" + pa);
+    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push(cfgPair("adr", resolveName(a, false)));
+    var v = $("#msgValue").value; if (v) parts.push(cfgPair("value", v));
+    var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPair("ip", ip));
+    var port = $("#msgPort").value; if (port) parts.push(cfgPair("port", port));
+    var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPair("low", lo));
+    var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPair("high", hi));
+    var pa = $("#msgScene").value.trim(); if (pa) parts.push(cfgPair("scene", pa));
     var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push("ori_only:" + resolveName(oo, true));
     var on = $("#msgOriNot").value.trim(); if (on) parts.push("ori_not:" + resolveName(on, true));
     var tn = $("#msgTernori").value.trim(); if (tn) parts.push("ternori:" + resolveName(tn, true));
@@ -1673,13 +1894,18 @@
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
 
-    /* Build assign config and send primary scene config command */
+    /* Build assign config and send primary scene config command.
+       Prefix ">" in a field value triggers registry reference syntax (key-refName). */
+    function cfgPairS(key, val) {
+      if (val.charAt(0) === ">") return key + "-" + val.substring(1);
+      return key + ":" + val;
+    }
     var cfgParts = [];
-    if (ip) cfgParts.push("ip:" + ip);
-    if (port) cfgParts.push("port:" + port);
-    if (sceneAdr) cfgParts.push("adr:" + sceneAdr);
-    if (low) cfgParts.push("low:" + low);
-    if (high) cfgParts.push("high:" + high);
+    if (ip) cfgParts.push(cfgPairS("ip", ip));
+    if (port) cfgParts.push(cfgPairS("port", port));
+    if (sceneAdr) cfgParts.push(cfgPairS("adr", sceneAdr));
+    if (low) cfgParts.push(cfgPairS("low", low));
+    if (high) cfgParts.push(cfgPairS("high", high));
     var cfg = cfgParts.join(", ");
 
     /* Send commands for scene settings */
@@ -2444,19 +2670,22 @@
   updateScenePreview();
 
   /* ═══════════════════════════════════════════
-     DEBUG MODE — confirm before send
+     VERBOSE MODE — confirm before send (per-device)
      ═══════════════════════════════════════════ */
+
+  function isVerboseMode() {
+    var dev = getActiveDev();
+    return dev && dev.verbose;
+  }
 
   var _origSendCmd = sendCmd;
   sendCmd = function (address, payload) {
-    var dbg = $("#debugMode");
-    if (dbg && dbg.checked) {
+    if (isVerboseMode()) {
       return new Promise(function (resolve) {
-        var msgText = "Address: " + address + "\nPayload: " + (payload || "(none)");
-        showConfirm("DEBUG — Send OSC?", msgText, function () {
+        var msgText = "Address:\n" + address + "\n\nPayload:\n" + (payload || "(none)");
+        showConfirm("Verbose — Send OSC?", msgText, function () {
           resolve(_origSendCmd(address, payload));
         }, "Send", false);
-        /* If cancelled, resolve with cancelled status */
         document.getElementById("confirmCancel").addEventListener("click", function () {
           resolve({ status: "cancelled" });
         }, { once: true });
@@ -2467,19 +2696,16 @@
 
   var _origApi = api;
   api = function (endpoint, data, method) {
-    if (endpoint === "send" && data) {
-      var dbg = $("#debugMode");
-      if (dbg && dbg.checked) {
-        return new Promise(function (resolve) {
-          var msgText = "Address: " + (data.address || "") + "\nArgs: " + JSON.stringify(data.args || "") + "\nHost: " + (data.host || "") + ":" + (data.port || "");
-          showConfirm("DEBUG — Send OSC?", msgText, function () {
-            resolve(_origApi(endpoint, data, method));
-          }, "Send", false);
-          document.getElementById("confirmCancel").addEventListener("click", function () {
-            resolve({ status: "cancelled" });
-          }, { once: true });
-        });
-      }
+    if (endpoint === "send" && data && isVerboseMode()) {
+      return new Promise(function (resolve) {
+        var msgText = "Address:\n" + (data.address || "") + "\n\nPayload:\n" + JSON.stringify(data.args || "") + "\n\nHost: " + (data.host || "") + ":" + (data.port || "");
+        showConfirm("Verbose — Send OSC?", msgText, function () {
+          resolve(_origApi(endpoint, data, method));
+        }, "Send", false);
+        document.getElementById("confirmCancel").addEventListener("click", function () {
+          resolve({ status: "cancelled" });
+        }, { once: true });
+      });
     }
     return _origApi(endpoint, data, method);
   };
@@ -2487,18 +2713,6 @@
   /* ═══════════════════════════════════════════
      ORI CONTROLS
      ═══════════════════════════════════════════ */
-
-  /* Ori mode toggle — controls ori column/field visibility in Messages */
-  var oriModeEl = $("#oriMode");
-  if (oriModeEl) {
-    oriModeEl.addEventListener("change", function () {
-      if (oriModeEl.checked) {
-        document.body.classList.remove("ori-hidden");
-      } else {
-        document.body.classList.add("ori-hidden");
-      }
-    });
-  }
 
   /* Ori button handlers */
   var oriButtons = {
@@ -2723,15 +2937,15 @@
         });
       }
     });
-    /* Then save to device NVS as named show */
-    setTimeout(function () {
+    /* Wait for device to finish processing all commands, then save as show */
+    sendFlush().then(function () {
       sendCmd(addr("/annieData/{device}/show/save/" + name), null).then(function () {
-        toast("Loaded library show '" + name + "' to device", "success");
+        toast("Pushed library show '" + name + "' to device", "success");
         sendCmd(addr("/annieData/{device}/list/all"), null);
         sendCmd(addr("/annieData/{device}/ori/list"), null);
         sendCmd(addr("/annieData/{device}/show/list"), null);
       });
-    }, 600);
+    });
   }
 
   /* Wire up show buttons */

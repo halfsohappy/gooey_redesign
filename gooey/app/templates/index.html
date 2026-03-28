@@ -111,17 +111,16 @@
     <div class="dev-dropdown-title" id="devDdTitle">Device</div>
     <div class="dev-dropdown-info" id="devDdInfo"></div>
     <div class="dev-dropdown-sep"></div>
-    <button class="dev-dropdown-item" id="devDdQuery">⟳ Query Verbose</button>
-    <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item" id="devDdSave">↓ Save All</button>
     <button class="dev-dropdown-item" id="devDdLoad">↑ Load All</button>
     <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">× NVS Clear</button>
     <div class="dev-dropdown-sep"></div>
-    <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdBlackout">■ Blackout</button>
-    <button class="dev-dropdown-item dev-dropdown-item-success" id="devDdRestore">◆ Restore</button>
-    <button class="dev-dropdown-item" id="devDdDedupOn" title="Enable duplicate-value suppression — skip sends when value hasn't changed">↺ Dedup On</button>
-    <button class="dev-dropdown-item" id="devDdDedupOff" title="Disable duplicate-value suppression — send every value regardless of change">↺ Dedup Off</button>
+    <button class="dev-dropdown-item" id="devDdBlackout">■ Device Blackout</button>
+    <button class="dev-dropdown-item" id="devDdRestore">◆ Device Restore</button>
+    <button class="dev-dropdown-item" id="devDdDedupOn" title="Enable duplicate-value suppression — skip sends when value hasn't changed">↺ Duplicate Msgs <span class="dd-toggle-on">ON</span></button>
+    <button class="dev-dropdown-item" id="devDdDedupOff" title="Disable duplicate-value suppression — send every value regardless of change">↺ Duplicate Msgs <span class="dd-toggle-off">OFF</span></button>
     <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdVerbose">◉ Verbose Mode</button>
     <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
@@ -220,6 +219,19 @@
                   </div></td></tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Bulk action row for pattern matching -->
+            <div class="bulk-action-row" id="msgBulkRow">
+              <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
+              <input type="text" id="msgBulkPattern" class="bulk-input" placeholder="Pattern, e.g. accel* or {accelX,gyroY}">
+              <select id="msgBulkAction" class="bulk-select">
+                <option value="enable">Enable</option>
+                <option value="disable">Disable</option>
+                <option value="info">Info</option>
+                <option value="delete">Delete</option>
+              </select>
+              <button class="btn btn-sm" id="btnMsgBulk">Apply</button>
+              <span class="bulk-hint" id="msgBulkHint"></span>
             </div>
           </div>
 
@@ -359,6 +371,19 @@
                   </div></td></tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Bulk action row for pattern matching -->
+            <div class="bulk-action-row" id="sceneBulkRow">
+              <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
+              <input type="text" id="sceneBulkPattern" class="bulk-input" placeholder="Pattern, e.g. sens* or {mix,fx}">
+              <select id="sceneBulkAction" class="bulk-select">
+                <option value="start">Start</option>
+                <option value="stop">Stop</option>
+                <option value="info">Info</option>
+                <option value="delete">Delete</option>
+              </select>
+              <button class="btn btn-sm" id="btnSceneBulk">Apply</button>
+              <span class="bulk-hint" id="sceneBulkHint"></span>
             </div>
           </div>
 
@@ -1131,13 +1156,6 @@
         <div class="btn-row" style="margin-bottom:16px">
           <button class="btn btn-primary" id="btnStatusConfig" title="Send status destination config to device">Apply</button>
           <button class="btn btn-secondary" id="btnStatusLevel" title="Change the OSC status reporting level">Set Level</button>
-        </div>
-        <div class="modal-sep"></div>
-        <div class="cb-row" style="margin-top:12px">
-          <label class="cb-label"><input type="checkbox" id="debugMode"> Confirm before sending (debug mode)</label>
-        </div>
-        <div class="cb-row">
-          <label class="cb-label"><input type="checkbox" id="oriMode" checked> Show Ori column in Messages table</label>
         </div>
       </div>
       <div class="modal-actions">

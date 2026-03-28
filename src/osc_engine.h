@@ -288,11 +288,9 @@ void scene_send_task(void* param) {
             float eff_low  = resolve_low(msg, *scene);
             float eff_high = resolve_high(msg, *scene);
 
-            // Map [0, 1] → [low, high].  If low == high the value passes
-            // through as-is (degenerate range means "no scaling").
-            if (eff_low != eff_high) {
-                val = eff_low + val * (eff_high - eff_low);
-            }
+            // Map [0, 1] → [low, high].  When low == high the formula
+            // correctly outputs that constant value (eff_low + 0).
+            val = eff_low + val * (eff_high - eff_low);
 
             // Duplicate suppression: skip if value hasn't changed.
             if (_dedup_enabled && msg._has_last_sent && msg._last_sent_val == val) {

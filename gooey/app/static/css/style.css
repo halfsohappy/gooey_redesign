@@ -1031,7 +1031,6 @@ input[type="color"] {
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   transition: background 0.12s;
 }
@@ -1954,9 +1953,21 @@ button.loading::after {
 
 /* ── 6. Device tab caret ── */
 .tab-caret {
-  font-size: 10px;
+  font-size: 14px;
   opacity: 0.5;
-  margin-left: 2px;
+  margin-left: auto;
+  padding-left: 4px;
+  flex-shrink: 0;
+}
+
+/* Toggle-state labels in dropdown */
+.dd-toggle-on, .dd-toggle-off {
+  font-weight: 600;
+  color: var(--text-light);
+}
+.dd-toggle-on.dd-toggle-active,
+.dd-toggle-off.dd-toggle-active {
+  color: var(--accent);
 }
 
 /* Device dropdown improvements */
@@ -2084,6 +2095,8 @@ input.field-error {
   box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 .modal-box--wide { max-width: 600px; }
+.modal-box--verbose { max-width: 700px; }
+.modal-box--verbose .modal-body { white-space: pre-wrap; font-family: 'Martian Mono', monospace; font-size: 12px; }
 .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; }
 .modal-body { font-size: 14px; color: var(--text-medium); margin-bottom: 20px; line-height: 1.5; }
 .modal-body .form-row { margin-bottom: 10px; }
@@ -2568,4 +2581,47 @@ html.dark .script-editor {
 
 html.dark .script-ref-content code {
   background: var(--bg-hover);
+}
+
+/* ── Bulk action row (pattern matching) ─── */
+.bulk-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-alt);
+  font-size: 0.82rem;
+}
+.bulk-label {
+  font-weight: 500;
+  color: var(--text-medium);
+  white-space: nowrap;
+  cursor: help;
+}
+.bulk-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 0.8rem;
+  background: var(--bg-input);
+  color: var(--text-dark);
+}
+.bulk-input:focus { border-color: var(--border-focus); outline: none; }
+.bulk-input.has-pattern { border-color: var(--accent); background: var(--accent-dim); }
+.bulk-select {
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: var(--bg-input);
+  color: var(--text-dark);
+}
+.bulk-hint {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  white-space: nowrap;
 }

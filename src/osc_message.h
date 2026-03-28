@@ -28,8 +28,9 @@ class OscRegistry;
 
 // Maximum number of messages and scenes the registry can hold.  These
 // determine the size of the fixed arrays allocated at compile time.
-#define MAX_OSC_SCENES  64
-#define MAX_OSC_MESSAGES 256
+#define MAX_OSC_SCENES     64
+#define MAX_OSC_MESSAGES   256
+#define MAX_SCENES_PER_MSG 8
 
 // ---------------------------------------------------------------------------
 // ExistFlags — tracks which fields have been explicitly set on an object
@@ -43,7 +44,6 @@ struct ExistFlags {
     bool ip    = false;
     bool port  = false;
     bool adr   = false;   // osc_address
-    bool scene = false;
     bool val   = false;   // value_ptr
     bool low   = false;   // bounds[0]
     bool high  = false;   // bounds[1]
@@ -78,9 +78,32 @@ public:
     unsigned int  port;
     String        osc_address;
 
-    // Parent scene (optional).  When set, the scene provides fallback or
-    // override values for ip / port / osc_address.
-    OscScene*     scene;
+    // Parent scenes.  A message can belong to multiple scenes simultaneously.
+    // Each scene provides its own fallback/override values when sending.
+    OscScene*     scenes[MAX_SCENES_PER_MSG] = {};
+    uint8_t       scene_count = 0;
+
+    void add_scene(OscScene* p) {
+        if (!p) return;
+        for (uint8_t i = 0; i < scene_count; i++) { if (scenes[i] == p) return; }
+        if (scene_count < MAX_SCENES_PER_MSG) scenes[scene_count++] = p;
+    }
+    void remove_scene(OscScene* p) {
+        for (uint8_t i = 0; i < scene_count; i++) {
+            if (scenes[i] == p) {
+                for (uint8_t j = i; j < scene_count - 1; j++) scenes[j] = scenes[j + 1];
+                scenes[--scene_count] = nullptr;
+                return;
+            }
+        }
+    }
+    bool has_scene(const OscScene* p) const {
+        for (uint8_t i = 0; i < scene_count; i++) { if (scenes[i] == p) return true; }
+        return false;
+    }
+    bool in_any_scene() const { return scene_count > 0; }
+    OscScene* first_scene() const { return scene_count > 0 ? scenes[0] : nullptr; }
+    void clear_scenes() { for (uint8_t i = 0; i < scene_count; i++) scenes[i] = nullptr; scene_count = 0; }
 
     // Pointer into data_streams[] for the live sensor value to send.
     // Declared volatile because data_streams[] is updated concurrently by
@@ -119,10 +142,10 @@ public:
     // --- Constructors -------------------------------------------------------
 
     OscMessage()
-        : ip(0, 0, 0, 0), port(0), scene(nullptr), value_ptr(nullptr) {}
+        : ip(0, 0, 0, 0), port(0), value_ptr(nullptr) {}
 
     explicit OscMessage(const String& set_name)
-        : name(set_name), ip(0, 0, 0, 0), port(0), scene(nullptr), value_ptr(nullptr)
+        : name(set_name), ip(0, 0, 0, 0), port(0), value_ptr(nullptr)
     {
         exist.name = true;
     }
@@ -134,7 +157,8 @@ public:
         ip         = o.ip;
         port       = o.port;
         osc_address = o.osc_address;
-        scene      = o.scene;
+        scene_count = o.scene_count;
+        for (uint8_t i = 0; i < o.scene_count; i++) scenes[i] = o.scenes[i];
         value_ptr  = o.value_ptr;
         bounds[0]  = o.bounds[0];
         bounds[1]  = o.bounds[1];
@@ -151,7 +175,9 @@ public:
             ip         = o.ip;
             port       = o.port;
             osc_address = o.osc_address;
-            scene      = o.scene;
+            clear_scenes();
+            scene_count = o.scene_count;
+            for (uint8_t i = 0; i < o.scene_count; i++) scenes[i] = o.scenes[i];
             value_ptr  = o.value_ptr;
             bounds[0]  = o.bounds[0];
             bounds[1]  = o.bounds[1];
@@ -183,8 +209,9 @@ public:
         r.exist.adr   = exist.adr   || o.exist.adr;
         r.osc_address = exist.adr   ? osc_address : o.osc_address;
 
-        r.exist.scene = exist.scene || o.exist.scene;
-        r.scene       = exist.scene ? scene : o.scene;
+        // Merge scene lists: take all scenes from both, dedup via add_scene.
+        for (uint8_t i = 0; i < scene_count; i++)   r.add_scene(scenes[i]);
+        for (uint8_t i = 0; i < o.scene_count; i++) r.add_scene(o.scenes[i]);
 
         r.exist.val   = exist.val   || o.exist.val;
         r.value_ptr   = exist.val   ? value_ptr : o.value_ptr;
