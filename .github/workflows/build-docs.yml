@@ -6,8 +6,6 @@ on:
     paths:
       - "docs/*.md"
       - "docs/build_docs.py"
-      - "gooey/app/static/**"
-      - "gooey/app/templates/index.html"
   workflow_dispatch:
 
 permissions:
