@@ -314,6 +314,18 @@
     /* Show/hide welcome banner based on device count */
     var wb = $("#welcomeBanner");
     if (wb) wb.style.display = devCount === 0 ? "" : "none";
+    /* Scale font size up when few devices; wrap to 2 rows when space saturated */
+    if (container) {
+      var fontSize = devCount <= 2 ? "15px" : devCount <= 4 ? "14px" : "13px";
+      container.style.setProperty("--dev-tab-font", fontSize);
+      container.classList.remove("wrap-2row");
+      /* Defer saturation check until layout is done */
+      requestAnimationFrame(function () {
+        if (container.scrollWidth > container.clientWidth + 4) {
+          container.classList.add("wrap-2row");
+        }
+      });
+    }
     /* Update onboarding steps */
     updateOnboarding();
     /* Update feed device filter */
@@ -3336,7 +3348,7 @@
       {
         sel: ".section-nav",
         title: "Main Tabs",
-        body: "Switch between the six main sections: <strong>Messages</strong>, <strong>Scenes</strong>, <strong>Ori</strong>, <strong>Shows</strong>, <strong>Direct</strong>, and <strong>Advanced</strong>."
+        body: "Switch between the main sections: <strong>Messages</strong>, <strong>Scenes</strong>, <strong>Ori</strong>, <strong>Shows</strong>, and <strong>Advanced</strong>."
       },
       {
         sel: '.nav-btn[data-section="messages"]',
@@ -3519,9 +3531,26 @@
   }());
 
   /* ═══════════════════════════════════════════
-     SCRIPT TAB
+     PYTHON TAB
      ═══════════════════════════════════════════ */
   (function () {
+    /* ── Bulk Actions toggle ── */
+    (function () {
+      var BULK_KEY = "gooey_bulk_actions";
+      var chkBulk = $("#chkShowBulkActions");
+      function setBulkVisible(on) {
+        document.body.classList.toggle("bulk-actions-visible", on);
+        try { localStorage.setItem(BULK_KEY, on ? "1" : "0"); } catch (e) {}
+      }
+      var saved = null;
+      try { saved = localStorage.getItem(BULK_KEY); } catch (e) {}
+      if (saved === "1") {
+        if (chkBulk) chkBulk.checked = true;
+        setBulkVisible(true);
+      }
+      if (chkBulk) chkBulk.addEventListener("change", function () { setBulkVisible(chkBulk.checked); });
+    }());
+
     var SCRIPT_KEY = "gooey_script_enabled";
     var SCRIPT_DRAFT_KEY = "gooey_script_draft";
     var SCRIPT_NAME_KEY = "gooey_script_name";
@@ -3544,7 +3573,10 @@
     var inputInterval = $("#scriptInterval");
     var inputListenPort = $("#scriptListenPort");
 
+    var btnMirrorFeed = $("#chkScriptMirrorFeed");
+
     var scriptRunning = false;
+    var mirrorToFeed = false;
     var currentScriptName = "";
 
     /* ── Enable/disable toggle ── */
@@ -3618,6 +3650,13 @@
       });
     }
 
+    /* ── Mirror to Feed toggle ── */
+    if (btnMirrorFeed) {
+      btnMirrorFeed.addEventListener("change", function () {
+        mirrorToFeed = btnMirrorFeed.checked;
+      });
+    }
+
     /* ── Console output ── */
     function appendConsole(text, level) {
       if (!consoleEl) return;
@@ -3636,6 +3675,22 @@
     socket.on("script_output", function (data) {
       var prefix = data.time ? "[" + data.time + "] " : "";
       appendConsole(prefix + data.text, data.level);
+      // Mirror to Live Feed if enabled
+      if (mirrorToFeed) {
+        var feedLog = $("#feedLog");
+        if (feedLog) {
+          var entry = document.createElement("div");
+          entry.className = "feed-entry";
+          entry.innerHTML =
+            '<span class="feed-time">' + (data.time || "") + '</span> '
+            + '<span class="feed-dir ' + (data.level === "error" ? "recv" : "send") + '">[py]</span> '
+            + '<span class="feed-addr">' + data.text.replace(/</g, "&lt;") + '</span>';
+          feedLog.appendChild(entry);
+          if ($("#feedAutoScroll") && $("#feedAutoScroll").checked) {
+            feedLog.scrollTop = feedLog.scrollHeight;
+          }
+        }
+      }
     });
 
     socket.on("script_stopped", function () {
@@ -3651,6 +3706,12 @@
         if (!editor) return;
         var code = editor.value.trim();
         if (!code) { toast("No script to run", "error"); return; }
+        var interval = inputInterval ? parseInt(inputInterval.value, 10) || 50 : 50;
+        if (interval < 10) {
+          toast("Minimum interval is 10ms — clamped to 10ms", "info");
+          interval = 10;
+          if (inputInterval) inputInterval.value = 10;
+        }
         scriptRunning = true;
         btnRun.disabled = true;
         if (btnStop) btnStop.disabled = false;
@@ -3658,7 +3719,7 @@
         socket.emit("script_run", {
           code: code,
           mode: selMode ? selMode.value : "loop",
-          interval: inputInterval ? parseInt(inputInterval.value, 10) || 50 : 50,
+          interval: interval,
           listen_port: inputListenPort ? parseInt(inputListenPort.value, 10) || null : null,
         });
       });
@@ -3752,7 +3813,7 @@
         if (!selLoad) return;
         var name = selLoad.value;
         if (!name) { toast("Select a script first", "error"); return; }
-        showConfirm("Delete Script", "Delete \"" + name + "\"? This cannot be undone.", function () {
+        showConfirm("Delete Python Script", "Delete \"" + name + "\"? This cannot be undone.", function () {
           api("scripts/" + encodeURIComponent(name), null, "DELETE").then(function (res) {
             if (res.status === "ok") {
               if (currentScriptName === name) {
@@ -3777,15 +3838,6 @@
         + "if accel > threshold:\n"
         + '    osc_send("192.168.1.50", 7000, "/light/intensity", accel)\n'
         + '    print(f"Sent: {accel:.3f}")\n',
-
-      value_mapper:
-        "# Value Mapper\n"
-        + "# Remap a sensor value from one range to another\n\n"
-        + 'raw = sensor("eulerY")  # pitch: roughly -1 to 1\n\n'
-        + "# Remap to 0-255 for a DMX channel\n"
-        + "dmx = remap(raw, -1.0, 1.0, 0, 255)\n"
-        + "dmx = clamp(dmx, 0, 255)\n\n"
-        + 'osc_send("192.168.1.50", 7000, "/dmx/1", int(dmx))\n',
 
       multi_sensor:
         "# Multi-Sensor Combiner\n"

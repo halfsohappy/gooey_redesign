@@ -160,9 +160,8 @@
         <button class="nav-btn" data-section="scenes" title="Manage scene groups and their messages">Scenes</button>
         <button class="nav-btn" data-section="ori" title="Orientation tracking and ori conditions">Ori</button>
         <button class="nav-btn" data-section="shows" title="Named show snapshots — save and load full device state">Shows</button>
-        <button class="nav-btn" data-section="direct" title="Quick one-step send: creates message + scene and starts streaming">Direct</button>
         <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
-        <button class="nav-btn" data-section="script" id="navScript" title="Write Python scripts for custom routing and processing" style="display:none">Script</button>
+        <button class="nav-btn" data-section="script" id="navScript" title="Write Python scripts for custom routing and processing" style="display:none">Python</button>
       </nav>
 
       <div class="section-content">
@@ -341,6 +340,81 @@
             <div class="btn-row">
               <button class="btn btn-primary" id="btnMsgClone" title="Duplicate a message with a new name">Clone</button>
               <button class="btn btn-secondary" id="btnMsgRename" title="Rename an existing message">Rename</button>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="direct-command">
+            <h2>Direct Command</h2>
+            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately. If a message or scene with the same name already exists, it will be replaced.</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="directName">Name</label>
+                <input type="text" id="directName" value="quickSend" placeholder="name">
+              </div>
+              <div class="form-group">
+                <label for="directValue">Sensor</label>
+                <select id="directValue">
+                  <option value="">— none —</option>
+                  <option value="high">high (constant)</option>
+                  <option value="low">low (constant)</option>
+                  <option value="accelX">accelX</option>
+                  <option value="accelY">accelY</option>
+                  <option value="accelZ">accelZ</option>
+                  <option value="accelLength">accelLength</option>
+                  <option value="gaccelX">gaccelX</option>
+                  <option value="gaccelY">gaccelY</option>
+                  <option value="gaccelZ">gaccelZ</option>
+                  <option value="gaccelLength">gaccelLength</option>
+                  <option value="gyroX">gyroX</option>
+                  <option value="gyroY">gyroY</option>
+                  <option value="gyroZ">gyroZ</option>
+                  <option value="gyroLength">gyroLength</option>
+                  <option value="baro">baro</option>
+                  <option value="eulerX">eulerX</option>
+                  <option value="eulerY">eulerY</option>
+                  <option value="eulerZ">eulerZ</option>
+                  <option value="quatI">quatI</option>
+                  <option value="quatJ">quatJ</option>
+                  <option value="quatK">quatK</option>
+                  <option value="quatR">quatR</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="directIP">Target IP</label>
+                <input type="text" id="directIP" value="192.168.1.50">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="directPort">Port</label>
+                <input type="number" id="directPort" value="9000" min="1" max="65535">
+              </div>
+              <div class="form-group">
+                <label for="directAdr">Address</label>
+                <input type="text" id="directAdr" value="/sensor/x">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group fg-narrow">
+                <label for="directLow">Low</label>
+                <input type="text" id="directLow" placeholder="0">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="directHigh">High</label>
+                <input type="text" id="directHigh" placeholder="1">
+              </div>
+              <div class="form-group fg-narrow">
+                <label for="directPeriod">Period (ms)</label>
+                <input type="number" id="directPeriod" value="50" min="1" title="Period in milliseconds">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Config Preview</label>
+              <input type="text" id="directPreview" class="preview-input" readonly>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + scene, links, and starts streaming immediately">→ Send Direct</button>
+              <button class="btn btn-secondary" id="btnDirectCopy" title="Copy the config string to clipboard">↗ Copy Config</button>
             </div>
           </div>
         </section>
@@ -551,6 +625,32 @@
             </div>
           </div>
 
+          <div class="card" data-card-id="ori-list">
+            <h2>Saved Orientations</h2>
+            <p class="hint-text">Oris saved on the device. Click "List Oris" to refresh from device.</p>
+            <div style="overflow-x:auto">
+              <table class="data-table" id="oriTable">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Samples</th>
+                    <th>Mode</th>
+                    <th>Color</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="oriTableBody">
+                  <tr><td colspan="6"><div class="empty-state">
+                    <div class="empty-icon">◎</div>
+                    <div class="empty-text">No orientations tracked yet.</div>
+                    <div class="empty-sub">Register an ori below or query the device.</div>
+                  </div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="card" data-card-id="ori-register">
             <h2>Register Ori</h2>
             <p class="hint-text">Create a named ori slot on the device immediately. Then use <strong>Record Ori</strong> below (or Button A on ab7 devices) to capture its orientation. Color is auto-assigned from a 12-color palette, or pick a custom one.</p>
@@ -589,32 +689,6 @@
                 <button class="btn btn-stop" id="btnRecordStop">■ Stop</button>
                 <button class="btn btn-secondary" id="btnRecordCancel">✕ Cancel</button>
               </div>
-            </div>
-          </div>
-
-          <div class="card" data-card-id="ori-list">
-            <h2>Saved Orientations</h2>
-            <p class="hint-text">Oris saved on the device. Click "List Oris" to refresh from device.</p>
-            <div style="overflow-x:auto">
-              <table class="data-table" id="oriTable">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Samples</th>
-                    <th>Mode</th>
-                    <th>Color</th>
-                    <th>Active</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="oriTableBody">
-                  <tr><td colspan="6"><div class="empty-state">
-                    <div class="empty-icon">◎</div>
-                    <div class="empty-text">No orientations tracked yet.</div>
-                    <div class="empty-sub">Register an ori above or query the device.</div>
-                  </div></td></tr>
-                </tbody>
-              </table>
             </div>
           </div>
 
@@ -747,84 +821,6 @@
 
         </section>
 
-        <!-- ===== DIRECT ===== -->
-        <section class="section" id="sec-direct">
-          <div class="card">
-            <h2>Direct Command</h2>
-            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately. If a message or scene with the same name already exists, it will be replaced.</p>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="directName">Name</label>
-                <input type="text" id="directName" value="quickSend" placeholder="name">
-              </div>
-              <div class="form-group">
-                <label for="directValue">Sensor</label>
-                <select id="directValue">
-                  <option value="">— none —</option>
-                  <option value="high">high (constant)</option>
-                  <option value="low">low (constant)</option>
-                  <option value="accelX">accelX</option>
-                  <option value="accelY">accelY</option>
-                  <option value="accelZ">accelZ</option>
-                  <option value="accelLength">accelLength</option>
-                  <option value="gaccelX">gaccelX</option>
-                  <option value="gaccelY">gaccelY</option>
-                  <option value="gaccelZ">gaccelZ</option>
-                  <option value="gaccelLength">gaccelLength</option>
-                  <option value="gyroX">gyroX</option>
-                  <option value="gyroY">gyroY</option>
-                  <option value="gyroZ">gyroZ</option>
-                  <option value="gyroLength">gyroLength</option>
-                  <option value="baro">baro</option>
-                  <option value="eulerX">eulerX</option>
-                  <option value="eulerY">eulerY</option>
-                  <option value="eulerZ">eulerZ</option>
-                  <option value="quatI">quatI</option>
-                  <option value="quatJ">quatJ</option>
-                  <option value="quatK">quatK</option>
-                  <option value="quatR">quatR</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="directIP">Target IP</label>
-                <input type="text" id="directIP" value="192.168.1.50">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directPort">Port</label>
-                <input type="number" id="directPort" value="9000" min="1" max="65535">
-              </div>
-              <div class="form-group">
-                <label for="directAdr">Address</label>
-                <input type="text" id="directAdr" value="/sensor/x">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group fg-narrow">
-                <label for="directLow">Low</label>
-                <input type="text" id="directLow" placeholder="0">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directHigh">High</label>
-                <input type="text" id="directHigh" placeholder="1">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directPeriod">Period (ms)</label>
-                <input type="number" id="directPeriod" value="50" min="1" title="Period in milliseconds">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Config Preview</label>
-              <input type="text" id="directPreview" class="preview-input" readonly>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + scene, links, and starts streaming immediately">→ Send Direct</button>
-              <button class="btn btn-secondary" id="btnDirectCopy" title="Copy the config string to clipboard">↗ Copy Config</button>
-            </div>
-          </div>
-        </section>
-
         <!-- ===== ADVANCED ===== -->
         <section class="section" id="sec-advanced">
           <div class="card" data-card-id="raw-osc">
@@ -902,49 +898,56 @@
           </div>
 
           <div class="card" data-card-id="script-enable">
-            <h2>Script Tab</h2>
-            <p class="hint-text">Enable the Script tab to write custom Python for sophisticated routing and data processing.</p>
+            <h2>Python Tab</h2>
+            <p class="hint-text">Enable the Python tab to write custom Python for sophisticated routing and data processing.</p>
             <div class="cb-row">
-              <label class="cb-label"><input type="checkbox" id="chkEnableScript"> Enable Script tab</label>
+              <label class="cb-label"><input type="checkbox" id="chkEnableScript"> Enable Python tab</label>
+            </div>
+          </div>
+
+          <div class="card" data-card-id="ui-options">
+            <h2>UI Options</h2>
+            <div class="cb-row">
+              <label class="cb-label" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
             </div>
           </div>
         </section>
 
-        <!-- ===== SCRIPT ===== -->
+        <!-- ===== PYTHON ===== -->
         <section class="section" id="sec-script">
           <div class="card" data-card-id="script-editor">
-            <h2>Python Script</h2>
+            <h2>Python Editor</h2>
             <p class="hint-text">Write Python to process sensor data and send OSC messages. Use <code>sensor("accelX")</code> to read values and <code>osc_send(host, port, addr, val)</code> to send.</p>
 
-            <div class="form-row" style="align-items:flex-end">
-              <div class="form-group fg-narrow">
+            <div class="form-row" style="align-items:flex-end; gap:10px;">
+              <div class="form-group" style="flex:1; min-width:130px;">
                 <label for="scriptMode">Mode</label>
                 <select id="scriptMode">
                   <option value="loop" selected>Loop</option>
                   <option value="once">Run Once</option>
                 </select>
               </div>
-              <div class="form-group fg-narrow">
-                <label for="scriptInterval">Interval (ms)</label>
-                <input type="number" id="scriptInterval" value="50" min="10" max="60000">
+              <div class="form-group" style="flex:1; min-width:130px;">
+                <label for="scriptInterval" style="white-space:nowrap">Interval (ms)</label>
+                <input type="number" id="scriptInterval" value="50" min="10" max="60000" title="Minimum 10ms">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group" style="flex:1; min-width:130px;">
                 <label for="scriptListenPort">Listen Port</label>
                 <input type="number" id="scriptListenPort" value="9000" min="1" max="65535" title="OSC port to receive sensor data on">
               </div>
             </div>
 
             <div class="form-row" style="align-items:flex-end; gap:6px;">
-              <div class="form-group" style="flex:1">
+              <div class="form-group" style="flex:1; margin-bottom:0;">
                 <label for="scriptLoadSelect">Saved Scripts</label>
                 <select id="scriptLoadSelect">
                   <option value="">-- select --</option>
                 </select>
               </div>
-              <button class="btn btn-small btn-secondary" id="btnScriptLoad" title="Load the selected script into the editor">Load</button>
-              <button class="btn btn-small btn-secondary" id="btnScriptSave" title="Save the current script">Save</button>
-              <button class="btn btn-small btn-ghost" id="btnScriptSaveAs" title="Save the current script with a new name">Save As</button>
-              <button class="btn btn-small btn-danger" id="btnScriptDelete" title="Delete the selected saved script">Delete</button>
+              <button class="btn btn-secondary" id="btnScriptLoad" title="Load the selected script into the editor">Load</button>
+              <button class="btn btn-secondary" id="btnScriptSave" title="Save the current script">Save</button>
+              <button class="btn btn-ghost" id="btnScriptSaveAs" title="Save the current script with a new name">Save As</button>
+              <button class="btn btn-danger" id="btnScriptDelete" title="Delete the selected saved script">Delete</button>
             </div>
 
             <div class="form-group" style="flex:1">
@@ -953,12 +956,11 @@
                 <select id="scriptTemplateSelect" style="flex:1">
                   <option value="">-- select a template --</option>
                   <option value="threshold_gate">Threshold Gate</option>
-                  <option value="value_mapper">Value Mapper</option>
                   <option value="multi_sensor">Multi-Sensor Combiner</option>
                   <option value="timed_crossfade">Timed Crossfade</option>
                   <option value="state_machine">State Machine</option>
                 </select>
-                <button class="btn btn-small btn-secondary" id="btnScriptTemplate" title="Load the selected template into the editor">Load Template</button>
+                <button class="btn btn-secondary" id="btnScriptTemplate" title="Load the selected template into the editor">Load Template</button>
               </div>
             </div>
 
@@ -978,15 +980,18 @@
           </div>
 
           <div class="card" data-card-id="script-console">
-            <div style="display:flex; align-items:center; justify-content:space-between;">
-              <h2>Console</h2>
-              <button class="btn btn-small btn-ghost" id="btnScriptConsoleClear" title="Clear console output">Clear</button>
+            <div class="card-title-row" style="display:flex; align-items:center; justify-content:space-between;">
+              <h2 style="margin:0">Python Console</h2>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <label class="cb-label" style="font-size:12px; margin:0;" title="Mirror Python console output to the Live Feed panel"><input type="checkbox" id="chkScriptMirrorFeed"> Mirror to Feed</label>
+                <button class="btn btn-small btn-ghost" id="btnScriptConsoleClear" title="Clear console output">Clear</button>
+              </div>
             </div>
             <div class="script-console" id="scriptConsole"></div>
           </div>
 
           <div class="card card-collapsed" data-card-id="script-reference">
-            <h2>Script API Reference</h2>
+            <h2>Python API Reference</h2>
             <div class="script-ref-content">
               <table class="data-table">
                 <thead><tr><th>Function</th><th>Description</th></tr></thead>
