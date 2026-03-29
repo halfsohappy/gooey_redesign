@@ -7,7 +7,7 @@ if getattr(sys, "frozen", False) and sys._MEIPASS not in sys.path:
 from app.main import create_app
 
 HOST = "127.0.0.1"
-PORT = 5001
+PORT = 5254
 
 
 def main():

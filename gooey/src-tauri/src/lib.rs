@@ -4,7 +4,7 @@ use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
-const FLASK_URL: &str = "http://127.0.0.1:5001";
+const FLASK_URL: &str = "http://127.0.0.1:5254";
 const READY_TIMEOUT_SECS: u64 = 30;
 const POLL_INTERVAL_MS: u64 = 200;
 
@@ -73,7 +73,7 @@ fn start_sidecar(app: AppHandle, child_holder: Arc<Mutex<Option<CommandChild>>>)
         }
     });
 
-    // Poll until Flask responds on localhost:5001.
+    // Poll until Flask responds on localhost:5254.
     let deadline = Instant::now() + Duration::from_secs(READY_TIMEOUT_SECS);
     loop {
         if Instant::now() >= deadline {

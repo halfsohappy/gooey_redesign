@@ -1,17 +1,17 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Gooey",
+  "productName": "annieData",
   "version": "0.2.0",
-  "identifier": "com.theatergwd.gooey",
+  "identifier": "com.theatergwd.anniedata",
   "build": {
     "frontendDist": "../ui",
-    "devUrl": "http://localhost:5001"
+    "devUrl": "http://localhost:5254"
   },
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "annieData — Gooey",
+        "title": "annieData",
         "width": 1400,
         "height": 900,
         "resizable": true,
@@ -35,6 +35,9 @@
     ],
     "externalBin": [
       "binaries/gooey-server"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }
