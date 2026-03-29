@@ -10,7 +10,7 @@ import threading
 import markdown as md_lib
 import serial
 import serial.tools.list_ports
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, join_room, leave_room
 
 from .osc_handler import OSCEngine
@@ -105,6 +105,14 @@ def index():
 @app.route("/remote")
 def remote():
     return render_template("remote.html")
+
+
+@app.route("/sw.js")
+def service_worker():
+    response = send_from_directory(app.static_folder, "sw.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # -- Send / Receive / Bridge (unchanged OSC transport) --

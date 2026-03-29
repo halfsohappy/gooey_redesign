@@ -1,0 +1,13 @@
+{
+  "name": "Gooey Remote",
+  "short_name": "Remote",
+  "description": "TheaterGWD remote control",
+  "start_url": "/remote",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#DAC7FF",
+  "icons": [
+    { "src": "/static/icons/remote-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/icons/remote-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

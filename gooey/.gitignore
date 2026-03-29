@@ -22,3 +22,8 @@ env/
 
 # Standalone build
 *.spec
+!GooeyServer.spec
+
+# Tauri
+src-tauri/target/
+src-tauri/binaries/

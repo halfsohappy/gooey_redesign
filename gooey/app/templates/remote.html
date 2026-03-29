@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#DAC7FF">
   <title>Remote — annieData</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <style>
     :root {
       --bg: #0f0f0f;
@@ -380,5 +381,10 @@
 
 <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/remote.js') }}"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/remote' });
+  }
+</script>
 </body>
 </html>
