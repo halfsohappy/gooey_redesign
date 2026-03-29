@@ -99,8 +99,8 @@ jobs:
             gooey/src-tauri/target/release/bundle/appimage/*.AppImage
             gooey/src-tauri/target/release/bundle/deb/*.deb
 
-  # ── Publish: force-push latest builds to the `prod` branch ───────────────
-  # The `prod` branch always has exactly one commit — the latest build.
+  # ── Publish: update the rolling `build` release with latest artifacts ───────
+  # The `build` tag/release is always replaced with the latest successful build.
   # No history accumulates. To get an old build, revert the source and rebuild.
   publish:
     needs: build-desktop
@@ -116,22 +116,29 @@ jobs:
         with:
           path: _artifacts
 
-      - name: Organise into prod/
+      - name: Collect release files
         run: |
-          mkdir -p prod/macOS prod/Windows prod/Linux
-          find _artifacts/annieData-macOS   -type f -exec cp {} prod/macOS/  \; 2>/dev/null || true
-          find _artifacts/annieData-Windows -type f -exec cp {} prod/Windows/ \; 2>/dev/null || true
-          find _artifacts/annieData-Linux   -type f -exec cp {} prod/Linux/  \; 2>/dev/null || true
-          echo "Built from ${{ github.sha }} on $(date -u)" > prod/BUILD.txt
-          ls -lhR prod/
+          mkdir -p release_files
+          find _artifacts/annieData-macOS   -type f -exec cp {} release_files/ \; 2>/dev/null || true
+          find _artifacts/annieData-Windows -type f -exec cp {} release_files/ \; 2>/dev/null || true
+          find _artifacts/annieData-Linux   -type f -exec cp {} release_files/ \; 2>/dev/null || true
+          ls -lh release_files/
 
-      - name: Force-push to prod branch (single commit, no history)
+      - name: Delete existing release and tag (if present)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cd prod
-          git init
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "build: ${{ github.sha }}"
-          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git push --force origin HEAD:refs/heads/prod
+          VERSION=$(cat gooey/src-tauri/tauri.conf.json | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+          echo "VERSION=v${VERSION}" >> $GITHUB_ENV
+          gh release delete "v${VERSION}" --yes --repo ${{ github.repository }} 2>/dev/null || true
+          git push origin ":refs/tags/v${VERSION}" 2>/dev/null || true
+
+      - name: Create updated release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$VERSION" release_files/* \
+            --repo ${{ github.repository }} \
+            --title "$VERSION" \
+            --notes "Built from \`${{ github.sha }}\` on $(date -u +'%Y-%m-%d %H:%M UTC')" \
+            --latest
