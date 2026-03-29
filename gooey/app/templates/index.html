@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gooey — Control Center</title>
+  <title>annieData — Control Center</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
@@ -128,7 +128,7 @@
   <!-- Onboarding banner (hidden until shown by JS) -->
   <div id="onboardBanner" class="onboard-banner hidden">
     <button class="onboard-dismiss" id="onboardDismiss" aria-label="Dismiss onboarding">✕</button>
-    <div class="onboard-title">Getting started with Gooey</div>
+    <div class="onboard-title">Getting started with annieData</div>
     <div class="onboard-steps">
       <div class="onboard-step" id="onboard1">
         <span class="onboard-num">1</span>
@@ -171,7 +171,7 @@
 
           <!-- Welcome banner (shown when no devices added yet) -->
           <div id="welcomeBanner" class="welcome-banner" style="display:none">
-            <div class="welcome-title">Welcome to Gooey</div>
+            <div class="welcome-title">Welcome to annieData</div>
             <div class="welcome-steps">
               <div class="welcome-step"><span class="step-num">1</span> Add a device using the <strong>+</strong> button above</div>
               <div class="welcome-step"><span class="step-num">2</span> Click its tab and choose Query to load its configuration</div>
@@ -906,6 +906,16 @@
               <label class="cb-label" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
             </div>
           </div>
+
+          <div class="card qr-card" data-card-id="remote-qr">
+            <h2>Mobile Remote</h2>
+            <p class="hint-text">Scan from your phone or tablet to open the annieData remote on your local network.</p>
+            <canvas id="remoteQRCanvas" class="qr-canvas"></canvas>
+            <div id="remoteQRUrl" class="qr-url"></div>
+            <div class="btn-row" style="margin-top:8px">
+              <button class="btn btn-secondary" id="btnCopyRemoteUrl">Copy URL</button>
+            </div>
+          </div>
         </section>
 
         <!-- ===== PYTHON ===== -->
@@ -1207,5 +1217,27 @@
 
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script>
+    (function () {
+      var canvas = document.getElementById("remoteQRCanvas");
+      var urlEl  = document.getElementById("remoteQRUrl");
+      var copyBtn = document.getElementById("btnCopyRemoteUrl");
+      if (!canvas) return;
+      fetch("/api/my-ip").then(function(r){ return r.json(); }).then(function(d) {
+        var ip   = d.ip || window.location.hostname;
+        var port = window.location.port || "5254";
+        var url  = "http://" + ip + ":" + port + "/remote";
+        urlEl.textContent = url;
+        QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#1a1a1a", light: "#f5f0ff" } });
+      }).catch(function() {
+        urlEl.textContent = "Run annieData on your local network to use the remote.";
+      });
+      if (copyBtn) copyBtn.addEventListener("click", function() {
+        var text = urlEl.textContent;
+        if (text && navigator.clipboard) navigator.clipboard.writeText(text);
+      });
+    }());
+  </script>
 </body>
 </html>
