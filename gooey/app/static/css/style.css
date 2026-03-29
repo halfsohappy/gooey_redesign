@@ -355,6 +355,53 @@ input::placeholder, textarea::placeholder {
   color: var(--text-light);
 }
 
+/* Remove native OS spinners from all number inputs (important for system WebViews) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Custom checkbox — strips native OS rendering for system WebViews (pywebview/WKWebView/WebView2) */
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg-input);
+  cursor: pointer;
+  position: relative;
+  vertical-align: middle;
+  transition: background 0.15s, border-color 0.15s;
+}
+input[type="checkbox"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0px;
+  width: 5px;
+  height: 8px;
+  border: 1.5px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 1px;
+}
+
 textarea { resize: vertical; min-height: 60px; }
 
 select {
@@ -645,7 +692,7 @@ select {
   font-weight: 400;
 }
 
-.cb-label input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+.cb-label input[type="checkbox"] { width: 13px; }
 
 /* ── Active list (bridges) ── */
 .active-list { margin-top: 8px; }
@@ -721,7 +768,7 @@ select {
   text-transform: none;
 }
 
-.toggle-label input { width: auto; }
+.toggle-label input[type="checkbox"] { width: 13px; }
 
 .feed-filter-input {
   width: 90px !important;
@@ -1282,9 +1329,6 @@ input[type="color"] {
 .hdr-input-port {
   width: 90px !important;
 }
-.hdr-input-port::-webkit-inner-spin-button,
-.hdr-input-port::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-.hdr-input-port { -moz-appearance: textfield; }
 
 .hdr-select-sm {
   font-family: var(--font);
