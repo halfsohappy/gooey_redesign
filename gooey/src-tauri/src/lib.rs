@@ -13,16 +13,35 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            let child_holder: Arc<Mutex<Option<CommandChild>>> = Arc::new(Mutex::new(None));
+            let child_for_event = child_holder.clone();
+
+            // Register window close handler on the window itself (not AppHandle).
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(move |event| {
+                    if matches!(
+                        event,
+                        tauri::WindowEvent::CloseRequested { .. }
+                            | tauri::WindowEvent::Destroyed
+                    ) {
+                        if let Ok(mut guard) = child_for_event.lock() {
+                            if let Some(c) = guard.take() {
+                                let _ = c.kill();
+                            }
+                        }
+                    }
+                });
+            }
+
             let handle = app.handle().clone();
-            std::thread::spawn(move || start_sidecar(handle));
+            std::thread::spawn(move || start_sidecar(handle, child_holder));
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running Gooey");
 }
 
-fn start_sidecar(app: AppHandle) {
-    // Launch the Python server sidecar.
+fn start_sidecar(app: AppHandle, child_holder: Arc<Mutex<Option<CommandChild>>>) {
     let (mut rx, child) = app
         .shell()
         .sidecar("gooey-server")
@@ -30,20 +49,12 @@ fn start_sidecar(app: AppHandle) {
         .spawn()
         .expect("failed to spawn gooey-server");
 
-    // Keep the child alive; kill it when the window closes.
-    let child = Arc::new(Mutex::new(child));
-    let child_for_event = child.clone();
+    // Store child so the window event handler can kill it on close.
+    if let Ok(mut guard) = child_holder.lock() {
+        *guard = Some(child);
+    }
 
-    app.on_window_event(move |_window, event| {
-        if matches!(event, tauri::WindowEvent::CloseRequested { .. }
-            | tauri::WindowEvent::Destroyed) {
-            if let Ok(mut c) = child_for_event.lock() {
-                let _ = kill_child(&mut c);
-            }
-        }
-    });
-
-    // Forward sidecar output to host stdout/stderr for debugging.
+    // Forward sidecar output to host terminal for debugging.
     std::thread::spawn(move || {
         while let Some(event) = rx.blocking_recv() {
             match event {
@@ -75,15 +86,10 @@ fn start_sidecar(app: AppHandle) {
         std::thread::sleep(Duration::from_millis(POLL_INTERVAL_MS));
     }
 
-    // Navigate the main window to Flask and show it.
+    // Navigate main window to Flask and show it.
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.navigate(FLASK_URL.parse().expect("invalid Flask URL"));
         std::thread::sleep(Duration::from_millis(300));
         let _ = window.show();
     }
-}
-
-fn kill_child(child: &mut CommandChild) -> Result<(), Box<dyn std::error::Error>> {
-    child.kill()?;
-    Ok(())
 }

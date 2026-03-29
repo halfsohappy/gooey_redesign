@@ -4,7 +4,7 @@
   "version": "0.2.0",
   "identifier": "com.theatergwd.gooey",
   "build": {
-    "frontendDist": ".",
+    "frontendDist": "../ui",
     "devUrl": "http://localhost:5001"
   },
   "app": {

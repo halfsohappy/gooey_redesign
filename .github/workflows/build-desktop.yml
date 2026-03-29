@@ -1,0 +1,137 @@
+name: Build annieData
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Desktop builds (macOS, Windows, Linux) ────────────────────────────────
+  build-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+          - os: ubuntu-latest
+            label: Linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Python dependencies
+        working-directory: gooey
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Install npm dependencies
+        working-directory: gooey
+        run: npm install
+
+      - name: Build sidecar (macOS / Linux)
+        if: runner.os != 'Windows'
+        working-directory: gooey
+        run: bash scripts/build_sidecar.sh
+
+      - name: Build sidecar (Windows)
+        if: runner.os == 'Windows'
+        working-directory: gooey
+        shell: pwsh
+        run: |
+          $triple = (rustc -vV | Select-String 'host:').ToString().Split(':')[1].Trim()
+          python -m PyInstaller GooeyServer.spec
+          New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
+          Copy-Item "dist/gooey-server.exe" "src-tauri/binaries/gooey-server-$triple.exe"
+
+      - name: Build Tauri app
+        working-directory: gooey
+        run: npx tauri build
+
+      - name: Upload macOS artifacts
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: annieData-macOS
+          path: gooey/src-tauri/target/release/bundle/dmg/*.dmg
+
+      - name: Upload Windows artifacts
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: annieData-Windows
+          path: |
+            gooey/src-tauri/target/release/bundle/nsis/*.exe
+            gooey/src-tauri/target/release/bundle/msi/*.msi
+
+      - name: Upload Linux artifacts
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: annieData-Linux
+          path: |
+            gooey/src-tauri/target/release/bundle/appimage/*.AppImage
+            gooey/src-tauri/target/release/bundle/deb/*.deb
+
+  # ── Publish: force-push latest builds to the `prod` branch ───────────────
+  # The `prod` branch always has exactly one commit — the latest build.
+  # No history accumulates. To get an old build, revert the source and rebuild.
+  publish:
+    needs: build-desktop
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: _artifacts
+
+      - name: Organise into prod/
+        run: |
+          mkdir -p prod/macOS prod/Windows prod/Linux
+          find _artifacts/annieData-macOS   -type f -exec cp {} prod/macOS/  \; 2>/dev/null || true
+          find _artifacts/annieData-Windows -type f -exec cp {} prod/Windows/ \; 2>/dev/null || true
+          find _artifacts/annieData-Linux   -type f -exec cp {} prod/Linux/  \; 2>/dev/null || true
+          echo "Built from ${{ github.sha }} on $(date -u)" > prod/BUILD.txt
+          ls -lhR prod/
+
+      - name: Force-push to prod branch (single commit, no history)
+        run: |
+          cd prod
+          git init
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "build: ${{ github.sha }}"
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+          git push --force origin HEAD:refs/heads/prod
