@@ -96,6 +96,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ] && [ -z "$APPLE_SIGNING_IDENTITY" ]; then
             echo "::warning::APPLE_SIGNING_IDENTITY is not set — app will be unsigned and rejected by Gatekeeper"
