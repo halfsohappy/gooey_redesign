@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -13,6 +14,39 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
+            // ── Menu bar ──────────────────────────────────────────────────────
+            let clear_cache = MenuItemBuilder::with_id("clear_cache", "Clear Cache")
+                .build(app)?;
+            let app_submenu = SubmenuBuilder::new(app, "annieData")
+                .item(&PredefinedMenuItem::about(app, None)?)
+                .separator()
+                .item(&clear_cache)
+                .separator()
+                .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            let edit_submenu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+            let menu = MenuBuilder::new(app)
+                .item(&app_submenu)
+                .item(&edit_submenu)
+                .build()?;
+            app.set_menu(menu)?;
+            app.on_menu_event(|app, event| {
+                if event.id().0 == "clear_cache" {
+                    if let Some(win) = app.get_webview_window("main") {
+                        let _ = win.eval("localStorage.clear(); location.reload();");
+                    }
+                }
+            });
+            // ─────────────────────────────────────────────────────────────────
+
             let child_holder: Arc<Mutex<Option<CommandChild>>> = Arc::new(Mutex::new(None));
             let child_for_event = child_holder.clone();
 

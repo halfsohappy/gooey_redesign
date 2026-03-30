@@ -1075,7 +1075,7 @@ input[type="color"] {
   font-family: var(--font);
   font-size: var(--dev-tab-font, 13px);
   font-weight: 400;
-  padding: 0 13px;
+  padding: 0 8px 0 13px;
   max-width: 180px;
   border: 1px solid var(--overlay-border);
   background: var(--overlay-bg);
@@ -1083,12 +1083,16 @@ input[type="color"] {
   border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 6px;
   transition: background 0.12s;
+}
+.dev-tab .tab-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dev-tab:hover { background: var(--overlay-bg-hover); }
@@ -1100,7 +1104,6 @@ input[type="color"] {
 
 .dev-tab .dev-dot { background: rgba(0,0,0,0.25); }
 .dev-tab.active .dev-dot { background: var(--success); box-shadow: 0 0 4px rgba(76,175,80,0.5); }
-.dev-tab:hover .tab-caret { opacity: 1; }
 
 /* ── Query zone ── */
 .hdr-query {
@@ -2011,12 +2014,12 @@ button.loading::after {
 
 /* ── 6. Device tab caret ── */
 .tab-caret {
-  font-size: 14px;
-  opacity: 0.5;
-  margin-left: auto;
-  padding-left: 4px;
+  font-size: 11px;
+  opacity: 0.45;
   flex-shrink: 0;
+  transition: opacity 0.12s;
 }
+.dev-tab:hover .tab-caret { opacity: 0.9; }
 
 /* Toggle-state labels in dropdown */
 .dd-toggle-on, .dd-toggle-off {

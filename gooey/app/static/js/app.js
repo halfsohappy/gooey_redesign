@@ -283,11 +283,24 @@
       dot.className = "dev-dot";
       dot.title = isActive ? "Active device" : "Inactive";
       btn.appendChild(dot);
-      btn.appendChild(document.createTextNode(d.name));
+      var label = document.createElement("span");
+      label.className = "tab-label";
+      label.textContent = d.name;
+      btn.appendChild(label);
       var caret = document.createElement("span");
       caret.className = "tab-caret";
       caret.textContent = "▾";
       btn.appendChild(caret);
+      /* Right-click opens dropdown directly — accessible even when tab is narrow */
+      btn.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        activeDeviceId = id;
+        renderDeviceTabs();
+        refreshAllDropdowns();
+        refreshQueryDeviceSelect();
+        var freshBtn = document.querySelector('.dev-tab[data-device-id="' + id + '"]');
+        if (freshBtn) openDevDropdown(freshBtn, id);
+      });
       /* Plain click: just select the device, no dropdown */
       btn.addEventListener("click", function (e) {
         activeDeviceId = id;
@@ -326,8 +339,6 @@
         }
       });
     }
-    /* Update onboarding steps */
-    updateOnboarding();
     /* Update feed device filter */
     var sel = $("#feedDeviceFilter");
     var curVal = sel.value;
@@ -959,7 +970,6 @@
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.messages).length === 0) {
       tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
-      updateOnboarding();
       return;
     }
     Object.keys(dev.messages).forEach(function (name) {
@@ -1001,7 +1011,6 @@
       tbody.appendChild(tr);
     });
     applyColVisibility();
-    updateOnboarding();
   }
 
   function populateMsgForm(name, m) {
@@ -2396,11 +2405,6 @@
     _activeViews.notifications = true;
     updatePanelLayout();
 
-    // Suppress onboard banner — steps appear as notifications instead
-    var _demoBanner = $("#onboardBanner");
-    if (_demoBanner) _demoBanner.classList.add("hidden");
-    try { localStorage.setItem("gooey_onboard_dismissed", "1"); } catch (e) {}
-
     // Seed getting-started steps as notifications (added in reverse so step 1 shows at top)
     showToast("Step 4: Start a scene \u2014 group messages together and click Start to begin streaming.", "info");
     showToast("Step 3: Create messages \u2014 map sensor streams to OSC addresses in the Messages tab.", "info");
@@ -3152,53 +3156,6 @@
     });
   }
 
-  /* ═══════════════════════════════════════════
-     ONBOARDING BANNER
-     ═══════════════════════════════════════════ */
-
-  var ONBOARD_DISMISSED_KEY = "gooey_onboard_dismissed";
-
-  function updateOnboarding() {
-    var banner = $("#onboardBanner");
-    if (!banner) return;
-    /* If permanently dismissed, keep hidden */
-    try { if (localStorage.getItem(ONBOARD_DISMISSED_KEY)) { banner.classList.add("hidden"); return; } } catch (e) {}
-
-    var devCount = Object.keys(devices).length;
-    var hasMsgs = false;
-    var hasScenes = false;
-    Object.keys(devices).forEach(function (id) {
-      var d = devices[id];
-      if (Object.keys(d.messages || {}).length > 0) hasMsgs = true;
-      if (Object.keys(d.scenes || {}).length > 0) hasScenes = true;
-    });
-
-    /* Show banner if incomplete */
-    if (!hasScenes) {
-      banner.classList.remove("hidden");
-    } else {
-      banner.classList.add("hidden");
-    }
-
-    /* Mark completed steps */
-    var s1 = $("#onboard1"), s2 = $("#onboard2"), s3 = $("#onboard3"), s4 = $("#onboard4");
-    if (s1) { if (devCount > 0) s1.classList.add("done"); else s1.classList.remove("done"); }
-    if (s2) { if (hasMsgs || hasScenes) s2.classList.add("done"); else s2.classList.remove("done"); }
-    if (s3) { if (hasMsgs) s3.classList.add("done"); else s3.classList.remove("done"); }
-    if (s4) { if (hasScenes) s4.classList.add("done"); else s4.classList.remove("done"); }
-  }
-
-  var onboardDismiss = $("#onboardDismiss");
-  if (onboardDismiss) {
-    onboardDismiss.addEventListener("click", function () {
-      try { localStorage.setItem(ONBOARD_DISMISSED_KEY, "1"); } catch (e) {}
-      var banner = $("#onboardBanner");
-      if (banner) banner.classList.add("hidden");
-    });
-  }
-
-  /* Initial onboarding check */
-  updateOnboarding();
 
   /* ═══════════════════════════════════════════
      REFERENCE PANEL — open by default first visit
