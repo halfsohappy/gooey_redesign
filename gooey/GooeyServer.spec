@@ -1,10 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 
 a = Analysis(
     ['run_server.py'],
     pathex=[],
     binaries=[],
-    datas=[('app', 'app')],
+    datas=[(os.path.join(SPECPATH, 'app'), 'app')],
     hiddenimports=[
         'flask_socketio',
         'pythonosc',
