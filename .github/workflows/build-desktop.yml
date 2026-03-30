@@ -89,7 +89,26 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" build.keychain
           rm -f certificate.p12
 
+      - name: Verify notarization credentials (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "::warning::Notarization credentials incomplete — skipping notarization"
+            exit 0
+          fi
+          echo "Testing notarization credentials with notarytool history..."
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" 2>&1 | head -5
+          echo "Credentials OK"
+
       - name: Build Tauri app
+        timeout-minutes: 20
         working-directory: gooey
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
