@@ -70,6 +70,16 @@ jobs:
           New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
           Copy-Item "dist/gooey-server.exe" "src-tauri/binaries/gooey-server-$triple.exe"
 
+      - name: Debug secrets presence (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]          && echo "APPLE_CERTIFICATE: SET"          || echo "APPLE_CERTIFICATE: MISSING"
+          [ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ] && echo "APPLE_CERTIFICATE_PASSWORD: SET" || echo "APPLE_CERTIFICATE_PASSWORD: MISSING"
+          [ -n "${{ secrets.APPLE_SIGNING_IDENTITY }}" ]     && echo "APPLE_SIGNING_IDENTITY: SET"     || echo "APPLE_SIGNING_IDENTITY: MISSING"
+          [ -n "${{ secrets.APPLE_ID }}" ]                   && echo "APPLE_ID: SET"                   || echo "APPLE_ID: MISSING"
+          [ -n "${{ secrets.APPLE_PASSWORD }}" ]             && echo "APPLE_PASSWORD: SET"             || echo "APPLE_PASSWORD: MISSING"
+          [ -n "${{ secrets.APPLE_TEAM_ID }}" ]              && echo "APPLE_TEAM_ID: SET"              || echo "APPLE_TEAM_ID: MISSING"
+
       - name: Import Apple certificate (macOS)
         if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
         env:
