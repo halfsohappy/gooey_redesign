@@ -22,7 +22,7 @@ jobs:
             label: Linux
 
     runs-on: ${{ matrix.os }}
-    environment: gooey-theatergwd
+    environment: main - gooey-theatergwd
 
     steps:
       - uses: actions/checkout@v4
