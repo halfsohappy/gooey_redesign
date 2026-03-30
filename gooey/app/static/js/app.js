@@ -3487,6 +3487,17 @@
     var btnRef = $("#btnStartTour");
     if (btnRef) btnRef.addEventListener("click", startTour);
 
+    /* Guide button — open /docs/ in system browser (Tauri) or new tab (local dev) */
+    var btnGuide = $("#btnGuide");
+    if (btnGuide) btnGuide.addEventListener("click", function () {
+      var url = location.origin + "/docs/";
+      if (window.__TAURI__) {
+        window.__TAURI__.shell.open(url);
+      } else {
+        window.open(url, "_blank");
+      }
+    });
+
     var btnOnboard = $("#btnOnboardTour");
     if (btnOnboard) btnOnboard.addEventListener("click", startTour);
 

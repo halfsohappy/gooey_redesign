@@ -1123,9 +1123,14 @@ def handle_script_status():
 # ── Docs ──
 
 def _find_docs_root():
-    """Return the docs directory, checking both source-checkout and brew-install layouts."""
+    """Return the docs directory, checking PyInstaller bundle, source checkout, and brew install."""
+    import sys
+    candidates = []
+    # PyInstaller --onefile: data files extracted to sys._MEIPASS at runtime
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        candidates.append(os.path.join(sys._MEIPASS, 'docs'))
     base = os.path.dirname(__file__)
-    candidates = [
+    candidates += [
         os.path.join(base, "..", "..", "docs"),  # source checkout: repo/docs/
         os.path.join(base, "..", "docs"),         # brew install:   libexec/docs/
     ]
@@ -1133,7 +1138,7 @@ def _find_docs_root():
         path = os.path.normpath(path)
         if os.path.isdir(path):
             return path
-    # Fall back to source-checkout path even if absent (produces a clear 404)
+    # Fall back to first candidate even if absent (produces a clear 404)
     return os.path.normpath(candidates[0])
 
 _DOCS_ROOT = _find_docs_root()

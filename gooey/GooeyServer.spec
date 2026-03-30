@@ -5,7 +5,10 @@ a = Analysis(
     ['run_server.py'],
     pathex=[],
     binaries=[],
-    datas=[(os.path.join(SPECPATH, 'app'), 'app')],
+    datas=[
+        (os.path.join(SPECPATH, 'app'), 'app'),
+        (os.path.join(SPECPATH, '..', 'docs'), 'docs'),
+    ],
     hiddenimports=[
         'flask_socketio',
         'pythonosc',

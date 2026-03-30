@@ -12,7 +12,7 @@
     (function(){
       if (GOOEY_DEMO) return; // demo always uses light mode
       var t = localStorage.getItem('gooey-theme');
-      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches))
+      if (t !== 'light')
         document.documentElement.classList.add('dark');
     })();
   </script>
@@ -125,30 +125,6 @@
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
 
-  <!-- Onboarding banner (hidden until shown by JS) -->
-  <div id="onboardBanner" class="onboard-banner hidden">
-    <button class="onboard-dismiss" id="onboardDismiss" aria-label="Dismiss onboarding">✕</button>
-    <div class="onboard-title">Getting started with annieData</div>
-    <div class="onboard-steps">
-      <div class="onboard-step" id="onboard1">
-        <span class="onboard-num">1</span>
-        <span><strong>Add a device</strong> — click <strong>+</strong> in the header to enter your device's IP and port.</span>
-      </div>
-      <div class="onboard-step" id="onboard2">
-        <span class="onboard-num">2</span>
-        <span><strong>Query it</strong> — click the device tab, then click <strong>⟳ Query</strong> in the header to load its configuration.</span>
-      </div>
-      <div class="onboard-step" id="onboard3">
-        <span class="onboard-num">3</span>
-        <span><strong>Create messages</strong> — map sensor streams to OSC addresses in the Messages section.</span>
-      </div>
-      <div class="onboard-step" id="onboard4">
-        <span class="onboard-num">4</span>
-        <span><strong>Start a scene</strong> — group messages into a scene and hit Start to begin streaming.</span>
-      </div>
-    </div>
-    <button class="btn btn-small btn-ghost" id="btnOnboardTour" style="margin-top:10px;font-size:12px;">Take a tour →</button>
-  </div>
 
   <!-- ===== Main Split Layout ===== -->
   <div class="app-layout">
@@ -1084,7 +1060,7 @@
           <div class="feed-controls">
             <input type="text" id="refSearch" placeholder="Search…" class="feed-filter-input feed-filter-input-narrow">
             <button class="btn btn-small btn-ghost" id="btnStartTour" title="Take a guided tour of the interface">Tour</button>
-            <a class="btn btn-small btn-ghost" href="/docs/" target="_blank" rel="noopener" title="Open user guide">Guide ↗</a>
+            <button class="btn btn-small btn-ghost" id="btnGuide" title="Open user guide">Guide ↗</button>
           </div>
         </div>
         <div class="ref-panel-content">
