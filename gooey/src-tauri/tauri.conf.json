@@ -37,6 +37,7 @@
       "binaries/gooey-server"
     ],
     "macOS": {
+      "signingIdentity": "-",
       "entitlements": "entitlements.plist"
     }
   }
