@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
@@ -24,7 +24,7 @@ pub fn run() {
             let user_guide   = MenuItemBuilder::with_id("user_guide",   "User Guide").build(app)?;
 
             let app_submenu = SubmenuBuilder::new(app, "annieData")
-                .item(&PredefinedMenuItem::about(app, None)?)
+                .item(&PredefinedMenuItem::about(app, None, Some(AboutMetadata::default()))?)
                 .separator()
                 .item(&dark_mode)
                 .item(&clear_cache)
