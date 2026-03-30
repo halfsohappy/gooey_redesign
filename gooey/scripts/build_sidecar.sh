@@ -13,9 +13,9 @@ echo "Building gooey-server sidecar for target: $TRIPLE"
 
 cd "$GOOEY_DIR"
 if [ -x "$GOOEY_DIR/venv/bin/pyinstaller" ]; then
-  "$GOOEY_DIR/venv/bin/pyinstaller" "$SPEC"
+  "$GOOEY_DIR/venv/bin/pyinstaller" --clean "$SPEC"
 else
-  ${PYTHON:-$(command -v python3 || command -v python)} -m PyInstaller "$SPEC"
+  ${PYTHON:-$(command -v python3 || command -v python)} -m PyInstaller --clean "$SPEC"
 fi
 
 SRC="$DIST_DIR/gooey-server"
