@@ -71,16 +71,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
           Copy-Item "dist/gooey-server.exe" "src-tauri/binaries/gooey-server-$triple.exe"
 
-      - name: Debug secrets presence (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]          && echo "APPLE_CERTIFICATE: SET"          || echo "APPLE_CERTIFICATE: MISSING"
-          [ -n "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" ] && echo "APPLE_CERTIFICATE_PASSWORD: SET" || echo "APPLE_CERTIFICATE_PASSWORD: MISSING"
-          [ -n "${{ secrets.APPLE_SIGNING_IDENTITY }}" ]     && echo "APPLE_SIGNING_IDENTITY: SET"     || echo "APPLE_SIGNING_IDENTITY: MISSING"
-          [ -n "${{ secrets.APPLE_ID }}" ]                   && echo "APPLE_ID: SET"                   || echo "APPLE_ID: MISSING"
-          [ -n "${{ secrets.APPLE_PASSWORD }}" ]             && echo "APPLE_PASSWORD: SET"             || echo "APPLE_PASSWORD: MISSING"
-          [ -n "${{ secrets.APPLE_TEAM_ID }}" ]              && echo "APPLE_TEAM_ID: SET"              || echo "APPLE_TEAM_ID: MISSING"
-
       - name: Import Apple certificate (macOS)
         if: runner.os == 'macOS'
         env:
@@ -103,7 +93,14 @@ jobs:
         working-directory: gooey
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-        run: npx tauri build
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ] && [ -z "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "::warning::APPLE_SIGNING_IDENTITY is not set — app will be unsigned and rejected by Gatekeeper"
+          fi
+          npx tauri build
 
       - name: Upload macOS artifacts
         if: runner.os == 'macOS'

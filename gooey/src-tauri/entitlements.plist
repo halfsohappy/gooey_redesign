@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Allow outbound network connections (Tauri WebView → Flask sidecar) -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  <!-- Allow inbound connections (Flask sidecar binds port 5254) -->
+  <key>com.apple.security.network.server</key>
+  <true/>
+  <!-- PyInstaller-bundled Python needs this: Python's JIT and ctypes require
+       executable memory that isn't backed by a file. Without this the hardened
+       runtime kills the sidecar on launch. -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- PyInstaller binary loads its own libraries at runtime; disable library
+       validation so the embedded stdlib doesn't trigger signing checks. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>
