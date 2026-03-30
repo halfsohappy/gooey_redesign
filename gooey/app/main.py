@@ -290,6 +290,29 @@ def api_my_ip():
     return jsonify({"status": "ok", "ip": ip})
 
 
+@app.route("/api/remote-qr")
+def api_remote_qr():
+    """Return an SVG QR code pointing to /remote on this machine's LAN IP."""
+    import socket as _socket
+    import io
+    import qrcode
+    import qrcode.image.svg
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "127.0.0.1"
+    port = request.host.split(":")[-1] if ":" in request.host else "80"
+    url = f"http://{ip}:{port}/remote"
+    img = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage)
+    buf = io.BytesIO()
+    img.save(buf)
+    svg = buf.getvalue()
+    return svg, 200, {"Content-Type": "image/svg+xml", "X-Remote-URL": url}
+
+
 @app.route("/api/stop-all", methods=["POST"])
 def api_stop_all():
     return jsonify(engine.stop_all())

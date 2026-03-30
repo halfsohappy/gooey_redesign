@@ -910,7 +910,7 @@
           <div class="card qr-card" data-card-id="remote-qr">
             <h2>Mobile Remote</h2>
             <p class="hint-text">Scan from your phone or tablet to open the annieData remote on your local network.</p>
-            <canvas id="remoteQRCanvas" class="qr-canvas"></canvas>
+            <img id="remoteQRImg" class="qr-canvas" src="/api/remote-qr" alt="Remote QR code">
             <div id="remoteQRUrl" class="qr-url"></div>
             <div class="btn-row" style="margin-top:8px">
               <button class="btn btn-secondary" id="btnCopyRemoteUrl">Copy URL</button>
@@ -1217,24 +1217,18 @@
 
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script>
     (function () {
-      var canvas = document.getElementById("remoteQRCanvas");
-      var urlEl  = document.getElementById("remoteQRUrl");
+      var urlEl   = document.getElementById("remoteQRUrl");
       var copyBtn = document.getElementById("btnCopyRemoteUrl");
-      if (!canvas) return;
-      fetch("/api/my-ip").then(function(r){ return r.json(); }).then(function(d) {
-        var ip   = d.ip || window.location.hostname;
-        var port = window.location.port || "5254";
-        var url  = "http://" + ip + ":" + port + "/remote";
-        urlEl.textContent = url;
-        QRCode.toCanvas(canvas, url, { width: 200, margin: 2, color: { dark: "#1a1a1a", light: "#f5f0ff" } });
+      fetch("/api/remote-qr").then(function(r) {
+        var url = r.headers.get("X-Remote-URL");
+        if (url && urlEl) urlEl.textContent = url;
       }).catch(function() {
-        urlEl.textContent = "Run annieData on your local network to use the remote.";
+        if (urlEl) urlEl.textContent = "Run annieData on your local network to use the remote.";
       });
       if (copyBtn) copyBtn.addEventListener("click", function() {
-        var text = urlEl.textContent;
+        var text = urlEl && urlEl.textContent;
         if (text && navigator.clipboard) navigator.clipboard.writeText(text);
       });
     }());

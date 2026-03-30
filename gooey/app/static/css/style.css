@@ -2003,7 +2003,7 @@ button.loading::after {
 
 /* ── QR card (Mobile Remote) ── */
 .qr-card { display: flex; flex-direction: column; align-items: flex-start; }
-.qr-canvas { border-radius: 8px; margin-top: 12px; }
+.qr-canvas { width: 180px; height: 180px; border-radius: 8px; margin-top: 12px; background: #fff; padding: 6px; }
 .qr-url { font-size: 12px; color: var(--text-muted); margin-top: 8px; word-break: break-all; }
 
 /* ── 4. .btn-sm for small action buttons ── */

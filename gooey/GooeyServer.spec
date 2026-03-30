@@ -13,6 +13,8 @@ a = Analysis(
         'serial',
         'serial.tools',
         'serial.tools.list_ports',
+        'qrcode',
+        'qrcode.image.svg',
     ],
     hookspath=[],
     hooksconfig={},

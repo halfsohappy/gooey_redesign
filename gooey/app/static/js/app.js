@@ -1140,20 +1140,23 @@
   function hasPattern(s) { return /[*?\[{]/.test(s); }
 
   /** Highlight the input when it contains a pattern. */
-  function updatePatternHint(inputEl, hintEl, registry) {
+  function updatePatternHint(inputEl, hintEl, registry, applyBtn) {
     var val = inputEl.value.trim();
     if (hasPattern(val)) {
       inputEl.classList.add("has-pattern");
+      var count = 0;
       if (registry) {
         var names = Object.keys(registry);
-        var count = names.filter(function (n) {
+        count = names.filter(function (n) {
           return oscPatternMatch(val, n);
         }).length;
         hintEl.textContent = count + " match" + (count !== 1 ? "es" : "");
       }
+      if (applyBtn) applyBtn.style.display = count > 0 ? "" : "none";
     } else {
       inputEl.classList.remove("has-pattern");
       hintEl.textContent = "";
+      if (applyBtn) applyBtn.style.display = "";
     }
   }
 
@@ -1207,7 +1210,7 @@
 
     inp.addEventListener("input", function () {
       var dev = getActiveDev();
-      updatePatternHint(inp, hint, dev ? dev.messages : null);
+      updatePatternHint(inp, hint, dev ? dev.messages : null, btn);
     });
 
     btn.addEventListener("click", function () {
@@ -1232,7 +1235,7 @@
 
     inp.addEventListener("input", function () {
       var dev = getActiveDev();
-      updatePatternHint(inp, hint, dev ? dev.scenes : null);
+      updatePatternHint(inp, hint, dev ? dev.scenes : null, btn);
     });
 
     btn.addEventListener("click", function () {
