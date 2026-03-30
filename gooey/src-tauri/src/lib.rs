@@ -6,6 +6,7 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 const FLASK_URL: &str = "http://127.0.0.1:5254";
+const DOCS_URL: &str  = "http://127.0.0.1:5254/docs/";
 const READY_TIMEOUT_SECS: u64 = 30;
 const POLL_INTERVAL_MS: u64 = 200;
 
@@ -15,14 +16,24 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // ── Menu bar ──────────────────────────────────────────────────────
-            let clear_cache = MenuItemBuilder::with_id("clear_cache", "Clear Cache")
-                .build(app)?;
+            let clear_cache  = MenuItemBuilder::with_id("clear_cache",  "Clear Cache").build(app)?;
+            let dark_mode    = MenuItemBuilder::with_id("dark_mode",    "Toggle Dark Mode").build(app)?;
+            let save_devices = MenuItemBuilder::with_id("save_devices", "Save Devices…").build(app)?;
+            let load_devices = MenuItemBuilder::with_id("load_devices", "Load Devices…").build(app)?;
+            let take_tour    = MenuItemBuilder::with_id("take_tour",    "Take Tour").build(app)?;
+            let user_guide   = MenuItemBuilder::with_id("user_guide",   "User Guide").build(app)?;
+
             let app_submenu = SubmenuBuilder::new(app, "annieData")
                 .item(&PredefinedMenuItem::about(app, None)?)
                 .separator()
+                .item(&dark_mode)
                 .item(&clear_cache)
                 .separator()
                 .item(&PredefinedMenuItem::quit(app, None)?)
+                .build()?;
+            let file_submenu = SubmenuBuilder::new(app, "File")
+                .item(&save_devices)
+                .item(&load_devices)
                 .build()?;
             let edit_submenu = SubmenuBuilder::new(app, "Edit")
                 .undo()
@@ -33,16 +44,30 @@ pub fn run() {
                 .paste()
                 .select_all()
                 .build()?;
+            let help_submenu = SubmenuBuilder::new(app, "Help")
+                .item(&take_tour)
+                .item(&user_guide)
+                .build()?;
             let menu = MenuBuilder::new(app)
                 .item(&app_submenu)
+                .item(&file_submenu)
                 .item(&edit_submenu)
+                .item(&help_submenu)
                 .build()?;
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
-                if event.id().0 == "clear_cache" {
-                    if let Some(win) = app.get_webview_window("main") {
-                        let _ = win.eval("localStorage.clear(); location.reload();");
-                    }
+                let win = match app.get_webview_window("main") {
+                    Some(w) => w,
+                    None => return,
+                };
+                match event.id().0.as_str() {
+                    "clear_cache"  => { let _ = win.eval("localStorage.clear(); location.reload();"); }
+                    "dark_mode"    => { let _ = win.eval("document.getElementById('btnThemeToggle').click();"); }
+                    "save_devices" => { let _ = win.eval("document.getElementById('btnSaveDevices').click();"); }
+                    "load_devices" => { let _ = win.eval("document.getElementById('deviceFileInput').click();"); }
+                    "take_tour"    => { let _ = win.eval("if(window._gooeyTour) window._gooeyTour.start();"); }
+                    "user_guide"   => { let _ = win.eval(&format!("window.__TAURI__ ? window.__TAURI__.shell.open('{}') : window.open('{}','_blank');", DOCS_URL, DOCS_URL)); }
+                    _ => {}
                 }
             });
             // ─────────────────────────────────────────────────────────────────
