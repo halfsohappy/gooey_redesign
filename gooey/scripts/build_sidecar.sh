@@ -12,7 +12,11 @@ TRIPLE=$(rustc -vV 2>/dev/null | grep '^host:' | awk '{print $2}')
 echo "Building gooey-server sidecar for target: $TRIPLE"
 
 cd "$GOOEY_DIR"
-${PYTHON:-$(command -v python3 || command -v python)} -m PyInstaller "$SPEC"
+if [ -x "$GOOEY_DIR/venv/bin/pyinstaller" ]; then
+  "$GOOEY_DIR/venv/bin/pyinstaller" "$SPEC"
+else
+  ${PYTHON:-$(command -v python3 || command -v python)} -m PyInstaller "$SPEC"
+fi
 
 SRC="$DIST_DIR/gooey-server"
 DEST="$TARGET_DIR/gooey-server-$TRIPLE"
