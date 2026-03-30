@@ -147,6 +147,52 @@ jobs:
             gooey/src-tauri/target/release/bundle/appimage/*.AppImage
             gooey/src-tauri/target/release/bundle/deb/*.deb
 
+  # ── Publish to PyPI (pip install gooey-theatergwd) ──────────────────────────
+  publish-pypi:
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Check if version already published
+        id: version_check
+        working-directory: gooey
+        run: |
+          LOCAL=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          REMOTE=$(pip index versions gooey-theatergwd 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "none")
+          echo "local=$LOCAL" >> $GITHUB_OUTPUT
+          echo "remote=$REMOTE" >> $GITHUB_OUTPUT
+          if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Version $LOCAL already on PyPI — skipping"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "Publishing $LOCAL (PyPI has $REMOTE)"
+          fi
+
+      - name: Build package
+        if: steps.version_check.outputs.skip == 'false'
+        working-directory: gooey
+        run: python -m build
+
+      - name: Upload to PyPI
+        if: steps.version_check.outputs.skip == 'false'
+        working-directory: gooey
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
   # ── Publish: update the rolling `build` release with latest artifacts ───────
   # The `build` tag/release is always replaced with the latest successful build.
   # No history accumulates. To get an old build, revert the source and rebuild.
