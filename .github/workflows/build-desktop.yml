@@ -70,8 +70,30 @@ jobs:
           New-Item -ItemType Directory -Force -Path src-tauri/binaries | Out-Null
           Copy-Item "dist/gooey-server.exe" "src-tauri/binaries/gooey-server-$triple.exe"
 
+      - name: Import Apple certificate (macOS)
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm -f certificate.p12
+
       - name: Build Tauri app
         working-directory: gooey
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npx tauri build
 
       - name: Upload macOS artifacts
@@ -116,12 +138,21 @@ jobs:
         with:
           path: _artifacts
 
-      - name: Collect release files
+      - name: Collect and rename release files
         run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('gooey/src-tauri/tauri.conf.json'))['version'])")
           mkdir -p release_files
-          find _artifacts/annieData-macOS   -type f -exec cp {} release_files/ \; 2>/dev/null || true
-          find _artifacts/annieData-Windows -type f -exec cp {} release_files/ \; 2>/dev/null || true
-          find _artifacts/annieData-Linux   -type f -exec cp {} release_files/ \; 2>/dev/null || true
+
+          DMG=$(find _artifacts/annieData-macOS   -name "*.dmg"      | head -1)
+          EXE=$(find _artifacts/annieData-Windows -name "*.exe"      | head -1)
+          IMG=$(find _artifacts/annieData-Linux   -name "*.AppImage" | head -1)
+          DEB=$(find _artifacts/annieData-Linux   -name "*.deb"      | head -1)
+
+          [ -n "$DMG" ] && cp "$DMG" "release_files/annieData_${VERSION}_macOS.dmg"
+          [ -n "$EXE" ] && cp "$EXE" "release_files/annieData_${VERSION}_Windows.exe"
+          [ -n "$IMG" ] && cp "$IMG" "release_files/annieData_${VERSION}_ubuntu.AppImage"
+          [ -n "$DEB" ] && cp "$DEB" "release_files/annieData_${VERSION}_debian.deb"
+
           ls -lh release_files/
 
       - name: Delete existing release and tag (if present)
