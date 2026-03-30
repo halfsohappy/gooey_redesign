@@ -292,11 +292,9 @@ def api_my_ip():
 
 @app.route("/api/remote-qr")
 def api_remote_qr():
-    """Return an SVG QR code pointing to /remote on this machine's LAN IP."""
+    """Return a styled SVG QR code pointing to /remote on this machine's LAN IP."""
     import socket as _socket
-    import io
     import qrcode
-    import qrcode.image.svg
     try:
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -306,10 +304,45 @@ def api_remote_qr():
         ip = "127.0.0.1"
     port = request.host.split(":")[-1] if ":" in request.host else "80"
     url = f"http://{ip}:{port}/remote"
-    img = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage)
-    buf = io.BytesIO()
-    img.save(buf)
-    svg = buf.getvalue()
+
+    qr = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_H,
+                       box_size=10, border=4)
+    qr.add_data(url)
+    qr.make(fit=True)
+    matrix = qr.get_matrix()
+    N   = len(matrix)
+    SZ  = 10
+    PAD = 24
+    COLOR = "#4A5568"
+    BG    = "#DAC7FF"
+
+    def _is_finder(r, c):
+        return (r < 7 and c < 7) or (r < 7 and c >= N - 7) or (r >= N - 7 and c < 7)
+
+    parts = []
+    for r, row in enumerate(matrix):
+        for c, cell in enumerate(row):
+            if not cell:
+                continue
+            x, y = c * SZ, r * SZ
+            if _is_finder(r, c):
+                parts.append(
+                    f'<rect x="{x+.5}" y="{y+.5}" width="{SZ-1}" height="{SZ-1}" '
+                    f'rx="2.5" ry="2.5" fill="{COLOR}"/>'
+                )
+            else:
+                cx, cy, rv = x + SZ / 2, y + SZ / 2, SZ / 2 * 0.78
+                parts.append(f'<circle cx="{cx}" cy="{cy}" r="{rv}" fill="{COLOR}"/>')
+
+    full = N * SZ + PAD * 2
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {full} {full}"'
+        f' width="{full}" height="{full}">'
+        f'<rect width="{full}" height="{full}" rx="16" fill="{BG}"/>'
+        f'<g transform="translate({PAD},{PAD})">'
+        + "".join(parts) +
+        '</g></svg>'
+    )
     return svg, 200, {"Content-Type": "image/svg+xml", "X-Remote-URL": url}
 
 
