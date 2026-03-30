@@ -12,6 +12,12 @@ TRIPLE=$(rustc -vV 2>/dev/null | grep '^host:' | awk '{print $2}')
 echo "Building gooey-server sidecar for target: $TRIPLE"
 
 cd "$GOOEY_DIR"
+
+# Always purge Python bytecode caches so PyInstaller bundles the current source,
+# not stale .pyc files from a previous run.
+find "$GOOEY_DIR/app" -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+find "$GOOEY_DIR/app" -name "*.pyc" -delete 2>/dev/null || true
+
 if [ -x "$GOOEY_DIR/venv/bin/pyinstaller" ]; then
   "$GOOEY_DIR/venv/bin/pyinstaller" --clean "$SPEC"
 else

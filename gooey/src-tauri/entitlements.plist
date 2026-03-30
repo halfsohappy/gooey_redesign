@@ -8,5 +8,8 @@
   <!-- Allow inbound connections (Flask sidecar binds port 5254) -->
   <key>com.apple.security.network.server</key>
   <true/>
+  <!-- Required: sidecar loads Homebrew-signed Python.framework (different Team ID than ad-hoc binary) -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
 </dict>
 </plist>

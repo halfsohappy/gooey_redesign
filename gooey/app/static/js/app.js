@@ -3492,7 +3492,7 @@
     if (btnGuide) btnGuide.addEventListener("click", function () {
       var url = location.origin + "/docs/";
       if (window.__TAURI__) {
-        window.__TAURI__.shell.open(url);
+        window.__TAURI__.core.invoke("plugin:shell|open", { path: url });
       } else {
         window.open(url, "_blank");
       }

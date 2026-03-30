@@ -1183,8 +1183,7 @@ input[type="color"] {
   font-size: 11px !important;
   padding: 2px 12px !important;
   flex-shrink: 0;
-  margin-left: auto;
-  margin-right: 10px;
+  margin: 6px 10px 6px auto;
   width: 110px;
   justify-content: center;
 }

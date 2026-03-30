@@ -19,6 +19,7 @@
         "url": "loading.html"
       }
     ],
+    "withGlobalTauri": true,
     "security": {
       "csp": null
     }
