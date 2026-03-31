@@ -3302,7 +3302,7 @@
       {
         sel: ".hdr-port-box",
         title: "Listen Port",
-        body: "This is the UDP port Gooey listens on for OSC replies from your devices. Change it and click <strong>Apply</strong>."
+        body: "This is the UDP port the software listens on for OSC replies from your devices. Change it and click <strong>Apply</strong>."
       },
       {
         sel: "#btnBlackoutAll",
@@ -3337,7 +3337,7 @@
       {
         sel: '.nav-btn[data-section="advanced"]',
         title: "Advanced",
-        body: "Power-user tools: raw OSC send, JSON batch import, and OSC bridging between ports."
+        body: "Power-user tools: raw OSC sends, additional sensor callibration, and hidden tabs like Python scripting and control from mobile devices."
       },
       {
         sel: ".hdr-tools",
