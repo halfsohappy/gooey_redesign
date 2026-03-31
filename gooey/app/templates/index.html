@@ -977,17 +977,47 @@
               <table class="data-table">
                 <thead><tr><th>Function</th><th>Description</th></tr></thead>
                 <tbody>
-                  <tr><td><code>sensor("accelX")</code></td><td>Get latest value of a sensor by name. Returns 0.0 if unavailable.</td></tr>
-                  <tr><td><code>sensors()</code></td><td>Get all sensor values as a dict: <code>{"accelX": 0.5, ...}</code></td></tr>
-                  <tr><td><code>osc_send(host, port, addr, ...)</code></td><td>Send an OSC message. Example: <code>osc_send("192.168.1.50", 7000, "/fader/1", 0.75)</code></td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Sensors</td></tr>
+                  <tr><td><code>device.sensor("accelX")</code></td><td>Get the latest sensor value from <em>this specific device</em>. Correct when multiple devices are connected. Returns 0.0 if unavailable.</td></tr>
+                  <tr><td><code>device.sensors()</code></td><td>Get all sensor values for this device as a dict: <code>{"accelX": 0.5, ...}</code></td></tr>
+                  <tr><td><code>sensor("accelX")</code></td><td>Unscoped shorthand — fine for single-device setups. With multiple devices, last write wins.</td></tr>
+                  <tr><td><code>sensors()</code></td><td>Unscoped all-sensor dict — merged across all devices, same caveat.</td></tr>
                   <tr><td><code>osc_data("/full/address")</code></td><td>Get raw args list for a full OSC address path.</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">OSC</td></tr>
+                  <tr><td><code>osc_send(host, port, addr, ...)</code></td><td>Send a raw OSC message. Example: <code>osc_send("192.168.1.50", 7000, "/fader/1", 0.75)</code></td></tr>
+                  <tr><td><code>on_osc(pattern, fn)</code></td><td>Call <code>fn(address, args)</code> when an incoming OSC message matches <em>pattern</em>. Supports OSC wildcards: <code>*</code> <code>?</code> <code>[abc]</code> <code>{a,b}</code>. Dispatched between loop iterations. Register once (outside the loop body).</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Device proxy</td></tr>
+                  <tr><td><code>device</code></td><td>High-level handle for the active device. Automatically uses the device's host, port, and name.</td></tr>
+                  <tr><td><code>device.name / .host / .port</code></td><td>Active device identity.</td></tr>
+                  <tr><td><code>device.blackout()</code> / <code>.restore()</code></td><td>Stop or restart all scenes immediately.</td></tr>
+                  <tr><td><code>device.save()</code> / <code>.load()</code></td><td>Persist or reload NVS config on the device.</td></tr>
+                  <tr><td><code>device.dedup()</code></td><td>Toggle duplicate-suppression on the device.</td></tr>
+                  <tr><td><code>device.list_msgs()</code> / <code>.list_scenes()</code></td><td>Ask the device to report its objects (replies update gooey's tables).</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Message proxy &mdash; <code>device.msg("name")</code></td></tr>
+                  <tr><td><code>.enable()</code> / <code>.disable()</code></td><td>Enable or mute the message. Name may be an OSC wildcard pattern.</td></tr>
+                  <tr><td><code>.assign(value="accelX", ip="…", port=9000, adr="/x", low=0, high=1)</code></td><td>Create or update message config. Keys match firmware field names.</td></tr>
+                  <tr><td><code>.delete()</code> / <code>.info()</code></td><td>Delete the message, or ask the device to reply with its config.</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Scene proxy &mdash; <code>device.scene("name")</code></td></tr>
+                  <tr><td><code>.start()</code> / <code>.stop()</code></td><td>Start or stop streaming. Name may be an OSC wildcard pattern.</td></tr>
+                  <tr><td><code>.enable()</code> / <code>.disable()</code></td><td>Enable or disable the scene.</td></tr>
+                  <tr><td><code>.period(ms)</code></td><td>Set send interval in milliseconds.</td></tr>
+                  <tr><td><code>.add_msg("name")</code> / <code>.remove_msg("name")</code></td><td>Add or remove a message from the scene.</td></tr>
+                  <tr><td><code>.solo("name")</code> / <code>.unsolo()</code></td><td>Solo one message; restore all.</td></tr>
+                  <tr><td><code>.assign(ip="…", port=9000, adr="/base", period=50)</code></td><td>Create or update scene config.</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Registry snapshots</td></tr>
+                  <tr><td><code>messages()</code></td><td>Snapshot of gooey's tracked message configs: <code>{"accelX": {"adr": "/x", ...}, ...}</code>. Only includes messages gooey has seen.</td></tr>
+                  <tr><td><code>scenes()</code></td><td>Snapshot of gooey's tracked scene configs: <code>{"myScene": {"period": 50, ...}, ...}</code>.</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">State &amp; time</td></tr>
                   <tr><td><code>state</code></td><td>Persistent dict — survives between loop iterations.</td></tr>
                   <tr><td><code>elapsed()</code></td><td>Seconds since script started.</td></tr>
                   <tr><td><code>dt()</code></td><td>Seconds since last iteration.</td></tr>
+                  <tr><td colspan="2" class="ref-section-header">Math &amp; utilities</td></tr>
                   <tr><td><code>clamp(val, lo, hi)</code></td><td>Clamp a value to a range.</td></tr>
                   <tr><td><code>remap(val, in_lo, in_hi, out_lo, out_hi)</code></td><td>Linearly remap a value from one range to another.</td></tr>
-                  <tr><td><code>print(...)</code></td><td>Output to the console below.</td></tr>
                   <tr><td><code>math.*</code></td><td>Full math module: <code>sqrt</code>, <code>sin</code>, <code>cos</code>, <code>pi</code>, etc.</td></tr>
+                  <tr><td><code>random.*</code></td><td>Full random module: <code>random.random()</code>, <code>random.uniform(a, b)</code>, <code>random.choice(seq)</code>, etc.</td></tr>
+                  <tr><td><code>deque([…], maxlen=N)</code></td><td><code>collections.deque</code> — sliding window buffer. Useful for running averages.</td></tr>
+                  <tr><td><code>print(...)</code></td><td>Output to the console below.</td></tr>
                 </tbody>
               </table>
             </div>

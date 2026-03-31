@@ -3696,6 +3696,10 @@
           mode: selMode ? selMode.value : "loop",
           interval: interval,
           listen_port: inputListenPort ? parseInt(inputListenPort.value, 10) || null : null,
+          device_id:   activeDeviceId || null,
+          device_host: devHost(),
+          device_port: devPort(),
+          device_name: devName(),
         });
       });
     }

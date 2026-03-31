@@ -1137,8 +1137,17 @@ def handle_script_run(data):
     mode = data.get("mode", "loop")
     interval = data.get("interval", 50)
     listen_port = data.get("listen_port")
+    device_context = {
+        "id":   data.get("device_id", ""),
+        "host": data.get("device_host", ""),
+        "port": int(data.get("device_port") or 8000),
+        "name": data.get("device_name", ""),
+    }
     script_runner.run(code, mode=mode, interval_ms=interval,
-                      listen_port=listen_port)
+                      listen_port=listen_port,
+                      device_context=device_context,
+                      registry=_device_registry,
+                      registry_lock=_device_registry_lock)
 
 
 @socketio.on("script_stop")
