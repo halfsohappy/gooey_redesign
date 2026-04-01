@@ -441,14 +441,16 @@
               <div class="form-group">
                 <label for="sceneAdrMode">
                   Address Mode
-                  <button class="help-btn" aria-label="Help: Address modes" title="Address modes" onclick="toggleHelp('adrModeHelp'); return false;">?</button>
+                  <span class="tooltip-wrap">
+                    <span class="help-icon">?</span>
+                    <span class="tooltip-body">
+                      <strong>fallback</strong> — use message's own address; scene value only if message has none.<br>
+                      <strong>override</strong> — always use scene's address instead of message's.<br>
+                      <strong>prepend</strong> — prepend scene address to message address.<br>
+                      <strong>append</strong> — append scene address after message address.
+                    </span>
+                  </span>
                 </label>
-                <div id="adrModeHelp" class="help-box hidden">
-                  <strong>fallback</strong> — use message's own address; scene value only if message has none.<br>
-                  <strong>override</strong> — always use scene's address instead of message's.<br>
-                  <strong>prepend</strong> — prepend scene address to message address.<br>
-                  <strong>append</strong> — append scene address after message address.
-                </div>
                 <select id="sceneAdrMode">
                   <option value="fallback">fallback</option>
                   <option value="override">override</option>

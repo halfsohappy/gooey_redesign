@@ -2138,6 +2138,43 @@ input.field-error {
   margin-left: 4px;
   padding: 0;
 }
+/* Hover tooltip */
+.tooltip-wrap {
+  position: relative;
+  display: inline-block;
+}
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--border-focus);
+  font-size: 10px;
+  color: var(--text-light);
+  cursor: help;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+.tooltip-body {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border-focus);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-medium);
+  white-space: normal;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+.tooltip-wrap:hover .tooltip-body { display: block; }
+
 .help-box {
   background: var(--accent-dim);
   border: 1px solid var(--border-focus);
