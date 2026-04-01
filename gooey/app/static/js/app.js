@@ -1167,7 +1167,7 @@
     noneOpt.value = ""; noneOpt.textContent = "\u2014 none \u2014";
     srcEl.appendChild(noneOpt);
     var oriOpt = document.createElement("option");
-    oriOpt.value = "ori"; oriOpt.textContent = "Orientation";
+    oriOpt.value = "ori"; oriOpt.textContent = "Ori";
     srcEl.appendChild(oriOpt);
     SENSOR_CATEGORIES.forEach(function (cat) {
       if (cat.advanced) return;
@@ -1187,7 +1187,7 @@
         oriGroup.style.display = "";
         loGroup.style.display = "none";
         hiGroup.style.display = "none";
-        if (hintEl) hintEl.textContent = "Gate based on orientation tracker state";
+        if (hintEl) hintEl.textContent = "Gate based on which ori is currently active";
       } else if (v) {
         oriGroup.style.display = "none";
         loGroup.style.display = "";
