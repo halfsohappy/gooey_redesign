@@ -613,7 +613,7 @@ THEATER_GWD_PRESETS = {
         "accelX", "accelY", "accelZ", "accelLength",
         "gyroX", "gyroY", "gyroZ", "gyroLength",
         "baro",
-        "eulerX", "eulerY", "eulerZ",
+        "roll", "pitch", "yaw",
     ],
     "commands": {
         "blackout": {
@@ -937,9 +937,9 @@ THEATER_GWD_PRESETS = {
         "gyroZ": "Gyroscope Z-axis — rotational velocity around Z.",
         "gyroLength": "Total rotational velocity magnitude.",
         "baro": "Barometric pressure sensor — altitude / air pressure.",
-        "eulerX": "Euler angle X (roll) — orientation around X-axis.",
-        "eulerY": "Euler angle Y (pitch) — orientation around Y-axis.",
-        "eulerZ": "Euler angle Z (yaw) — orientation around Z-axis.",
+        "roll": "Roll — tilt left/right around the X-axis.",
+        "pitch": "Pitch — tilt forward/back around the Y-axis.",
+        "yaw": "Yaw — compass heading around the Z-axis.",
         "fallback": "Address mode: use msg address, scene address as fallback.",
         "prepend": "Address mode: scene.adr + msg.adr.",
         "append": "Address mode: msg.adr + scene.adr.",

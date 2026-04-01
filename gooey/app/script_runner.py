@@ -566,7 +566,7 @@ class ScriptRunner:
                 def got_tilt(address, args):
                     print("tilt:", args[0] if args else "?")
 
-                on_osc("/annieData/*/stream/eulerX", got_tilt)
+                on_osc("/annieData/*/stream/roll", got_tilt)
             """
             regex = _osc_pattern_to_regex(str(pattern))
             with runner._osc_lock:

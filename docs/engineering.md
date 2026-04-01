@@ -196,9 +196,9 @@ volatile float data_streams[NUM_DATA_STREAMS]; // 22 elements
 | 6 | `GYROZ` | gyroZ | Rotation rate — Z axis |
 | 7 | `GYROLENGTH` | gyroLength | Rotation rate magnitude |
 | 8 | `BARO` | baro | Barometric pressure / altitude |
-| 9 | `EULERX` | eulerX | Roll (Euler angle) |
-| 10 | `EULERY` | eulerY | Pitch (Euler angle) |
-| 11 | `EULERZ` | eulerZ | Yaw (Euler angle) |
+| 9 | `ROLL` | roll | Roll — tilt left/right |
+| 10 | `PITCH` | pitch | Pitch — tilt forward/back |
+| 11 | `YAW` | yaw | Yaw — compass heading |
 | 12 | `GACCELX` | gaccelX | Global-frame acceleration — X |
 | 13 | `GACCELY` | gaccelY | Global-frame acceleration — Y |
 | 14 | `GACCELZ` | gaccelZ | Global-frame acceleration — Z |

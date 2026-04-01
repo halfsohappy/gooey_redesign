@@ -37,9 +37,9 @@
 #define GYROZ        6
 #define GYROLENGTH   7
 #define BARO         8
-#define EULERX       9
-#define EULERY      10
-#define EULERZ      11
+#define ROLL         9
+#define PITCH       10
+#define YAW         11
 #define GACCELX     12  // global-frame (rotation-compensated) linear acceleration
 #define GACCELY     13
 #define GACCELZ     14
@@ -75,9 +75,9 @@ static inline String data_stream_name(int index) {
         case GYROZ:        return "gyroZ";
         case GYROLENGTH:   return "gyroLength";
         case BARO:         return "baro";
-        case EULERX:       return "eulerX";
-        case EULERY:       return "eulerY";
-        case EULERZ:       return "eulerZ";
+        case ROLL:         return "roll";
+        case PITCH:        return "pitch";
+        case YAW:          return "yaw";
         case GACCELX:      return "gaccelX";
         case GACCELY:      return "gaccelY";
         case GACCELZ:      return "gaccelZ";
@@ -107,9 +107,9 @@ static inline int data_stream_index_from_name(const String& value_name) {
     if (key == "gyroz")                                                return GYROZ;
     if (key == "gyrolength" || key == "gyrolen"  || key == "glen")    return GYROLENGTH;
     if (key == "baro")                                                 return BARO;
-    if (key == "eulerx")                                               return EULERX;
-    if (key == "eulery")                                               return EULERY;
-    if (key == "eulerz")                                               return EULERZ;
+    if (key == "roll"   || key == "eulerx")                             return ROLL;
+    if (key == "pitch"  || key == "eulery")                             return PITCH;
+    if (key == "yaw"    || key == "eulerz")                             return YAW;
     if (key == "gaccelx")                                              return GACCELX;
     if (key == "gaccely")                                              return GACCELY;
     if (key == "gaccelz")                                              return GACCELZ;
@@ -158,9 +158,9 @@ static inline void update_simulated_data() {
     data_streams[BARO]        = sinf(2.0f * PI * 0.05f * t) * 0.5f + 0.5f; // 0.05 Hz
 
     // Euler angles
-    data_streams[EULERX]      = sinf(2.0f * PI * 0.4f * t) * 0.5f + 0.5f;  // 0.4 Hz
-    data_streams[EULERY]      = sinf(2.0f * PI * 0.6f * t) * 0.5f + 0.5f;  // 0.6 Hz
-    data_streams[EULERZ]      = sinf(2.0f * PI * 0.8f * t) * 0.5f + 0.5f;  // 0.8 Hz
+    data_streams[ROLL]        = sinf(2.0f * PI * 0.4f * t) * 0.5f + 0.5f;  // 0.4 Hz
+    data_streams[PITCH]       = sinf(2.0f * PI * 0.6f * t) * 0.5f + 0.5f;  // 0.6 Hz
+    data_streams[YAW]         = sinf(2.0f * PI * 0.8f * t) * 0.5f + 0.5f;  // 0.8 Hz
 
     // Global-frame (rotation-compensated) acceleration channels
     data_streams[GACCELX]      = sinf(2.0f * PI * 0.55f * t) * 0.5f + 0.5f; // 0.55 Hz

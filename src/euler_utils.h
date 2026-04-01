@@ -10,7 +10,7 @@
 // This file provides an alternative:
 //
 //   ZXY — singular on X (roll).  Use when device Y-axis is most vertical.
-//          Normalisation: EULERX=(roll+90)/180, EULERY/Z=(angle+180)/360.
+//          Normalisation: ROLL=(roll+90)/180, PITCH/YAW=(angle+180)/360.
 //
 // The firmware auto-selects the decomposition at tare time based on which
 // device axis is most vertical (see osc_commands.h /tare handler).
@@ -36,9 +36,9 @@
 //   yaw   (Z rotation) — from atan2, range [-180, +180]
 //
 // Normalise for data_streams[]:
-//   EULERX = (roll  + 90.0f)  / 180.0f   // [-90,+90] → [0,1]
-//   EULERY = (pitch + 180.0f) / 360.0f   // [-180,+180] → [0,1]
-//   EULERZ = (yaw   + 180.0f) / 360.0f   // [-180,+180] → [0,1]
+//   ROLL  = (roll  + 90.0f)  / 180.0f   // [-90,+90] → [0,1]
+//   PITCH = (pitch + 180.0f) / 360.0f   // [-180,+180] → [0,1]
+//   YAW   = (yaw   + 180.0f) / 360.0f   // [-180,+180] → [0,1]
 
 static inline void quat_to_euler_zxy(float qi, float qj, float qk, float qr,
                                       float &roll, float &pitch, float &yaw) {

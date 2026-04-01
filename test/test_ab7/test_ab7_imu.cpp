@@ -231,7 +231,7 @@ void test_data_stream_name_lookup(void) {
     TEST_ASSERT_EQUAL_STRING("accelX",      data_stream_name(ACCELX).c_str());
     TEST_ASSERT_EQUAL_STRING("gyroX",       data_stream_name(GYROX).c_str());
     TEST_ASSERT_EQUAL_STRING("baro",        data_stream_name(BARO).c_str());
-    TEST_ASSERT_EQUAL_STRING("eulerX",      data_stream_name(EULERX).c_str());
+    TEST_ASSERT_EQUAL_STRING("roll",        data_stream_name(ROLL).c_str());
     TEST_ASSERT_EQUAL_STRING("unknown",     data_stream_name(99).c_str());
 }
 

@@ -98,9 +98,9 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `gyroZ` | Rotation speed — Z axis | Detect spinning |
 | `gyroLength` | Overall rotation speed | General rotation intensity |
 | `baro` | Barometric pressure / altitude | Detect height changes |
-| `eulerX` | Roll angle | Tilt left/right |
-| `eulerY` | Pitch angle | Tilt forward/back |
-| `eulerZ` | Yaw angle | Compass heading |
+| `roll` | Roll angle | Tilt left/right |
+| `pitch` | Pitch angle | Tilt forward/back |
+| `yaw` | Yaw angle | Compass heading |
 | `gaccelX` | World-frame acceleration — X | Motion regardless of device tilt |
 | `gaccelY` | World-frame acceleration — Y | Motion regardless of device tilt |
 | `gaccelZ` | World-frame acceleration — Z | Motion regardless of device tilt |
@@ -112,7 +112,7 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `low` | Always 0.0 | Constant zero |
 | `high` | Always 1.0 | Constant one |
 
-For most theater work, **accelX/Y/Z**, **accelLength**, **gyroLength**, and **eulerX/Y/Z** are the most useful.
+For most theater work, **accelX/Y/Z**, **accelLength**, **gyroLength**, and **roll/pitch/yaw** are the most useful.
 
 ---
 
@@ -822,7 +822,7 @@ QLab is at `192.168.1.20:53000`.
 ```
 # Three messages for different audio parameters
 /annieData/bart/msg/volume     "value:accelLength, ip:192.168.1.20, port:53000, adr:/cue/1/level, low:-60, high:0"
-/annieData/bart/msg/pan        "value:eulerZ, ip:192.168.1.20, port:53000, adr:/cue/1/pan, low:-1, high:1"
+/annieData/bart/msg/pan        "value:yaw, ip:192.168.1.20, port:53000, adr:/cue/1/pan, low:-1, high:1"
 /annieData/bart/msg/reverb     "value:gyroLength, ip:192.168.1.20, port:53000, adr:/cue/1/reverb, low:0, high:100"
 
 # Group them in a scene

@@ -2558,7 +2558,7 @@
 
       var kwCategories = [
         { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
-        { title: "Sensors \u2014 Orientation", keys: ["eulerX","eulerY","eulerZ","quatI","quatJ","quatK","quatR"] },
+        { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","quatI","quatJ","quatK","quatR"] },
         { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },

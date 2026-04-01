@@ -221,15 +221,15 @@ void setup() {
                 if (euler_order == 1) {
                     // ZXY — singular on X/roll; chosen when device Y is most vertical.
                     quat_to_euler_zxy(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
-                    data_streams[EULERX] = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
-                    data_streams[EULERY] = (pitch + 180.0f) / 360.0f;
-                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                    data_streams[ROLL]   = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[PITCH]  = (pitch + 180.0f) / 360.0f;
+                    data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
                 } else {
                     // ZYX (default) — singular on Y/pitch.
                     quat_to_euler(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
-                    data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
-                    data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
-                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                    data_streams[ROLL]   = (roll  + 180.0f) / 360.0f;
+                    data_streams[PITCH]  = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
@@ -299,7 +299,7 @@ void setup() {
                 Serial.print(F("  gX:"));
                 Serial.print((float)data_streams[GYROX], 3);
                 Serial.print(F("  eX:"));
-                Serial.println((float)data_streams[EULERX], 3);
+                Serial.println((float)data_streams[ROLL], 3);
             }
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate
@@ -353,15 +353,15 @@ void setup() {
                 if (euler_order == 1) {
                     // ZXY — singular on X/roll; chosen when device Y is most vertical.
                     quat_to_euler_zxy(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
-                    data_streams[EULERX] = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
-                    data_streams[EULERY] = (pitch + 180.0f) / 360.0f;
-                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                    data_streams[ROLL]   = (roll  + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[PITCH]  = (pitch + 180.0f) / 360.0f;
+                    data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
                 } else {
                     // ZYX (default) — singular on Y/pitch.
                     quat_to_euler(eq_i, eq_j, eq_k, eq_r, roll, pitch, yaw);
-                    data_streams[EULERX] = (roll  + 180.0f) / 360.0f;
-                    data_streams[EULERY] = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
-                    data_streams[EULERZ] = (yaw   + 180.0f) / 360.0f;
+                    data_streams[ROLL]   = (roll  + 180.0f) / 360.0f;
+                    data_streams[PITCH]  = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
+                    data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
@@ -430,7 +430,7 @@ void setup() {
                 Serial.print(F("  gX:"));
                 Serial.print((float)data_streams[GYROX], 3);
                 Serial.print(F("  eX:"));
-                Serial.println((float)data_streams[EULERX], 3);
+                Serial.println((float)data_streams[ROLL], 3);
             }
 
             vTaskDelay(pdMS_TO_TICKS(10));  // ~100 Hz update rate

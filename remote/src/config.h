@@ -122,7 +122,7 @@ static const char* const SENSOR_NAMES[] = {
     "gaccelX", "gaccelY", "gaccelZ", "gaccelLength",
     "gyroX",  "gyroY",  "gyroZ",  "gyroLength",
     "baro",
-    "eulerX", "eulerY", "eulerZ",
+    "roll", "pitch", "yaw",
     "quatI", "quatJ", "quatK", "quatR",
     "high", "low"
 };
