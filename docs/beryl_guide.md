@@ -1,15 +1,15 @@
-# Running Gooey on a GL.iNet Beryl
+# Running the annieData Control Center on a GL.iNet Beryl
 
 ## A Self-Contained Theater Network Hub
 
-This guide walks through turning a GL.iNet Beryl (GL-MT1300) travel router into
+This guide covers turning a GL.iNet Beryl (GL-MT1300) travel router into
 a portable, self-contained show control hub.  The Beryl simultaneously provides
-a dedicated WiFi network for TheaterGWD sensors **and** runs Gooey, the
-browser-based control center.
+a dedicated WiFi network for TheaterGWD sensors **and** runs the annieData
+Control Center — the browser-based GUI.
 
-The result is a single device you plug into power, connect to from any laptop or
-tablet over WiFi, and immediately have full sensor management — no production
-network required.
+The result is a single device that provides full sensor management over WiFi from any laptop or tablet — no production network required.
+
+> **Note:** The CLI command and package name remain `gooey` / `gooey-theatergwd`.
 
 ---
 
@@ -20,9 +20,9 @@ network required.
 3. [Step 1 — Check Firmware Version](#3-step-1--check-firmware-version)
 4. [Step 2 — Expand Storage with Extroot](#4-step-2--expand-storage-with-extroot)
 5. [Step 3 — Install Python 3](#5-step-3--install-python-3)
-6. [Step 4 — Install Gooey](#6-step-4--install-gooey)
+6. [Step 4 — Install annieData](#6-step-4--install-anniedata)
 7. [Step 5 — Auto-Start Service](#7-step-5--auto-start-service)
-8. [Step 6 — Open Gooey](#8-step-6--open-gooey)
+8. [Step 6 — Open annieData](#8-step-6--open-anniedata)
 9. [Step 7 — Provision TheaterGWD Sensors](#9-step-7--provision-theatergwd-sensors)
 10. [Connecting to an Existing Show Network](#10-connecting-to-an-existing-show-network)
 11. [Firewall Notes](#11-firewall-notes)
@@ -40,10 +40,10 @@ network required.
 | Laptop or tablet | Any modern browser; used during initial setup via Ethernet or WiFi |
 | TheaterGWD sensor(s) | Already assembled and ready to provision |
 
-**Why the USB drive?**  The Beryl has only 32 MB of onboard flash.  Python 3
+**Why the USB drive?**  The Beryl ships with only 32 MB of onboard flash.  Python 3
 plus Flask and its dependencies require roughly 60–80 MB.  The USB drive
 becomes the router's `/overlay` filesystem through a procedure called
-*extroot*, so the router appears to have a full-size writable root
+*extroot* — effectively giving the router a full-size writable root
 filesystem.
 
 ---
@@ -57,7 +57,7 @@ filesystem.
 │  WiFi AP  ←──  TheaterGWD sensors (192.168.8.x)     │
 │  WiFi AP  ←──  Laptop / tablet                      │
 │                                                      │
-│  Gooey running on http://192.168.8.1:5000           │
+│  annieData running on http://192.168.8.1:5000        │
 │  OSC listen port  8000 (configurable)               │
 └─────────────────────────────────────────────────────┘
 ```
@@ -65,10 +65,10 @@ filesystem.
 - The Beryl's default LAN address is **192.168.8.1**.
 - All TheaterGWD sensors provision against the Beryl's WiFi SSID and send OSC
   to the Beryl's address.
-- Any laptop on the same WiFi opens `http://192.168.8.1:5000` to reach Gooey.
+- Any laptop on the same WiFi opens `http://192.168.8.1:5000` to reach annieData.
 - The Beryl's WAN port can still be plugged into a production Ethernet network
   for internet access or show-network forwarding — this does not affect the
-  local 192.168.8.0/24 subnet where sensors and Gooey live.
+  local 192.168.8.0/24 subnet where sensors and annieData live.
 
 ---
 
@@ -86,13 +86,13 @@ filesystem.
 ## 4. Step 2 — Expand Storage with Extroot
 
 SSH into the router.  The default SSH address is `root@192.168.8.1` — the
-password is the same as the admin password you set in the web UI.
+password matches the admin password configured in the web UI.
 
 ```bash
 ssh root@192.168.8.1
 ```
 
-Plug in your USB drive.  It will appear as `/dev/sda` (or `/dev/sda1` if it
+Insert the USB drive.  It appears as `/dev/sda` (or `/dev/sda1` if it
 already has a partition table).  The commands below create a fresh ext4
 partition and configure extroot.
 
@@ -173,7 +173,7 @@ pip3 --version
 
 ---
 
-## 6. Step 4 — Install Gooey
+## 6. Step 4 — Install annieData
 
 Install directly from PyPI:
 
@@ -184,7 +184,7 @@ pip3 install gooey-theatergwd
 This pulls in Flask, Flask-SocketIO, python-osc, and Markdown — all pure
 Python, no compilation required.
 
-Verify the install:
+Verify:
 
 ```bash
 gooey --help
@@ -194,7 +194,7 @@ gooey --help
 
 ## 7. Step 5 — Auto-Start Service
 
-Create a procd init script so Gooey starts automatically every time the
+Create a procd init script so annieData starts automatically every time the
 router boots:
 
 ```bash
@@ -230,7 +230,7 @@ chmod +x /etc/init.d/gooey
 /etc/init.d/gooey start
 ```
 
-Check that Gooey is running:
+Check that annieData is running:
 
 ```bash
 /etc/init.d/gooey status
@@ -246,7 +246,7 @@ logread -f | grep gooey
 
 ---
 
-## 8. Step 6 — Open Gooey
+## 8. Step 6 — Open annieData
 
 1. On any device connected to the Beryl's WiFi, open a browser and go to:
 
@@ -254,7 +254,7 @@ logread -f | grep gooey
    http://192.168.8.1:5000
    ```
 
-2. The Gooey control center appears.  No further configuration is needed on
+2. The annieData Control Center appears.  No further configuration is needed on
    the router.
 
 ---
@@ -277,7 +277,7 @@ Each sensor needs to know the WiFi network and the address of the OSC host
    | Device name | A short label, e.g. `bart` |
 
 4. Press **Submit**.  The sensor reboots and joins the Beryl's WiFi.
-5. In Gooey, open the **Devices** panel, enter `192.168.8.101:8000` and click
+5. In annieData, open the **Devices** panel, enter `192.168.8.101:8000` and click
    **Query** — the device appears.
 6. Repeat for additional sensors, incrementing the static IP each time.
 
@@ -285,17 +285,17 @@ Each sensor needs to know the WiFi network and the address of the OSC host
 
 ## 10. Connecting to an Existing Show Network
 
-If your production environment has an existing network (wired LAN, lighting
-console, audio system), plug the Beryl's **WAN** port into that network.
+If the production environment includes an existing network (wired LAN, lighting
+console, audio system), connect the Beryl's **WAN** port to that network.
 
-- Sensors and Gooey stay on the Beryl's LAN (192.168.8.0/24).
+- Sensors and annieData stay on the Beryl's LAN (192.168.8.0/24).
 - The Beryl routes traffic between the LAN and the production network.
-- OSC messages from Gooey to external consoles go out the WAN port.
-- External consoles access Gooey at the Beryl's WAN IP on port 5000
+- OSC messages from annieData to external consoles go out the WAN port.
+- External consoles access annieData at the Beryl's WAN IP on port 5000
   (check the Beryl's status page for its WAN IP, or assign a fixed IP via
-  DHCP reservation on your production router).
+  DHCP reservation on the production router).
 
-To allow external access to Gooey, add a firewall rule:
+To allow external access to annieData, add a firewall rule:
 
 ```bash
 # Allow TCP port 5000 from WAN (optional — only if external consoles need it)
@@ -314,16 +314,16 @@ uci commit firewall
 
 By default the Beryl's firewall **drops** all inbound traffic from the WAN
 side.  Traffic within the LAN (192.168.8.0/24) is unrestricted, so sensors
-and Gooey can communicate freely without any additional firewall changes.
+and annieData can communicate freely without any additional firewall changes.
 
-If sensors need to send OSC to an external console on the WAN side, make sure
-the console's firewall allows inbound UDP on the OSC port you have configured.
+If sensors need to send OSC to an external console on the WAN side, ensure
+the console's firewall allows inbound UDP on the configured OSC port.
 
 ---
 
 ## 12. Troubleshooting
 
-### Gooey does not start
+### annieData does not start
 
 Check for errors in the system log:
 
@@ -331,7 +331,7 @@ Check for errors in the system log:
 logread | grep -i gooey
 ```
 
-Make sure the `gooey` binary is in the PATH:
+Verify the `gooey` binary is in the PATH:
 
 ```bash
 which gooey
@@ -356,24 +356,24 @@ cat /etc/config/fstab
 
 Correct any mismatch and reboot again.
 
-### Sensor does not appear in Gooey
+### Sensor does not appear in annieData
 
 1. Confirm the sensor joined the correct WiFi (check the Beryl's **Clients**
    list at `http://192.168.8.1`).
 2. Ping the sensor from the router: `ping 192.168.8.101`
-3. Ensure the port in Gooey's query field matches the port the sensor was
+3. Ensure the port in annieData's query field matches the port the sensor was
    provisioned with.
 4. Check that no firewall rule is blocking UDP between LAN hosts (none should
    be by default).
 
 ### Slow performance or high CPU
 
-The Beryl's MIPS processor is modest.  If Gooey feels sluggish under heavy
+The Beryl's MIPS processor is modest.  If annieData feels sluggish under heavy
 OSC traffic, reduce the number of active messages or lower sensor broadcast
 rates.  The router is designed as a management hub, not a high-throughput OSC
 relay.
 
-### Updating Gooey
+### Updating annieData
 
 ```bash
 pip3 install --upgrade gooey-theatergwd

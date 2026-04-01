@@ -1,6 +1,6 @@
 # Homebrew Guide
 
-Complete reference for installing, running, updating, and managing Gooey via Homebrew on macOS.
+Reference guide for installing, running, updating, and managing the annieData Control Center via Homebrew on macOS.
 
 ---
 
@@ -8,7 +8,7 @@ Complete reference for installing, running, updating, and managing Gooey via Hom
 
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Running Gooey](#running-gooey)
+- [Running annieData](#running-anniedata)
 - [Updating](#updating)
 - [Uninstalling](#uninstalling)
 - [How It Works](#how-it-works)
@@ -20,19 +20,19 @@ Complete reference for installing, running, updating, and managing Gooey via Hom
 
 ### macOS version
 
-macOS 12 Monterey or later is recommended. Older versions may work but are untested.
+macOS 12 Monterey or later. Older versions may work but are untested.
 
 ### Homebrew
 
-If you don't have Homebrew yet, install it:
+If Homebrew is not yet installed:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-After installation, follow any instructions Homebrew prints about adding it to your `PATH` (this is especially important on Apple Silicon Macs).
+After installation, follow any instructions Homebrew prints about adding it to the `PATH` — this is especially important on Apple Silicon Macs.
 
-Verify it's working:
+Verify:
 
 ```bash
 brew --version
@@ -40,7 +40,7 @@ brew --version
 
 ### Python
 
-Homebrew installs Python automatically as a dependency — you don't need to install it separately.
+Homebrew installs Python automatically as a dependency — no separate installation required.
 
 ---
 
@@ -50,7 +50,7 @@ Homebrew installs Python automatically as a dependency — you don't need to ins
 brew install halfsohappy/theatergwd/gooey
 ```
 
-This automatically registers the TheaterGWD tap and installs Gooey in one step. Future `brew upgrade gooey` commands will find it automatically.
+This automatically registers the TheaterGWD tap and installs annieData in one step. Future `brew upgrade gooey` commands will find it automatically.
 
 ### Verify
 
@@ -58,7 +58,7 @@ This automatically registers the TheaterGWD tap and installs Gooey in one step. 
 gooey --help
 ```
 
-You should see:
+Expected output:
 
 ```
 usage: run.py [-h] [--port PORT] [--host HOST] [--no-browser] [--debug]
@@ -75,7 +75,7 @@ options:
 
 ---
 
-## Running Gooey
+## Running annieData
 
 ### Basic launch
 
@@ -83,7 +83,7 @@ options:
 gooey
 ```
 
-Your default browser opens to [http://127.0.0.1:5000](http://127.0.0.1:5000).
+The default browser opens to [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ### Custom port
 
@@ -93,13 +93,13 @@ gooey --port 8080
 
 ### Allow network access
 
-To let other devices on your local network access the control center (useful for tablets or second computers in a theater):
+Exposes the control center to other devices on the local network — useful for tablets or additional machines in the theater:
 
 ```bash
 gooey --host 0.0.0.0
 ```
 
-Then open `http://<your-mac-ip>:5000` on the other device.
+Then open `http://<host-mac-ip>:5000` on the other device.
 
 ### Headless mode (no browser)
 
@@ -129,7 +129,7 @@ Press **Ctrl+C** in the terminal to stop the server.
 
 ```bash
 brew update                   # Refresh all tap metadata
-brew upgrade gooey            # Upgrade Gooey to latest
+brew upgrade gooey            # Upgrade annieData to latest
 ```
 
 To reinstall from scratch (e.g. after a major update):
@@ -142,7 +142,7 @@ brew reinstall gooey
 
 ## Uninstalling
 
-### Remove Gooey
+### Remove annieData
 
 ```bash
 brew uninstall gooey
@@ -154,7 +154,7 @@ brew uninstall gooey
 brew untap halfsohappy/theatergwd
 ```
 
-This removes the tap registration. You can always re-install later.
+This removes the tap registration. Re-installation is possible at any time.
 
 ### Full cleanup
 
@@ -176,7 +176,9 @@ When you `brew install gooey`, Homebrew:
 4. Installs Flask, Flask-SocketIO, and python-osc into the virtual environment
 5. Creates a `gooey` launcher script in your `PATH`
 
-The virtual environment is fully managed by Homebrew — it won't conflict with your system Python or any other Python projects.
+> The CLI command and package name remain `gooey` / `gooey-theatergwd`.
+
+The virtual environment is fully managed by Homebrew — it does not conflict with the system Python or other Python projects.
 
 ### Where things live
 
@@ -192,7 +194,7 @@ The virtual environment is fully managed by Homebrew — it won't conflict with 
 
 ### "command not found: gooey"
 
-Make sure Homebrew's `bin` directory is in your `PATH`.
+Ensure Homebrew's `bin` directory is in the `PATH`.
 
 **Intel Macs:**
 ```bash
@@ -228,30 +230,30 @@ gooey --port 5001
 
 ### Browser doesn't open
 
-Some terminal environments don't support auto-opening URLs. Open your browser manually and go to:
+Some terminal environments do not support auto-opening URLs. Navigate manually to:
 
 ```
 http://127.0.0.1:5000
 ```
 
-Or use `--no-browser` and open it yourself:
+Or suppress the attempt with `--no-browser`:
 ```bash
 gooey --no-browser
 ```
 
 ### Tap fails / permission denied
 
-If `brew tap` fails, check that you can access the repository:
+If `brew tap` fails, verify access to the repository:
 
 ```bash
 git ls-remote https://github.com/halfsohappy/TheaterGWD
 ```
 
-If that fails, the repository may be private. Ask the owner for access, or install via the [manual method](installation.md#manual-install) using a personal access token.
+If that fails, the repository may be private. Request access from the owner, or install via the [manual method](installation.md#manual-install) using a personal access token.
 
 ### Virtual environment is corrupted
 
-Reinstall to get a fresh virtual environment:
+Reinstall to get a fresh venv:
 
 ```bash
 brew reinstall gooey

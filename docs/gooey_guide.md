@@ -1,14 +1,12 @@
-# Gooey Guide
+# GUI Guide
 
-Gooey is the browser-based control center for TheaterGWD. It lets you configure, monitor, and control your sensor devices through a visual interface — no need to type raw OSC commands.
-
-> **Note on images:** This guide includes image placeholders for screenshots that should be taken from a running Gooey instance. Each placeholder is labeled with what it should show. To add real screenshots, take them and save to the `docs/images/` directory with the filenames specified.
+The annieData Control Center is the primary graphical interface for TheaterGWD sensor devices. It enables operators to configure messages, monitor OSC traffic, and control scenes — all from a browser, no raw OSC commands required.
 
 ---
 
 ## Table of Contents
 
-- [What is Gooey?](#what-is-gooey)
+- [What is the annieData Control Center?](#what-is-the-anniedata-control-center)
 - [Installation](#installation)
 - [First Launch](#first-launch)
 - [Connecting to a Device](#connecting-to-a-device)
@@ -30,18 +28,18 @@ Gooey is the browser-based control center for TheaterGWD. It lets you configure,
 
 ---
 
-## What is Gooey?
+## What is the annieData Control Center?
 
-Gooey is a web application that runs on your computer and opens in your browser. It communicates with TheaterGWD sensor devices over WiFi using OSC messages.
+The annieData Control Center is a web application that runs locally and opens in the operator's browser. It communicates with TheaterGWD sensor devices over WiFi using OSC messages.
 
 The interface uses a **split-panel layout**:
-- **Left panel** — tabs for different control categories (Messages, Scenes, Ori, Shows, Advanced)
-- **Right panel** — live feed of all OSC messages, serial terminal, notifications, and command reference
+- **Left panel** — control tabs for Messages, Scenes, Ori, Shows, and Advanced
+- **Right panel** — live OSC feed, serial terminal, notifications, and command reference
 
-Everything you can do with raw OSC commands, you can do through Gooey's interface — plus features like visual message trackers, show file management, Python scripting, and a mobile remote.
+Every operation available via raw OSC commands is also accessible through the annieData interface — along with visual message trackers, show file management, Python scripting, and a mobile remote.
 
-![Gooey main interface showing split-panel layout](images/gooey_first_launch.png)
-*The Gooey control center with the Messages tab open and the live feed on the right.*
+![annieData main interface showing split-panel layout](images/gooey_first_launch.png)
+*The annieData Control Center with the Messages tab open and the live feed on the right.*
 
 ---
 
@@ -71,7 +69,7 @@ yay -S gooey-theatergwd
 pip install gooey-theatergwd
 ```
 
-Using a virtual environment is recommended:
+A virtual environment is recommended:
 
 ```bash
 python3 -m venv gooey-env
@@ -102,13 +100,13 @@ python run.py
 
 ## First Launch
 
-Start Gooey from the terminal:
+Launch annieData from the terminal:
 
 ```bash
 gooey
 ```
 
-Your browser opens automatically to **http://127.0.0.1:5000**.
+The default browser opens automatically to **http://127.0.0.1:5000**.
 
 ### Command-line options
 
@@ -119,13 +117,13 @@ Your browser opens automatically to **http://127.0.0.1:5000**.
 | `--no-browser` | Don't auto-open the browser |
 | `--debug` | Enable Flask debug mode |
 
-Example — make Gooey accessible from other computers:
+Example — expose annieData to other machines on the network:
 
 ```bash
 gooey --host 0.0.0.0 --port 8080
 ```
 
-![Gooey welcome screen with no devices connected](images/gooey_welcome.png)
+![annieData welcome screen with no devices connected](images/gooey_welcome.png)
 *First launch — no devices connected yet.*
 
 ---
@@ -136,17 +134,17 @@ gooey --host 0.0.0.0 --port 8080
 2. Enter the device's **IP address**, **port**, and a **name** for it
 3. The device appears as a tab across the top of the screen
 
-Click a device tab to switch to it. All commands you send go to the selected device.
+Click a device tab to switch context. All subsequent commands are directed to the selected device.
 
 ### Start Listener
 
-Toggle the **Start Listener** option to receive replies from the device. This enables:
+Toggle **Start Listener** to enable reply reception from the device. This activates:
 - Message info replies
 - List command results
 - Status updates
 - Show/ori confirmations
 
-Set the **listen port** to a port your computer isn't using (Gooey suggests one automatically).
+Set the **listen port** to an available port — annieData suggests one automatically.
 
 ![Device connection bar showing device tabs and listener toggle](images/gooey_device_tabs.png)
 *Two devices connected — "bart" is selected, listener is active.*
@@ -162,17 +160,17 @@ Set the **listen port** to a port your computer isn't using (Gooey suggests one 
 | **Right panel** | Right side | Live feed, serial terminal, notifications, reference |
 | **Divider** | Center | Drag to resize panels |
 
-The right panel can be toggled on/off. Click the panel buttons in the header to show **Feed**, **Serial**, **Notifs** (notifications), or **Ref** (command reference).
+The right panel can be toggled on or off. The header buttons switch between **Feed**, **Serial**, **Notifs** (notifications), and **Ref** (command reference).
 
 ---
 
 ## Messages Tab
 
-The Messages tab shows all messages configured on the selected device and lets you create, edit, and manage them.
+The Messages tab displays all messages configured on the selected device and provides controls for creating, editing, and managing them.
 
 ### Message Tracker
 
-The tracker table shows every message with columns:
+The tracker table lists every message with the following columns:
 
 | Column | Description |
 |--------|-------------|
@@ -187,7 +185,7 @@ The tracker table shows every message with columns:
 | **Ori** | Orientation conditions (if any) |
 | **EN** | Enabled/disabled status |
 
-Click any row to select it and see action buttons.
+Select any row to reveal its action buttons.
 
 ![Messages tab showing the tracker table with several messages](images/gooey_messages.png)
 *The message tracker with five messages configured.*
@@ -280,7 +278,7 @@ Similar to the message tracker, but for scenes:
 
 ### setAll
 
-The **setAll** card lets you change a property on every message in the scene at once. For example, set all messages to output 0–255:
+The **setAll** card applies a property change to every message in the scene at once. For example, setting all messages to output 0–255:
 
 > Set all → low: 0, high: 255
 
@@ -288,16 +286,16 @@ The **setAll** card lets you change a property on every message in the scene at 
 
 ## Direct Tab
 
-The Direct tab is the fastest way to get data flowing. It creates a message and scene in one step and starts sending immediately.
+The Direct tab is the fastest path to live data. It creates a message and scene in one step and begins sending immediately.
 
 1. Choose a sensor value from the dropdown
 2. Enter destination IP, port, and OSC address
 3. Set period (send rate)
 4. Click **Go**
 
-This is perfect for quick demos and testing. You can always refine the setup later in the Messages and Scenes tabs.
+Ideal for quick demos and testing — the setup can be refined later in the Messages and Scenes tabs.
 
-The Direct tab also includes a **config builder** — select options from dropdowns and it constructs the config string for you.
+The Direct tab also includes a **config builder** — operators select options from dropdowns, and annieData constructs the config string automatically.
 
 ![Direct tab with a quick sensor mapping](images/gooey_direct.png)
 *Direct tab — one click to start sending accelX.*
@@ -308,13 +306,13 @@ The Direct tab also includes a **config builder** — select options from dropdo
 
 > This tab only appears when connected to an **ab7** board.
 
-Orientations ("oris") let the device recognize physical poses and conditionally send messages.
+Orientations ("oris") enable the device to recognize physical poses and conditionally trigger messages.
 
 ### What are oris?
 
-Think of an ori as a saved "position bookmark." You hold the device in a specific pose — arm raised, pointing forward, resting flat — and save it. The device then continuously checks: "Am I in this pose right now?"
+An ori is a saved pose reference — arm raised, pointing forward, resting flat. The device continuously compares its current orientation against saved oris and reports whether a match is active.
 
-You can make messages that only send when a specific pose is detected, or send a trigger value (1 or 0) based on the current pose.
+Messages can be configured to send only when a specific pose is detected, or to emit a trigger value (1 or 0) based on the active ori.
 
 ### Saved Oris Table
 
@@ -335,9 +333,9 @@ Shows all saved orientations with:
 4. Hold the device in the desired pose for 3–5 seconds
 5. Click **Stop Recording**
 
-The status indicator shows recording progress. After stopping, the device processes the samples and saves the ori.
+The status indicator displays recording progress. After stopping, the device processes the samples and stores the ori.
 
-You can also **instant-save** by clicking the save button — this takes a single snapshot instead of a timed recording.
+The **instant-save** option captures a single snapshot instead of a timed recording.
 
 ### Settings
 
@@ -349,7 +347,7 @@ You can also **instant-save** by clicking the save button — this takes a singl
 
 ### Assigning ori conditions to messages
 
-In the Messages tab, when creating or editing a message, you can set:
+When creating or editing a message in the Messages tab, the following ori conditions are available:
 
 - **ori_only** — message only sends when this ori is active
 - **ori_not** — message is suppressed when this ori is active
@@ -368,7 +366,7 @@ Shows are named snapshots of the entire device state — all messages, scenes, a
 
 ### On-Device shows (NVS)
 
-These are stored on the device's flash memory. They survive power cycles.
+Stored on the device's flash memory. These persist across power cycles.
 
 | Column | Description |
 |--------|-------------|
@@ -380,7 +378,7 @@ Maximum: **16 shows** on-device.
 
 ### Local Library shows
 
-These are stored as JSON files on your computer (in `gooey/data/shows/`). No limit on count.
+Stored as JSON files on the host computer (in `gooey/data/shows/`). No limit on count.
 
 | Column | Description |
 |--------|-------------|
@@ -408,11 +406,11 @@ This replaces all current messages, scenes, and oris on the device.
 
 ### Raw OSC Send
 
-Type any OSC address and arguments to send directly to the device. Useful for testing commands or sending one-off messages.
+Accepts any OSC address and arguments for direct transmission to the device — useful for testing commands or sending one-off messages.
 
 ### JSON Batch Send
 
-Paste a JSON array of messages to send multiple commands at once, optionally with intervals between them:
+Accepts a JSON array of messages for batch transmission, optionally with intervals between them:
 
 ```json
 [
@@ -424,7 +422,7 @@ Paste a JSON array of messages to send multiple commands at once, optionally wit
 
 ### OSC Bridge
 
-Relay incoming OSC from one port to the device. Useful when you have software that sends OSC but can't target the device directly.
+Relays incoming OSC from one port to the device — useful when external software sends OSC but cannot target the device directly.
 
 - **Listen Port** — port to receive on
 - **Forward to** — device IP and port
@@ -466,41 +464,41 @@ The feed stores up to 500 messages. Older messages are dropped.
 
 ## Serial Terminal
 
-Connect to a device over USB to see its serial output and send commands directly.
+The serial terminal provides a direct USB connection to the device for viewing serial output and sending commands.
 
 1. Open the **Serial** panel (right side)
 2. Select the serial port from the dropdown
 3. Set baud rate (default: 115200)
 4. Click **Connect**
 
-You can type commands in the input field and send them to the device. Serial output appears in the terminal view.
+Commands can be typed in the input field and sent directly to the device. Serial output appears in the terminal view.
 
-This is useful for debugging — the device prints status messages, errors, and sensor readings to serial.
+Particularly useful for debugging — the device prints status messages, errors, and sensor readings to serial.
 
 ---
 
 ## Reference Panel
 
-The **Ref** panel is a searchable command reference built into Gooey. It includes:
+The **Ref** panel is a searchable command reference built into annieData. It covers:
 
 - All OSC commands with syntax and examples
 - Config string keys and valid values
 - Address mode descriptions
 - Sensor value names
 
-Type in the search box to filter. Great for looking up a command without leaving the app.
+The search box filters results in real time — no need to leave the application to look up a command.
 
 ---
 
 ## Mobile Remote
 
-Gooey includes a mobile-friendly remote control interface.
+The annieData Control Center includes a mobile-optimized remote control interface.
 
 ### Getting started
 
-1. Make sure Gooey is running with `--host 0.0.0.0` (so it's accessible on the network)
-2. On your phone, navigate to `http://{your-computer-ip}:5000/remote`
-3. Or use the **QR code** from the Advanced tab — scan it with your phone's camera
+1. Ensure annieData is running with `--host 0.0.0.0` so it is accessible on the network
+2. On a mobile device, navigate to `http://{host-ip}:5000/remote`
+3. Alternatively, scan the **QR code** generated in the Advanced tab
 
 ![Mobile remote connect screen](images/gooey_mobile_connect.png)
 *Mobile remote — enter device connection details.*
@@ -528,26 +526,26 @@ After connecting, you see cards for:
 ![Mobile remote main menu with action cards](images/gooey_mobile_menu.png)
 *Mobile remote main menu — tap any card to navigate.*
 
-The mobile remote is a **Progressive Web App (PWA)** — you can add it to your home screen on iOS or Android for a native app experience.
+The mobile remote is a **Progressive Web App (PWA)** — it can be added to the home screen on iOS or Android for a native app experience.
 
 ---
 
 ## Multi-Device Setup
 
-You can control multiple devices simultaneously:
+The interface supports simultaneous control of multiple sensor devices:
 
 1. Click **Add Device** for each sensor
 2. Device tabs appear across the top
 3. Click a tab to switch the active device
-4. Check **"All devices"** to send commands to every connected device at once
+4. Check **"All devices"** to broadcast commands to every connected device at once
 
-Each device maintains its own message/scene registry. The live feed shows traffic for all devices (filter by device name if needed).
+Each device maintains its own message/scene registry. The live feed displays traffic for all devices — filter by device name as needed.
 
 ---
 
 ## Dark/Light Theme
 
-Click the **theme toggle** in the bottom-right corner of the header to switch between dark and light modes. Your preference is saved in the browser.
+The **theme toggle** in the bottom-right corner of the header switches between dark and light modes. The preference persists in the browser.
 
 ---
 
@@ -555,12 +553,12 @@ Click the **theme toggle** in the bottom-right corner of the header to switch be
 
 ### Rehearsal quick start
 
-1. Launch Gooey: `gooey`
-2. Add your device (IP + port)
-3. Go to the **Direct tab**
-4. Pick `accelLength`, enter your console's IP/port/address
+1. Launch annieData: `gooey`
+2. Add the device (IP + port)
+3. Open the **Direct tab**
+4. Select `accelLength`, enter the console's IP/port/address
 5. Click **Go**
-6. Watch the feed to confirm values are flowing
+6. Verify values are flowing in the live feed
 
 ### Multi-sensor rig
 
@@ -577,18 +575,18 @@ Click the **theme toggle** in the bottom-right corner of the header to switch be
 
 ### Saving and recalling between rehearsals
 
-1. After a productive rehearsal, go to **Shows tab**
+1. After rehearsal, open the **Shows tab**
 2. Save as "rehearsal_tuesday"
-3. Next day, load it to pick up where you left off
-4. Save to both **on-device** (survives power cycles) and **local library** (backup on your computer)
+3. The following day, load it to resume where work left off
+4. Save to both **on-device** (persists across power cycles) and **local library** (backup on the host machine)
 
 ### Debugging with solo and feed filtering
 
-1. Something not working? Go to the scene in the **Scenes tab**
+1. Open the scene in the **Scenes tab**
 2. Click **Solo** on the suspect message
-3. Watch the **Feed** — is it sending? Are values changing?
-4. Check the message's **Info** — is the IP/port/address correct?
-5. **Unsolo** when done
+3. Check the **Feed** — confirm the message is sending and values are changing
+4. Click **Info** on the message — verify IP, port, and address are correct
+5. **Unsolo** when finished
 
 ---
 
@@ -597,39 +595,39 @@ Click the **theme toggle** in the bottom-right corner of the header to switch be
 ### Device not responding
 
 - Confirm the device is powered on and connected to the same WiFi network
-- Check the device IP — try pinging it: `ping 192.168.1.100`
-- Verify the port matches what the device was provisioned with
-- Check the device name — it must match the provisioned name exactly
+- Verify the device IP — try `ping 192.168.1.100`
+- Ensure the port matches the device's provisioned port
+- Confirm the device name matches the provisioned name exactly
 
 ### Values not arriving at your console
 
-- Check the **Feed** — are messages being sent? (purple messages should appear)
-- Click **Info** on the message — verify IP, port, and address match your console's settings
-- Make sure the scene is **started** (not just created)
-- Make sure the message is **enabled**
-- Check your console's OSC listener settings — is it listening on the right port?
+- Check the **Feed** — purple messages should appear if data is being sent
+- Click **Info** on the message — verify IP, port, and address match the console's settings
+- Confirm the scene is **started**, not just created
+- Confirm the message is **enabled**
+- Verify the console's OSC listener is active on the correct port
 
 ### Listener not receiving replies
 
-- Make sure **Start Listener** is toggled on
-- Check that the listen port isn't in use by another application
-- The device sends replies to the IP and port it received the command from
+- Confirm **Start Listener** is toggled on
+- Verify the listen port is not in use by another application
+- Note: the device sends replies to the IP and port from which it received the command
 
 ### Browser won't open
 
-- Try manually navigating to `http://127.0.0.1:5000`
-- If using `--host 0.0.0.0`, use your computer's actual IP address
+- Navigate manually to `http://127.0.0.1:5000`
+- If using `--host 0.0.0.0`, use the host machine's actual IP address
 - Check the terminal output for errors
 
 ### Serial port not showing
 
-- Ensure the device is connected via USB
-- On macOS, you may need to install a USB driver for the ESP32
-- Check that no other application (Arduino IDE, PlatformIO monitor) has the port open
+- Confirm the device is connected via USB
+- On macOS, a USB driver for the ESP32 may be required
+- Verify no other application (Arduino IDE, PlatformIO monitor) holds the port open
 
 ### Mobile remote can't connect
 
-- Gooey must be running with `--host 0.0.0.0`
-- Your phone must be on the same WiFi network
+- annieData must be running with `--host 0.0.0.0`
+- The mobile device must be on the same WiFi network
 - Try the IP address shown in the QR code directly
-- Check your computer's firewall settings — port 5000 must be open
+- Verify the host machine's firewall allows traffic on port 5000

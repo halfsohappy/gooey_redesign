@@ -1,10 +1,10 @@
-# Gooey – TheaterGWD Control Center
+# annieData Control Center – TheaterGWD
 
-**A professional control interface for [TheaterGWD](https://github.com/halfsohappy/TheaterGWD) sensor devices.**
+**The primary graphical interface for [TheaterGWD](https://github.com/halfsohappy/TheaterGWD) sensor devices.**
 
-Built with Python. Runs in your browser. Designed for theater professionals.
+Built with Python. Runs in the browser. Designed for theater professionals.
 
-> Based on [annieOSC](https://github.com/halfsohappy/annieOSC), redesigned and rebuilt as a dedicated TheaterGWD control center.
+> Based on [annieOSC](https://github.com/halfsohappy/annieOSC) — redesigned and rebuilt as a dedicated TheaterGWD control center.
 
 ---
 
@@ -25,7 +25,7 @@ gooey
 
 Your browser opens automatically at http://127.0.0.1:5000.
 
-> 📖 **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, troubleshooting.
+> **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, troubleshooting.
 
 ---
 
@@ -51,7 +51,7 @@ The interface uses a **split-panel layout**:
 - **Right panel** — Always-visible live activity feed showing all sent/received messages
 - **Top bar** — Device connection settings and reply listener toggle
 
-This means you can send commands and immediately see device replies without switching tabs.
+This enables operators to send commands and immediately see device replies without switching tabs.
 
 ---
 
@@ -128,7 +128,7 @@ gooey --no-browser              # Don't auto-open browser
 | **[Homebrew Guide](docs/homebrew.md)** | Homebrew-specific setup, updating, and troubleshooting |
 | **[Quick Start](docs/quickstart.md)** | First-time walkthrough of the UI |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and solutions |
-| **[Gooey Guide](../docs/gooey_guide.md)** | Full Gooey control center guide |
+| **[GUI Guide](../docs/gooey_guide.md)** | Full annieData Control Center guide |
 | **[OSC Guide](../docs/osc_guide.md)** | Controlling the device with raw OSC |
 | **[Engineering Guide](../docs/engineering.md)** | Architecture and protocol details |
 

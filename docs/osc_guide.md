@@ -2,7 +2,7 @@
 
 This guide is for **theater people** who want to control the TheaterGWD sensor device using raw OSC messages — from a lighting console, QLab, TouchDesigner, or any other software that speaks OSC.
 
-No programming required. No Gooey required.
+No programming required. No GUI required.
 
 ---
 
@@ -470,7 +470,7 @@ Payload: "rehearsal_v3, opening_night"
 
 ### Limits
 
-The device can store up to **16 shows** in flash memory. If you need more, use Gooey — it saves shows as JSON files on your computer with no limit.
+The device can store up to **16 shows** in flash memory. If you need more, use the annieData Control Center — it saves shows as JSON files on your computer with no limit.
 
 ---
 
@@ -855,7 +855,7 @@ You've set up `bart` and want `sensor2` to have the same setup:
 # Now on sensor2, create similar messages pointing to different addresses
 ```
 
-Or use Gooey's multi-device features for more complex multi-sensor setups.
+Or use annieData's multi-device features for more complex multi-sensor setups.
 
 ### Example 5: Debugging — solo a message
 

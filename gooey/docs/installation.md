@@ -1,8 +1,8 @@
 # Installation Guide
 
-Everything you need to get Gooey – the TheaterGWD Control Center – running on your machine.
+Everything needed to get the annieData Control Center running.
 
-Pick the method that suits you best, then jump to [First Launch](#first-launch) at the bottom.
+Select the preferred installation method, then proceed to [First Launch](#first-launch) at the bottom.
 
 ---
 
@@ -22,12 +22,12 @@ Pick the method that suits you best, then jump to [First Launch](#first-launch) 
 
 ## Homebrew (macOS – recommended)
 
-The fastest way on macOS. One command to install, one command to run.
+The fastest path on macOS — one command to install, one command to run.
 
 ### Prerequisites
 
 - macOS 12 Monterey or later
-- [Homebrew](https://brew.sh) installed — if not, run:
+- [Homebrew](https://brew.sh) installed — if not yet available:
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -45,7 +45,7 @@ brew install halfsohappy/theatergwd/gooey
 gooey
 ```
 
-That's it — your browser opens automatically.
+The default browser opens automatically.
 
 > See [Homebrew Guide](homebrew.md) for update/uninstall/troubleshooting details.
 
@@ -97,7 +97,7 @@ gooey
 
 ## pip install (any platform)
 
-Works on macOS, Linux, and Windows wherever Python 3.8+ is available.
+Available on macOS, Linux, and Windows wherever Python 3.8+ is installed.
 
 ### Prerequisites
 
@@ -128,7 +128,7 @@ gooey
 
 ## One-command installer script
 
-A self-contained script that creates a virtual environment, installs dependencies, and launches the app in one step. Great for quick demos or evaluation.
+A self-contained script that creates a virtual environment, installs dependencies, and launches the application in one step — suitable for quick demos or evaluation.
 
 ### Prerequisites
 
@@ -162,7 +162,7 @@ The script skips setup if the virtual environment already exists.
 
 ## Manual install
 
-If you prefer full control over the process.
+For operators who prefer full control over the installation process.
 
 ### Prerequisites
 
@@ -192,14 +192,14 @@ python run.py
 
 ## First Launch
 
-No matter which method you used, the control center behaves the same:
+Regardless of installation method, the control center behaves the same:
 
 1. **Browser opens automatically** at [http://127.0.0.1:5000](http://127.0.0.1:5000)
-2. Enter your **device IP and port** in the top bar
-3. Click **Start Listener** to receive device replies
-4. Use the **Dashboard** to send your first commands
+2. Enter the **device IP and port** in the top bar
+3. Click **Start Listener** to enable device reply reception
+4. Use the **Dashboard** to send initial commands
 
-> If the browser doesn't open, navigate to `http://127.0.0.1:5000` manually.
+> If the browser does not open, navigate to `http://127.0.0.1:5000` manually.
 
 ### Command-line options
 
@@ -289,7 +289,7 @@ pip uninstall gooey-theatergwd
 
 ### Installer script / manual
 
-Delete the cloned repository folder. If you created a virtual environment, it's inside `gooey/venv/` and will be removed with the folder.
+Delete the cloned repository folder. If a virtual environment was created, it resides inside `gooey/venv/` and is removed with the folder.
 
 ---
 
