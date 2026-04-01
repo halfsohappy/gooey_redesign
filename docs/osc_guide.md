@@ -146,9 +146,13 @@ Here are all the config keys:
 | `period` | Send interval in ms (scenes) | `period:50` |
 | `adrmode` | Address composition mode | `adrmode:prepend` |
 | `override` | Scene override flags | `override:ip+port` |
-| `ori_only` | Only send when this ori is active | `ori_only:forward` |
-| `ori_not` | Don't send when this ori is active | `ori_not:backward` |
-| `ternori` | Send 1 if ori matches, 0 if not | `ternori:upright` |
+| `gate_src` | Gate source: data stream or `ori:name` | `gate_src:twist` or `gate_src:ori:forward` |
+| `gate_mode` | Gate behavior: `only`, `not`, or `toggle` | `gate_mode:only` |
+| `gate_lo` | Gate lower threshold (optional) | `gate_lo:0.3` |
+| `gate_hi` | Gate upper threshold (optional) | `gate_hi:0.7` |
+| `ori_only` | *(backward compat)* Same as `gate_src:ori:X, gate_mode:only` | `ori_only:forward` |
+| `ori_not` | *(backward compat)* Same as `gate_src:ori:X, gate_mode:not` | `ori_not:backward` |
+| `ternori` | *(backward compat)* Same as `gate_src:ori:X, gate_mode:toggle` | `ternori:upright` |
 
 ---
 
@@ -624,26 +628,39 @@ The device processes the samples and saves the orientation.
 - **Hold Button A** (> 300ms): start/stop timed recording
 - **Button B**: cycle through ori slots
 
-### Using oris with messages
+### Using gates with messages
 
-Set these config keys when creating or updating a message:
+Gates let you conditionally control when a message sends. The gate source can be an orientation or any data stream.
 
-**ori_only** — only send when this ori is active:
+**Orientation-based gates** (only send when a specific ori is active):
 ```
-"value:accelX, ip:192.168.1.50, port:9000, adr:/arm/accel, ori_only:armRaised"
-```
-
-**ori_not** — suppress when this ori is active:
-```
-"value:gyroLength, ip:192.168.1.50, port:9000, adr:/spin, ori_not:resting"
+"value:accelX, ip:192.168.1.50, port:9000, adr:/arm/accel, gate_src:ori:armRaised, gate_mode:only"
 ```
 
-**ternori** — send 1 when ori matches, 0 when it doesn't (ignores the sensor value):
+**Suppress when an ori is active:**
 ```
-"value:high, ip:192.168.1.50, port:9000, adr:/trigger/armUp, ternori:armRaised"
+"value:gyroLength, ip:192.168.1.50, port:9000, adr:/spin, gate_src:ori:resting, gate_mode:not"
 ```
 
-This is like a switch: the message outputs 1.0 when `armRaised` is detected and 0.0 otherwise.
+**Toggle based on ori** (send 1 when ori matches, 0 otherwise — ignores the sensor value):
+```
+"value:high, ip:192.168.1.50, port:9000, adr:/trigger/armUp, gate_src:ori:armRaised, gate_mode:toggle"
+```
+
+**Data-stream gate** (only send when twist is in a range):
+```
+"value:accelX, ip:192.168.1.50, port:9000, adr:/wrist/accel, gate_src:twist, gate_mode:only, gate_lo:0.3, gate_hi:0.7"
+```
+
+This message only sends when the `twist` value is between 0.3 and 0.7.
+
+**Data-stream gate with threshold shorthand:**
+- Both `gate_lo` and `gate_hi` set: active when value is in [lo, hi]
+- Only `gate_lo`: active when value >= lo ("greater than")
+- Only `gate_hi`: active when value <= hi ("less than")
+- Neither: active when value >= 0.5
+
+> **Backward compatibility:** The old keys `ori_only`, `ori_not`, and `ternori` still work and translate automatically to their gate equivalents.
 
 ### Adjusting sensitivity
 

@@ -974,10 +974,18 @@
     }
     Object.keys(dev.messages).forEach(function (name) {
       var m = dev.messages[name];
-      var oriStr = "";
-      if (m.ori_only || m.orionly) oriStr = "only:" + (m.ori_only || m.orionly);
-      else if (m.ori_not || m.orinot) oriStr = "not:" + (m.ori_not || m.orinot);
-      else if (m.ternori) oriStr = "tern:" + m.ternori;
+      var gateStr = "";
+      if (m.gate_src || m.gate_source) {
+        var gs = m.gate_src || m.gate_source;
+        var gm = m.gate_mode || "";
+        gateStr = gm + ":" + gs;
+        if (m.gate_lo != null && m.gate_lo !== "") gateStr += " \u2265" + m.gate_lo;
+        if (m.gate_hi != null && m.gate_hi !== "") gateStr += " \u2264" + m.gate_hi;
+      }
+      // Legacy compat
+      else if (m.ori_only || m.orionly) gateStr = "only:ori:" + (m.ori_only || m.orionly);
+      else if (m.ori_not || m.orinot) gateStr = "not:ori:" + (m.ori_not || m.orinot);
+      else if (m.ternori) gateStr = "toggle:ori:" + m.ternori;
       var tr = document.createElement("tr");
       tr.dataset.msgName = name;
       tr.innerHTML =
@@ -989,7 +997,7 @@
         '<td class="cell-mono" data-label="Low" data-col="low">' + esc(m.low || m.min || "") + '</td>' +
         '<td class="cell-mono" data-label="High" data-col="high">' + esc(m.high || m.max || "") + '</td>' +
         '<td class="cell-mono" data-label="Scene" data-col="scene">' + esc(m.scene || "") + '</td>' +
-        '<td class="cell-mono ori-section" data-label="Ori" data-col="ori">' + esc(oriStr || "—") + '</td>' +
+        '<td class="cell-mono gate-section" data-label="Gate" data-col="gate">' + esc(gateStr || "\u2014") + '</td>' +
         '<td data-label="EN">' + (m.enabled === "false" ? '<span class="en-off">×</span>' : '<span class="en-on">✓</span>') + '</td>' +
         '<td class="cell-actions">' +
           '<button class="tbl-btn" data-act="info" title="Show message info" aria-label="Info">i</button>' +
@@ -1015,61 +1023,52 @@
 
   /* ── Sensor categories and hints ── */
   var SENSOR_CATEGORIES = [
-    { id: "accel", label: "Accel", hint: "Raw acceleration in the device\u2019s local body frame",
+    { id: "acceleration", label: "Acceleration", hint: "Linear acceleration in body, world, and limb frames",
       sensors: [
-        { value: "accelX", label: "accelX", hint: "Left/right" },
-        { value: "accelY", label: "accelY", hint: "Up/down" },
-        { value: "accelZ", label: "accelZ", hint: "Forward/back" },
-        { value: "accelLength", label: "accelLength", hint: "Overall intensity" }
+        { value: "accelX", label: "Accel X", hint: "Body-frame left/right" },
+        { value: "accelY", label: "Accel Y", hint: "Body-frame up/down" },
+        { value: "accelZ", label: "Accel Z", hint: "Body-frame forward/back" },
+        { value: "accelLength", label: "Accel Length", hint: "Body-frame overall intensity" },
+        { value: "gaccelX", label: "Global Accel X", hint: "World X axis (gravity-corrected)" },
+        { value: "gaccelY", label: "Global Accel Y", hint: "World Y axis (gravity-corrected)" },
+        { value: "gaccelZ", label: "Global Accel Z", hint: "World Z axis (gravity-corrected)" },
+        { value: "gaccelLength", label: "Global Accel Length", hint: "World overall intensity" },
+        { value: "limbFwd", label: "Limb Forward", hint: "Along limb direction (forward/back)" },
+        { value: "limbLat", label: "Limb Lateral", hint: "Lateral to limb (sideways)" },
+        { value: "limbVert", label: "Limb Vertical", hint: "Vertical relative to limb (up/down)" },
+        { value: "twitch", label: "Twitch", hint: "Overall limb movement intensity" }
       ]},
-    { id: "globalAccel", label: "Global Accel", hint: "Gravity-corrected acceleration in the world frame",
+    { id: "orientation", label: "Orientation", hint: "Rotation angles \u2014 Euler (gimbal lock) and swing-twist (gimbal-lock-free)",
       sensors: [
-        { value: "gaccelX", label: "global_accelX", hint: "World X axis" },
-        { value: "gaccelY", label: "global_accelY", hint: "World Y axis" },
-        { value: "gaccelZ", label: "global_accelZ", hint: "World Z axis" },
-        { value: "gaccelLength", label: "global_accelLength", hint: "Overall intensity" }
+        { value: "roll", label: "Roll (Euler)", hint: "Tilt left/right \u2014 subject to gimbal lock" },
+        { value: "pitch", label: "Pitch (Euler)", hint: "Tilt forward/back \u2014 subject to gimbal lock" },
+        { value: "yaw", label: "Yaw (Euler)", hint: "Compass heading \u2014 subject to gimbal lock" },
+        { value: "twist", label: "Twist (Swing-Twist)", hint: "Wrist rotation around limb axis" },
+        { value: "heading", label: "Heading (Swing-Twist)", hint: "Horizontal pointing direction" },
+        { value: "tilt", label: "Tilt (Swing-Twist)", hint: "Vertical angle above/below horizon" }
       ]},
-    { id: "gyro", label: "Gyro", hint: "Rotational velocity around each axis",
+    { id: "gyroscope", label: "Gyroscope", hint: "Rotational velocity around each axis",
       sensors: [
-        { value: "gyroX", label: "gyroX", hint: "Rolling" },
-        { value: "gyroY", label: "gyroY", hint: "Pitching" },
-        { value: "gyroZ", label: "gyroZ", hint: "Spinning" },
-        { value: "gyroLength", label: "gyroLength", hint: "Overall rotation speed" }
+        { value: "gyroX", label: "Gyro X", hint: "Rolling" },
+        { value: "gyroY", label: "Gyro Y", hint: "Pitching" },
+        { value: "gyroZ", label: "Gyro Z", hint: "Spinning" },
+        { value: "gyroLength", label: "Gyro Length", hint: "Overall rotation speed" }
       ]},
-    { id: "baro", label: "Baro", hint: "Barometric pressure sensor",
+    { id: "barometer", label: "Barometer", hint: "Barometric pressure sensor",
       sensors: [
-        { value: "baro", label: "baro", hint: "Altitude / air pressure" }
+        { value: "baro", label: "Barometer", hint: "Altitude / air pressure" }
       ]},
-    { id: "euler", label: "Euler", hint: "Orientation angles \u2014 subject to gimbal lock at extreme poses",
+    { id: "quaternion", label: "Quaternion", hint: "Raw quaternion components \u2014 advanced rotation math", advanced: true,
       sensors: [
-        { value: "roll", label: "roll", hint: "Tilt left/right" },
-        { value: "pitch", label: "pitch", hint: "Tilt forward/back" },
-        { value: "yaw", label: "yaw", hint: "Compass heading" }
+        { value: "quatI", label: "Quaternion I", hint: "I component" },
+        { value: "quatJ", label: "Quaternion J", hint: "J component" },
+        { value: "quatK", label: "Quaternion K", hint: "K component" },
+        { value: "quatR", label: "Quaternion R", hint: "R (scalar) component" }
       ]},
-    { id: "swingTwist", label: "Swing-Twist", hint: "Gimbal-lock-free orientation using swing-twist decomposition",
+    { id: "constants", label: "Constants", hint: "Fixed values for output bounds",
       sensors: [
-        { value: "twist", label: "twist", hint: "Wrist rotation around limb axis" },
-        { value: "heading", label: "heading", hint: "Horizontal pointing direction" },
-        { value: "tilt", label: "tilt", hint: "Vertical angle above/below horizon" }
-      ]},
-    { id: "limbAccel", label: "Limb Accel", hint: "Acceleration projected onto the swing-twist limb coordinate frame",
-      sensors: [
-        { value: "limbFwd", label: "limbFwd", hint: "Along limb direction (forward/back)" },
-        { value: "limbLat", label: "limbLat", hint: "Lateral to limb (sideways)" },
-        { value: "limbVert", label: "limbVert", hint: "Vertical (up/down)" },
-        { value: "twitch", label: "twitch", hint: "Overall limb movement intensity" }
-      ]},
-    { id: "quat", label: "Quaternion", hint: "Raw quaternion components \u2014 advanced rotation math", advanced: true,
-      sensors: [
-        { value: "quatI", label: "quatI", hint: "I component" },
-        { value: "quatJ", label: "quatJ", hint: "J component" },
-        { value: "quatK", label: "quatK", hint: "K component" },
-        { value: "quatR", label: "quatR", hint: "R (scalar) component" }
-      ]},
-    { id: "const", label: "Constants", hint: "Fixed values for output bounds",
-      sensors: [
-        { value: "high", label: "high", hint: "Always 1.0 \u2014 maps to the high bound" },
-        { value: "low", label: "low", hint: "Always 0.0 \u2014 maps to the low bound" }
+        { value: "high", label: "High", hint: "Always 1.0 \u2014 maps to the high bound" },
+        { value: "low", label: "Low", hint: "Always 0.0 \u2014 maps to the low bound" }
       ]}
   ];
 
@@ -1140,14 +1139,14 @@
           if (valHint) valHint.textContent = SENSOR_HINTS[sensorValue] || "";
         } else {
           catEl.value = "";
-          valEl.innerHTML = '<option value="">\u2014 pick category \u2014</option>';
+          valEl.innerHTML = '<option value="">\u2014 pick sensor \u2014</option>';
           if (catHint) catHint.textContent = "";
           if (valHint) valHint.textContent = "";
         }
       },
       clear: function () {
         catEl.value = "";
-        valEl.innerHTML = '<option value="">\u2014 pick category \u2014</option>';
+        valEl.innerHTML = '<option value="">\u2014 pick sensor \u2014</option>';
         if (catHint) catHint.textContent = "";
         if (valHint) valHint.textContent = "";
       }
@@ -1156,6 +1155,134 @@
 
   var msgPicker = initSensorPicker("msgCategory", "msgValue", "msgCategoryHint", "msgValueHint");
   var directPicker = initSensorPicker("directCategory", "directValue", "directCategoryHint", "directValueHint");
+
+  /* ── Gate picker ── */
+  function initGatePicker(catId, sensorId, oriId, modeId, loId, hiId, hintId, sensorGroupId, oriGroupId, thresholdRowId) {
+    var catEl = $("#" + catId), sensorEl = $("#" + sensorId), oriEl = $("#" + oriId);
+    var modeEl = $("#" + modeId), loEl = $("#" + loId), hiEl = $("#" + hiId);
+    var hintEl = $("#" + hintId);
+    var sensorGroup = $("#" + sensorGroupId), oriGroup = $("#" + oriGroupId);
+    var thresholdRow = $("#" + thresholdRowId);
+    if (!catEl || !modeEl) return null;
+
+    // Populate gate source category dropdown
+    var noneOpt = document.createElement("option");
+    noneOpt.value = ""; noneOpt.textContent = "\u2014 none \u2014";
+    catEl.appendChild(noneOpt);
+    var oriOpt = document.createElement("option");
+    oriOpt.value = "ori"; oriOpt.textContent = "Orientation";
+    catEl.appendChild(oriOpt);
+    SENSOR_CATEGORIES.forEach(function (cat) {
+      if (cat.advanced) return;
+      var opt = document.createElement("option");
+      opt.value = cat.id; opt.textContent = cat.label;
+      catEl.appendChild(opt);
+    });
+
+    function populateGateSensors(catIdVal) {
+      sensorEl.innerHTML = "";
+      var none = document.createElement("option");
+      none.value = ""; none.textContent = "\u2014 pick \u2014";
+      sensorEl.appendChild(none);
+      var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
+      if (!cat) return;
+      cat.sensors.forEach(function (s) {
+        var opt = document.createElement("option");
+        opt.value = s.value; opt.textContent = s.label;
+        sensorEl.appendChild(opt);
+      });
+    }
+
+    function updateVisibility() {
+      var v = catEl.value;
+      if (v === "ori") {
+        sensorGroup.style.display = "none";
+        oriGroup.style.display = "";
+        thresholdRow.style.display = "none";
+        if (hintEl) hintEl.textContent = "Gate based on orientation tracker state";
+      } else if (v) {
+        sensorGroup.style.display = "";
+        oriGroup.style.display = "none";
+        thresholdRow.style.display = "";
+        var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === v; })[0];
+        if (hintEl) hintEl.textContent = cat ? cat.hint : "";
+      } else {
+        sensorGroup.style.display = "";
+        oriGroup.style.display = "none";
+        thresholdRow.style.display = "none";
+        if (hintEl) hintEl.textContent = "";
+      }
+    }
+
+    catEl.addEventListener("change", function () {
+      populateGateSensors(catEl.value);
+      updateVisibility();
+    });
+    sensorEl.addEventListener("change", function () {
+      if (hintEl && catEl.value !== "ori") hintEl.textContent = SENSOR_HINTS[sensorEl.value] || "";
+    });
+    updateVisibility();
+
+    return {
+      /** Returns {gate_src, gate_mode, gate_lo, gate_hi} or null if no gate */
+      getConfig: function () {
+        var mode = modeEl.value;
+        if (!mode) return null;
+        var src;
+        if (catEl.value === "ori") {
+          var oriName = oriEl.value.trim();
+          if (!oriName) return null;
+          src = "ori:" + oriName;
+        } else {
+          src = sensorEl.value;
+          if (!src) return null;
+        }
+        var lo = loEl.value.trim();
+        var hi = hiEl.value.trim();
+        return { gate_src: src, gate_mode: mode, gate_lo: lo, gate_hi: hi };
+      },
+      /** Programmatically set gate state from message data */
+      setValue: function (gateSrc, gateMode, gateLo, gateHi) {
+        if (!gateSrc || !gateMode) { this.clear(); return; }
+        modeEl.value = gateMode;
+        if (gateSrc.indexOf("ori:") === 0) {
+          catEl.value = "ori";
+          oriEl.value = gateSrc.substring(4);
+          updateVisibility();
+        } else {
+          var catIdVal = SENSOR_TO_CAT[gateSrc] || "";
+          if (catIdVal) {
+            if (!catEl.querySelector('option[value="' + catIdVal + '"]')) {
+              var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
+              if (cat) { var opt = document.createElement("option"); opt.value = cat.id; opt.textContent = cat.label; catEl.appendChild(opt); }
+            }
+            catEl.value = catIdVal;
+            populateGateSensors(catIdVal);
+            sensorEl.value = gateSrc;
+          }
+          updateVisibility();
+          if (hintEl) hintEl.textContent = SENSOR_HINTS[gateSrc] || "";
+        }
+        loEl.value = (gateLo != null && gateLo !== "" && !isNaN(gateLo)) ? gateLo : "";
+        hiEl.value = (gateHi != null && gateHi !== "" && !isNaN(gateHi)) ? gateHi : "";
+      },
+      clear: function () {
+        catEl.value = "";
+        sensorEl.innerHTML = '<option value="">\u2014 pick \u2014</option>';
+        oriEl.value = "";
+        modeEl.value = "";
+        loEl.value = "";
+        hiEl.value = "";
+        updateVisibility();
+      }
+    };
+  }
+
+  var msgGatePicker = initGatePicker(
+    "msgGateCategory", "msgGateSensor", "msgGateOri", "msgGateMode",
+    "msgGateLo", "msgGateHi", "msgGateHint",
+    "msgGateSensorGroup", "msgGateOriGroup", "msgGateThresholdRow"
+  );
 
   function populateMsgForm(name, m) {
     $("#msgName").value = name;
@@ -1166,9 +1293,23 @@
     $("#msgLow").value = m.low || m.min || "";
     $("#msgHigh").value = m.high || m.max || "";
     $("#msgScene").value = m.scene || "";
-    $("#msgOriOnly").value = m.ori_only || m.orionly || "";
-    $("#msgOriNot").value = m.ori_not || m.orinot || "";
-    $("#msgTernori").value = m.ternori || "";
+    // Gate fields — handle both new gate_* keys and legacy ori_only/ori_not/ternori
+    if (msgGatePicker) {
+      var gs = m.gate_src || m.gate_source || "";
+      var gm = m.gate_mode || "";
+      var gl = m.gate_lo != null ? m.gate_lo : "";
+      var gh = m.gate_hi != null ? m.gate_hi : "";
+      // Legacy backward compat
+      if (!gs && (m.ori_only || m.orionly)) { gs = "ori:" + (m.ori_only || m.orionly); gm = "only"; }
+      else if (!gs && (m.ori_not || m.orinot)) { gs = "ori:" + (m.ori_not || m.orinot); gm = "not"; }
+      else if (!gs && m.ternori) { gs = "ori:" + m.ternori; gm = "toggle"; }
+      msgGatePicker.setValue(gs, gm, gl, gh);
+      // Auto-show gate section if gate is populated
+      if (gs && gm) {
+        var sec = $("#msgGateSection"); if (sec) sec.style.display = "";
+        var chk = $("#chkShowGate"); if (chk) chk.checked = true;
+      }
+    }
     updateMsgPreview();
     /* scroll to form — switch to messages tab */
     $(".nav-btn[data-section='messages']").click();
@@ -1942,13 +2083,19 @@
     var lo = $("#msgLow").value.trim(); if (lo) parts.push(previewPair("low", lo));
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push(previewPair("high", hi));
     var pa = $("#msgScene").value.trim(); if (pa) parts.push(previewPair("scene", pa));
-    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push(previewPair("ori_only", oo));
-    var on = $("#msgOriNot").value.trim(); if (on) parts.push(previewPair("ori_not", on));
-    var tn = $("#msgTernori").value.trim(); if (tn) parts.push(previewPair("ternori", tn));
+    if (msgGatePicker) {
+      var gc = msgGatePicker.getConfig();
+      if (gc) {
+        parts.push(previewPair("gate_src", gc.gate_src));
+        parts.push(previewPair("gate_mode", gc.gate_mode));
+        if (gc.gate_lo) parts.push(previewPair("gate_lo", gc.gate_lo));
+        if (gc.gate_hi) parts.push(previewPair("gate_hi", gc.gate_hi));
+      }
+    }
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
+  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgGateCategory", "msgGateSensor", "msgGateOri", "msgGateMode", "msgGateLo", "msgGateHi"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -1978,24 +2125,40 @@
     var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPair("low", lo));
     var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPair("high", hi));
     var pa = $("#msgScene").value.trim(); if (pa) parts.push(cfgPair("scene", pa));
-    var oo = $("#msgOriOnly").value.trim(); if (oo) parts.push(cfgPair("ori_only", resolveName(oo, true)));
-    var on = $("#msgOriNot").value.trim(); if (on) parts.push(cfgPair("ori_not", resolveName(on, true)));
-    var tn = $("#msgTernori").value.trim(); if (tn) parts.push(cfgPair("ternori", resolveName(tn, true)));
+    if (msgGatePicker) {
+      var gc = msgGatePicker.getConfig();
+      if (gc) {
+        var gSrc = gc.gate_src;
+        // Resolve "name" shorthand for ori gates
+        if (gSrc.indexOf("ori:") === 0) {
+          var oriPart = gSrc.substring(4);
+          gSrc = "ori:" + resolveName(oriPart, true);
+        }
+        parts.push(cfgPair("gate_src", gSrc));
+        parts.push(cfgPair("gate_mode", gc.gate_mode));
+        if (gc.gate_lo) parts.push(cfgPair("gate_lo", gc.gate_lo));
+        if (gc.gate_hi) parts.push(cfgPair("gate_hi", gc.gate_hi));
+      }
+    }
     var cfg = parts.join(", ");
     var address = addr("/annieData/{device}/msg/{name}", name);
     sendCmd(address, cfg || null).then(function (res) {
       if (res.status === "ok") {
         toast("Applied: " + name, "success");
-        /* Update local registry */
         var dev = getActiveDev();
         if (dev) {
           dev.messages[name] = parseConfigString(cfg);
-          /* Auto-register any ori names referenced in ori fields */
-          [resolveName(oo, true), resolveName(on, true), resolveName(tn, true)].forEach(function (oriName) {
-            if (oriName && !dev.oris[oriName]) {
-              dev.oris[oriName] = { color: [255, 255, 255], samples: 0, pre_reg: true };
+          /* Auto-register ori names from gate */
+          if (msgGatePicker) {
+            var gc2 = msgGatePicker.getConfig();
+            if (gc2 && gc2.gate_src.indexOf("ori:") === 0) {
+              var oriName = gc2.gate_src.substring(4);
+              oriName = resolveName(oriName, true);
+              if (oriName && !dev.oris[oriName]) {
+                dev.oris[oriName] = { color: [255, 255, 255], samples: 0, pre_reg: true };
+              }
             }
-          });
+          }
           renderMsgTable();
           renderOriTable();
           refreshAllDropdowns();
@@ -2006,11 +2169,12 @@
 
   /* Clear form */
   $("#btnMsgClear").addEventListener("click", function () {
-    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgScene"].forEach(function (id) {
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";
     if (msgPicker) msgPicker.clear();
+    if (msgGatePicker) msgGatePicker.clear();
     $("#msgPort").value = "9000";
     updateMsgPreview();
   });
@@ -2702,10 +2866,10 @@
       var kws = presets.keywords || {};
 
       var kwCategories = [
-        { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
+        { title: "Sensors \u2014 Acceleration", keys: ["accelX","accelY","accelZ","accelLength","gaccelX","gaccelY","gaccelZ","gaccelLength","limbFwd","limbLat","limbVert","twitch"] },
         { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","heading","tilt","quatI","quatJ","quatK","quatR"] },
-        { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
-        { title: "Sensors \u2014 Limb Frame (swing-twist)", keys: ["limbFwd","limbLat","limbVert","twitch"] },
+        { title: "Sensors \u2014 Gyroscope", keys: ["gyroX","gyroY","gyroZ","gyroLength"] },
+        { title: "Sensors \u2014 Barometer", keys: ["baro"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
         { title: "Scene Commands", keys: ["scene","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/scene"] },
@@ -3667,18 +3831,18 @@
     (function () {
       var QUAT_KEY = "gooey_show_quats";
       var chkQuat = $("#chkShowQuats");
-      var quatCat = SENSOR_CATEGORIES.filter(function (c) { return c.id === "quat"; })[0];
+      var quatCat = SENSOR_CATEGORIES.filter(function (c) { return c.id === "quaternion"; })[0];
       function setQuatsVisible(on) {
-        // Add or remove the quat category option from all category dropdowns
+        // Add or remove the quaternion category option from all category dropdowns
         $$("select[id$='Category']").forEach(function (sel) {
-          var existing = sel.querySelector('option[value="quat"]');
+          var existing = sel.querySelector('option[value="quaternion"]');
           if (on && !existing && quatCat) {
             var opt = document.createElement("option");
-            opt.value = "quat"; opt.textContent = quatCat.label;
+            opt.value = "quaternion"; opt.textContent = quatCat.label;
             sel.appendChild(opt);
           } else if (!on && existing) {
             existing.remove();
-            if (sel.value === "quat") { sel.value = ""; sel.dispatchEvent(new Event("change")); }
+            if (sel.value === "quaternion") { sel.value = ""; sel.dispatchEvent(new Event("change")); }
           }
         });
         try { localStorage.setItem(QUAT_KEY, on ? "1" : "0"); } catch (e) {}
@@ -3690,6 +3854,25 @@
         setQuatsVisible(true);
       }
       if (chkQuat) chkQuat.addEventListener("change", function () { setQuatsVisible(chkQuat.checked); });
+    }());
+
+    /* ── Gate controls toggle ── */
+    (function () {
+      var GATE_KEY = "gooey_show_gate";
+      var chkGate = $("#chkShowGate");
+      function setGateVisible(on) {
+        $$(".gate-section").forEach(function (el) {
+          if (el.id && el.id.indexOf("Section") >= 0) el.style.display = on ? "" : "none";
+        });
+        try { localStorage.setItem(GATE_KEY, on ? "1" : "0"); } catch (e) {}
+      }
+      var saved = null;
+      try { saved = localStorage.getItem(GATE_KEY); } catch (e) {}
+      if (saved === "1") {
+        if (chkGate) chkGate.checked = true;
+        setGateVisible(true);
+      }
+      if (chkGate) chkGate.addEventListener("change", function () { setGateVisible(chkGate.checked); });
     }());
 
     var SCRIPT_KEY = "gooey_script_enabled";

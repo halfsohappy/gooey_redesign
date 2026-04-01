@@ -182,10 +182,10 @@ The tracker table lists every message with the following columns:
 | **Low** | Minimum output value |
 | **High** | Maximum output value |
 | **Scene** | Which scene(s) it belongs to |
-| **Ori** | Orientation conditions (if any) |
+| **Gate** | Gate conditions (if any) |
 | **EN** | Enabled/disabled status |
 
-Select any row to reveal its action buttons. The **column picker** (gear icon) toggles visibility of the Low, High, Scene, and Ori columns — useful for reducing clutter when those fields are not in use.
+Select any row to reveal its action buttons. The **column picker** (gear icon) toggles visibility of the Low, High, Scene, and Gate columns — useful for reducing clutter when those fields are not in use.
 
 ![Messages tab showing the tracker table with several messages](images/gooey_messages.png)
 *The message tracker with five messages configured.*
@@ -201,7 +201,7 @@ Select any row to reveal its action buttons. The **column picker** (gear icon) t
    - **Address** — OSC address path (e.g., /dmx/1)
    - **Low / High** — output value range
    - **Scene** — optionally assign to an existing scene
-   - **Ori conditions** — ori_only, ori_not, or ternori
+   - **Gate** — gate source (orientation or data stream), gate mode (only/not/toggle), and optional thresholds
 3. Click **Create**
 
 ![Create message form with fields filled in](images/gooey_message_form.png)
@@ -365,13 +365,17 @@ Each sensor tick, the device:
 | **Motion threshold** | Gyroscope magnitude gate (rad/s). When exceeded, matching freezes entirely — prevents false triggers during fast movement. Default: 1.5. |
 | **Strict mode** | When on, no ori is active if the best score is positive (nothing close enough). When off, the closest ori always wins regardless of distance. |
 
-### Assigning ori conditions to messages
+### Assigning gate conditions to messages
 
-When creating or editing a message in the Messages tab, the following ori conditions are available:
+When creating or editing a message in the Messages tab, the gate system provides conditional control over when a message sends. The gate source can be an orientation or any data stream (e.g., twist, accelLength).
 
-- **ori_only** — message only sends when this ori is active
-- **ori_not** — message is suppressed when this ori is active
-- **ternori** — message sends 1.0 when ori matches, 0.0 otherwise
+- **gate_src** — the source: an orientation name (prefixed with `ori:`) or a data stream name
+- **gate_mode: only** — message only sends when the gate is active
+- **gate_mode: not** — message is suppressed when the gate is active
+- **gate_mode: toggle** — message sends 1.0 when gate is active, 0.0 otherwise
+- **gate_lo / gate_hi** — optional thresholds for data stream gates (for ori gates, these are not used)
+
+The old `ori_only`, `ori_not`, and `ternori` fields are still accepted for backward compatibility and map to their gate equivalents.
 
 ---
 

@@ -182,7 +182,7 @@
                     <th data-col="low">Low</th>
                     <th data-col="high">High</th>
                     <th data-col="scene">Scene</th>
-                    <th class="ori-section" data-col="ori">Ori</th>
+                    <th class="gate-section" data-col="gate">Gate</th>
                     <th>EN</th>
                     <th></th>
                   </tr>
@@ -219,15 +219,15 @@
                 <input type="text" id="msgName" placeholder="e.g. accelX">
               </div>
               <div class="form-group">
-                <label for="msgCategory">Category</label>
+                <label for="msgCategory">Sensor</label>
                 <select id="msgCategory">
-                  <option value="">— pick —</option>
+                  <option value="">\u2014 pick \u2014</option>
                 </select>
               </div>
               <div class="form-group">
-                <label for="msgValue">Sensor</label>
+                <label for="msgValue">Data Stream</label>
                 <select id="msgValue">
-                  <option value="">— pick category —</option>
+                  <option value="">\u2014 pick sensor \u2014</option>
                 </select>
               </div>
             </div>
@@ -262,18 +262,40 @@
                 <datalist id="sceneNameList"></datalist>
               </div>
             </div>
-            <div class="form-row ori-section">
-              <div class="form-group">
-                <label for="msgOriOnly">Ori Only <span class="hint">(send only when active)</span></label>
-                <input type="text" id="msgOriOnly" placeholder="e.g. light1" list="oriNameList">
+            <div class="gate-section" id="msgGateSection" style="display:none;">
+              <div class="form-row form-row-even">
+                <div class="form-group">
+                  <label for="msgGateCategory">Gate Source</label>
+                  <select id="msgGateCategory"></select>
+                </div>
+                <div class="form-group" id="msgGateSensorGroup">
+                  <label for="msgGateSensor">Sensor</label>
+                  <select id="msgGateSensor"></select>
+                </div>
+                <div class="form-group" id="msgGateOriGroup" style="display:none;">
+                  <label for="msgGateOri">Orientation</label>
+                  <input type="text" id="msgGateOri" placeholder="e.g. spotlight" list="oriNameList">
+                </div>
+                <div class="form-group">
+                  <label for="msgGateMode">Mode</label>
+                  <select id="msgGateMode">
+                    <option value="">— none —</option>
+                    <option value="only">Only</option>
+                    <option value="not">Not</option>
+                    <option value="toggle">Toggle</option>
+                  </select>
+                </div>
               </div>
-              <div class="form-group">
-                <label for="msgOriNot">Ori Not <span class="hint">(send only when NOT active)</span></label>
-                <input type="text" id="msgOriNot" placeholder="e.g. light2" list="oriNameList">
-              </div>
-              <div class="form-group">
-                <label for="msgTernori">Toggle <span class="hint">(high when active, low when not)</span></label>
-                <input type="text" id="msgTernori" placeholder="e.g. spotlight" list="oriNameList">
+              <p id="msgGateHint" class="sensor-hint"></p>
+              <div class="form-row" id="msgGateThresholdRow">
+                <div class="form-group fg-narrow">
+                  <label for="msgGateLo">Lower</label>
+                  <input type="text" id="msgGateLo" placeholder="≥">
+                </div>
+                <div class="form-group fg-narrow">
+                  <label for="msgGateHi">Upper</label>
+                  <input type="text" id="msgGateHi" placeholder="≤">
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -315,15 +337,15 @@
                 <input type="text" id="directName" value="quickSend" placeholder="name">
               </div>
               <div class="form-group">
-                <label for="directCategory">Category</label>
+                <label for="directCategory">Sensor</label>
                 <select id="directCategory">
-                  <option value="">— pick —</option>
+                  <option value="">\u2014 pick \u2014</option>
                 </select>
               </div>
               <div class="form-group">
-                <label for="directValue">Sensor</label>
+                <label for="directValue">Data Stream</label>
                 <select id="directValue">
-                  <option value="">— pick category —</option>
+                  <option value="">\u2014 pick sensor \u2014</option>
                 </select>
               </div>
             </div>
@@ -565,10 +587,10 @@
             <div class="ori-explainer-body">
               <p>An <strong>ori</strong> is a saved device orientation. Register a name, record its orientation by moving the device through the poses you want it to recognize, then stop. The device continuously calculates which saved ori it's currently closest to.</p>
               <p>Hold Button A on the device to record; release to save. Short tap = instant single sample.</p>
-              <p>Use the <strong>Ori Only / Ori Not / Toggle</strong> conditions on messages to send different values depending on which ori is active.</p>
+              <p>Use the <strong>Gate</strong> system on messages (enable in Advanced Tools) to conditionally send based on ori state or any sensor value.</p>
               <div class="ori-conditions-table">
-                <div class="oc-row"><span class="oc-name">Ori Only</span><span class="oc-desc">Message sends only when this ori is active</span></div>
-                <div class="oc-row"><span class="oc-name">Ori Not</span><span class="oc-desc">Message sends only when this ori is NOT active</span></div>
+                <div class="oc-row"><span class="oc-name">Only</span><span class="oc-desc">Message sends only when the gate condition is active</span></div>
+                <div class="oc-row"><span class="oc-name">Not</span><span class="oc-desc">Message sends only when the gate condition is NOT active</span></div>
                 <div class="oc-row"><span class="oc-name">Toggle</span><span class="oc-desc">Sends the high value when active, low value when not</span></div>
               </div>
             </div>
@@ -856,6 +878,9 @@
             </div>
             <div class="cb-row">
               <label class="cb-label" title="Show raw quaternion components (quatI/J/K/R) in sensor dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion sensors in dropdowns</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate"> Show gate controls in message form</label>
             </div>
           </div>
 

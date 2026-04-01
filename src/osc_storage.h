@@ -85,18 +85,14 @@ static inline String msg_to_save_string(const OscMessage& m) {
         }
     }
 
-    // Ori-conditional fields (ab7 only).
-    if (m.ori_only.length() > 0) {
+    // Gate system.
+    if (m.gate_mode != GATE_NONE) {
         if (s.length() > 0) s += ", ";
-        s += "ori_only:" + m.ori_only;
-    }
-    if (m.ori_not.length() > 0) {
-        if (s.length() > 0) s += ", ";
-        s += "ori_not:" + m.ori_not;
-    }
-    if (m.ternori.length() > 0) {
-        if (s.length() > 0) s += ", ";
-        s += "ternori:" + m.ternori;
+        s += "gate_src:" + m.gate_source;
+        s += ", gate_mode:";
+        s += (m.gate_mode == GATE_ONLY) ? "only" : (m.gate_mode == GATE_NOT) ? "not" : "toggle";
+        if (!isnan(m.gate_lo)) { s += ", gate_lo:" + String(m.gate_lo, 4); }
+        if (!isnan(m.gate_hi)) { s += ", gate_hi:" + String(m.gate_hi, 4); }
     }
 
     return s;

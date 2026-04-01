@@ -119,21 +119,33 @@ public:
     // send task even though they remain in the registry.
     bool          enabled = true;
 
-    // --- Orientation-conditional sending (ab7 only) -------------------------
+    // --- Gate system (generalises ori_only / ori_not / ternori) ---------------
     //
-    // ori_only: if non-empty, this message sends ONLY when this ori is active.
-    // ori_not:  if non-empty, this message sends ONLY when this ori is NOT active.
-    // If both are empty, the message sends unconditionally (normal behaviour).
-    String        ori_only;    // e.g. "light1" — send only when ori "light1" is active
-    String        ori_not;     // e.g. "light2" — send only when ori "light2" is NOT active
+    // gate_source: the input that drives the gate.
+    //   "ori:<name>" — orientation-based gate (active when named ori matches)
+    //   "<stream>"   — data-stream gate (active per threshold)
+    //   ""           — no gate (message sends unconditionally)
+    //
+    // gate_mode:
+    //   GATE_ONLY (1): send only when gate is active
+    //   GATE_NOT  (2): send only when gate is NOT active
+    //   GATE_TOGGLE (3): always send; value = high when active, low when not
+    //
+    // gate_lo / gate_hi: thresholds for data-stream gates (NaN = unset).
+    //   Both set → active when value is in [lo, hi]
+    //   Only lo  → active when value >= lo  ("greater than")
+    //   Only hi  → active when value <= hi  ("less than")
+    //   Neither  → active when value >= 0.5
 
-    // --- Ternori (orientation ternary) — binary switch based on ori state ---
-    //
-    // When ternori is set (e.g. "spotlight"), the message ignores value_ptr and
-    // sends bounds[1] (high) when the named ori is active, bounds[0] (low) when
-    // not.  Unlike ori_only/ori_not which suppress sending, a ternori message
-    // always sends — only the value changes.
-    String        ternori;     // e.g. "spotlight" — high when active, low when not
+#define GATE_NONE   0
+#define GATE_ONLY   1
+#define GATE_NOT    2
+#define GATE_TOGGLE 3
+
+    String        gate_source;
+    uint8_t       gate_mode = GATE_NONE;
+    float         gate_lo   = NAN;
+    float         gate_hi   = NAN;
 
     // --- Duplicate suppression cache (ephemeral, never saved to NVS) ---------
     float         _last_sent_val = 0.0f;
@@ -163,9 +175,10 @@ public:
         bounds[0]  = o.bounds[0];
         bounds[1]  = o.bounds[1];
         enabled    = o.enabled;
-        ori_only   = o.ori_only;
-        ori_not    = o.ori_not;
-        ternori    = o.ternori;
+        gate_source = o.gate_source;
+        gate_mode   = o.gate_mode;
+        gate_lo     = o.gate_lo;
+        gate_hi     = o.gate_hi;
     }
 
     OscMessage& operator=(const OscMessage& o) {
@@ -182,9 +195,10 @@ public:
             bounds[0]  = o.bounds[0];
             bounds[1]  = o.bounds[1];
             enabled    = o.enabled;
-            ori_only   = o.ori_only;
-            ori_not    = o.ori_not;
-            ternori    = o.ternori;
+            gate_source = o.gate_source;
+            gate_mode   = o.gate_mode;
+            gate_lo     = o.gate_lo;
+            gate_hi     = o.gate_hi;
         }
         return *this;
     }
@@ -224,10 +238,18 @@ public:
 
         r.enabled     = enabled && o.enabled;
 
-        // Ori-conditional fields: new config takes priority; fall back to other.
-        r.ori_only = ori_only.length() > 0 ? ori_only : o.ori_only;
-        r.ori_not  = ori_not.length() > 0  ? ori_not  : o.ori_not;
-        r.ternori  = ternori.length() > 0  ? ternori  : o.ternori;
+        // Gate: new config takes priority; fall back to other.
+        if (gate_mode != GATE_NONE) {
+            r.gate_source = gate_source;
+            r.gate_mode   = gate_mode;
+            r.gate_lo     = gate_lo;
+            r.gate_hi     = gate_hi;
+        } else {
+            r.gate_source = o.gate_source;
+            r.gate_mode   = o.gate_mode;
+            r.gate_lo     = o.gate_lo;
+            r.gate_hi     = o.gate_hi;
+        }
 
         return r;
     }

@@ -119,7 +119,8 @@ class MsgProxy:
         """Create or update the message with keyword config values.
 
         Keys map directly to firmware config: value, ip, port, adr,
-        low, high, enabled, scene, ori_only, ori_not, ternori.
+        low, high, enabled, scene, gate_src, gate_mode, gate_lo, gate_hi.
+        Legacy keys ori_only, ori_not, ternori are also accepted.
 
         Example::
 

@@ -253,18 +253,35 @@ void scene_send_task(void* param) {
             OscMessage& msg = reg.messages[mi];
             if (!msg.enabled) continue;
 
-            // Determine if this is a ternori (binary ori switch) message.
-            bool is_ternori = (msg.ternori.length() > 0);
+            // --- Gate evaluation ---------------------------------------------------
+            bool is_toggle = (msg.gate_mode == GATE_TOGGLE);
+            bool gate_active = false;  // only meaningful when gate_mode != GATE_NONE
 
-            // Normal messages need a sensor value pointer.
-            if (!is_ternori && !msg.value_ptr) continue;
+            // Normal messages need a sensor value pointer; toggle overrides value.
+            if (!is_toggle && !msg.value_ptr) continue;
 
-            // --- Ori-conditional check ---
-            // Ternori messages always send (the value changes, not the send decision).
-            if (!is_ternori) {
-                OriTracker& ot = ori_tracker();
-                if (msg.ori_only.length() > 0 && !ot.is_active(msg.ori_only)) continue;
-                if (msg.ori_not.length() > 0  &&  ot.is_active(msg.ori_not))  continue;
+            if (msg.gate_mode != GATE_NONE) {
+                if (msg.gate_source.startsWith("ori:")) {
+                    // Orientation gate
+                    gate_active = ori_tracker().is_active(msg.gate_source.substring(4));
+                } else {
+                    // Data-stream gate
+                    int gi = data_stream_index_from_name(msg.gate_source);
+                    if (gi >= 0 && gi < NUM_DATA_STREAMS) {
+                        float gv = data_streams[gi];
+                        bool has_lo = !isnan(msg.gate_lo);
+                        bool has_hi = !isnan(msg.gate_hi);
+                        if (has_lo && has_hi) gate_active = (gv >= msg.gate_lo && gv <= msg.gate_hi);
+                        else if (has_lo)      gate_active = (gv >= msg.gate_lo);
+                        else if (has_hi)      gate_active = (gv <= msg.gate_hi);
+                        else                  gate_active = (gv >= 0.5f);
+                    }
+                }
+                // Apply gate mode (toggle always sends — only value changes).
+                if (!is_toggle) {
+                    if (msg.gate_mode == GATE_ONLY && !gate_active) continue;
+                    if (msg.gate_mode == GATE_NOT  &&  gate_active) continue;
+                }
             }
 
             // Resolve effective destination.
@@ -276,10 +293,10 @@ void scene_send_task(void* param) {
                 continue;  // not enough info to send
             }
 
-            // Read the value: ternori → binary from ori state, normal → sensor.
+            // Read the value: toggle → binary from gate state, normal → sensor.
             float val;
-            if (is_ternori) {
-                val = ori_tracker().is_active(msg.ternori) ? 1.0f : 0.0f;
+            if (is_toggle) {
+                val = gate_active ? 1.0f : 0.0f;
             } else {
                 val = *(msg.value_ptr);
             }

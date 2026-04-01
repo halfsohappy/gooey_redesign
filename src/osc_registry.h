@@ -145,9 +145,12 @@ public:
         if (src.exist.val)   { m->value_ptr = src.value_ptr;     m->exist.val   = true; }
         if (src.exist.low)   { m->bounds[0] = src.bounds[0];     m->exist.low   = true; }
         if (src.exist.high)  { m->bounds[1] = src.bounds[1];     m->exist.high  = true; }
-        if (src.ori_only.length() > 0) { m->ori_only = src.ori_only; }
-        if (src.ori_not.length() > 0)  { m->ori_not  = src.ori_not;  }
-        if (src.ternori.length() > 0)  { m->ternori  = src.ternori;  }
+        if (src.gate_mode != GATE_NONE) {
+            m->gate_source = src.gate_source;
+            m->gate_mode   = src.gate_mode;
+            m->gate_lo     = src.gate_lo;
+            m->gate_hi     = src.gate_hi;
+        }
         return m;
     }
 
@@ -254,7 +257,7 @@ static inline OscRegistry& osc_registry() {
 /// True if there is enough information to actually transmit an OSC packet:
 /// a value to send, and a resolvable destination (ip, port, address).
 inline bool OscMessage::sendable() const {
-    bool has_val = (value_ptr != nullptr) || (ternori.length() > 0);
+    bool has_val = (value_ptr != nullptr) || (gate_mode == GATE_TOGGLE);
     bool has_ip  = exist.ip;
     bool has_port = exist.port;
     bool has_adr = exist.adr;
@@ -290,9 +293,10 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
     value_ptr  = nullptr;
     bounds[0]  = 0.0f;
     bounds[1]  = 1.0f;
-    ori_only   = "";
-    ori_not    = "";
-    ternori    = "";
+    gate_source = "";
+    gate_mode   = GATE_NONE;
+    gate_lo     = NAN;
+    gate_hi     = NAN;
 
     String input = config;
     input.trim();
@@ -362,14 +366,27 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                 if (ref_m && ref_m->exist.high) { bounds[1] = ref_m->bounds[1]; exist.high = true; }
                 else { if (error) *error = "Ref '" + value + "' has no high"; return false; }
             } else if (key == "orionly" || key == "ori_only") {
-                if (ref_m && ref_m->ori_only.length() > 0) { ori_only = ref_m->ori_only; }
-                else { if (error) *error = "Ref '" + value + "' has no ori_only"; return false; }
+                // Backward compat: ori_only → gate(ori:X, ONLY)
+                if (ref_m && ref_m->gate_mode != GATE_NONE) {
+                    gate_source = ref_m->gate_source; gate_mode = ref_m->gate_mode;
+                    gate_lo = ref_m->gate_lo; gate_hi = ref_m->gate_hi;
+                } else { if (error) *error = "Ref '" + value + "' has no gate"; return false; }
             } else if (key == "orinot" || key == "ori_not") {
-                if (ref_m && ref_m->ori_not.length() > 0) { ori_not = ref_m->ori_not; }
-                else { if (error) *error = "Ref '" + value + "' has no ori_not"; return false; }
+                if (ref_m && ref_m->gate_mode != GATE_NONE) {
+                    gate_source = ref_m->gate_source; gate_mode = ref_m->gate_mode;
+                    gate_lo = ref_m->gate_lo; gate_hi = ref_m->gate_hi;
+                } else { if (error) *error = "Ref '" + value + "' has no gate"; return false; }
             } else if (key == "ternori") {
-                if (ref_m && ref_m->ternori.length() > 0) { ternori = ref_m->ternori; }
-                else { if (error) *error = "Ref '" + value + "' has no ternori"; return false; }
+                if (ref_m && ref_m->gate_mode != GATE_NONE) {
+                    gate_source = ref_m->gate_source; gate_mode = ref_m->gate_mode;
+                    gate_lo = ref_m->gate_lo; gate_hi = ref_m->gate_hi;
+                } else { if (error) *error = "Ref '" + value + "' has no gate"; return false; }
+            } else if (key == "gate_src" || key == "gate_source") {
+                if (ref_m && ref_m->gate_source.length() > 0) { gate_source = ref_m->gate_source; }
+                else { if (error) *error = "Ref '" + value + "' has no gate_src"; return false; }
+            } else if (key == "gate_mode") {
+                if (ref_m && ref_m->gate_mode != GATE_NONE) { gate_mode = ref_m->gate_mode; }
+                else { if (error) *error = "Ref '" + value + "' has no gate_mode"; return false; }
             } else if (key == "default" || key == "all") {
                 if (!ref_p && !ref_m) {
                     if (error) *error = "default/all: no object named '" + value + "'";
@@ -388,9 +405,10 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                     if (ref_m->exist.val   && !exist.val)   { value_ptr = ref_m->value_ptr;     exist.val   = true; }
                     if (ref_m->exist.low   && !exist.low)   { bounds[0] = ref_m->bounds[0];     exist.low   = true; }
                     if (ref_m->exist.high  && !exist.high)  { bounds[1] = ref_m->bounds[1];     exist.high  = true; }
-                    if (ref_m->ori_only.length() > 0 && ori_only.length() == 0) { ori_only = ref_m->ori_only; }
-                    if (ref_m->ori_not.length()  > 0 && ori_not.length()  == 0) { ori_not  = ref_m->ori_not;  }
-                    if (ref_m->ternori.length()  > 0 && ternori.length() == 0)  { ternori  = ref_m->ternori;  }
+                    if (ref_m->gate_mode != GATE_NONE && gate_mode == GATE_NONE) {
+                        gate_source = ref_m->gate_source; gate_mode = ref_m->gate_mode;
+                        gate_lo = ref_m->gate_lo; gate_hi = ref_m->gate_hi;
+                    }
                 }
             } else {
                 if (error) *error = "Unknown key: " + key;
@@ -454,14 +472,37 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
             String v = osc_lower_copy(value);
             enabled = (v == "true" || v == "1" || v == "yes" || v == "on");
         } else if (key == "orionly" || key == "ori_only") {
-            ori_only = value;
+            // Backward compat: ori_only:X → gate(ori:X, ONLY)
+            gate_source = "ori:" + value;
+            gate_mode   = GATE_ONLY;
             { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
         } else if (key == "orinot" || key == "ori_not") {
-            ori_not = value;
+            gate_source = "ori:" + value;
+            gate_mode   = GATE_NOT;
             { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
         } else if (key == "ternori") {
-            ternori = value;
+            gate_source = "ori:" + value;
+            gate_mode   = GATE_TOGGLE;
             { OriTracker& ot = ori_tracker(); if (ot.find(value) < 0) ot.register_ori(value, 255, 255, 255); }
+        } else if (key == "gate_src" || key == "gate_source") {
+            gate_source = value;
+            // Auto-register ori names
+            if (value.startsWith("ori:")) {
+                String ori_name = value.substring(4);
+                OriTracker& ot = ori_tracker();
+                if (ot.find(ori_name) < 0) ot.register_ori(ori_name, 255, 255, 255);
+            }
+        } else if (key == "gate_mode") {
+            String v = osc_lower_copy(value);
+            if      (v == "only"   || v == "1") gate_mode = GATE_ONLY;
+            else if (v == "not"    || v == "2") gate_mode = GATE_NOT;
+            else if (v == "toggle" || v == "3") gate_mode = GATE_TOGGLE;
+            else if (v == "none"   || v == "0") gate_mode = GATE_NONE;
+            else { if (error) *error = "Unknown gate_mode: " + value; return false; }
+        } else if (key == "gate_lo") {
+            gate_lo = value.toFloat();
+        } else if (key == "gate_hi") {
+            gate_hi = value.toFloat();
         } else if (key == "period") {
             // Recognised but handled outside from_config_str (scene-level field).
         } else {
@@ -498,9 +539,13 @@ inline String OscMessage::to_info_string(bool verbose) const {
             s += scenes[i] ? scenes[i]->name : "?";
         }
     }
-    if (ori_only.length() > 0) { s += " ori_only:" + ori_only; }
-    if (ori_not.length() > 0)  { s += " ori_not:" + ori_not; }
-    if (ternori.length() > 0)  { s += " ternori:" + ternori; }
+    if (gate_mode != GATE_NONE) {
+        s += " gate_src:" + gate_source;
+        s += " gate_mode:";
+        s += (gate_mode == GATE_ONLY) ? "only" : (gate_mode == GATE_NOT) ? "not" : "toggle";
+        if (!isnan(gate_lo)) { s += " gate_lo:" + String(gate_lo, 4); }
+        if (!isnan(gate_hi)) { s += " gate_hi:" + String(gate_hi, 4); }
+    }
 
     return s;
 }

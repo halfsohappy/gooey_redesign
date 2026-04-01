@@ -923,14 +923,9 @@ select {
 
 .card { position: relative; }
 
-/* ── Ori Section ── */
-/* Shown by default; toggled via oriMode checkbox which adds .ori-hidden */
-.ori-section.form-row { display: flex; }
-th.ori-section, td.ori-section { display: table-cell; }
-.ori-hidden .ori-section { display: none; }
-.ori-hidden .ori-section.form-row { display: none; }
-.ori-hidden th.ori-section,
-.ori-hidden td.ori-section { display: none; }
+/* ── Gate Section ── */
+th.gate-section, td.gate-section { display: table-cell; }
+.gate-section .form-row-even > .form-group { flex: 1 1 0; min-width: 0; }
 
 /* Ori color swatches */
 .ori-color-swatch {

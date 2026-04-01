@@ -245,9 +245,11 @@ class OscMessage {
     volatile float* value_ptr;            // pointer into data_streams[]
     float bounds[2];                      // output scaling [low, high], default [0, 1]
     bool enabled;
-    // Ori conditionals    String ori_only;   // only send when this ori is active
-    String ori_not;    // suppress when this ori is active
-    String ternori;    // send 1.0 when ori matches, 0.0 otherwise
+    // Gate conditionals
+    String gate_source;    // "ori:name" or data stream name (e.g. "twist")
+    uint8_t gate_mode;     // GATE_NONE=0, GATE_ONLY=1, GATE_NOT=2, GATE_TOGGLE=3
+    float gate_lo;         // lower threshold (NaN = unset)
+    float gate_hi;         // upper threshold (NaN = unset)
     // Dedup cache
     float _last_sent_val;
     bool _has_last_sent;
@@ -262,7 +264,7 @@ class OscMessage {
 
 **Config string format:**
 ```
-"name:myMsg, ip:192.168.1.50, port:9000, adr:/sensor/x, value:accelX, low:0, high:255, enabled:true, scene:myScene, ori_only:forward, ori_not:backward, ternori:upright"
+"name:myMsg, ip:192.168.1.50, port:9000, adr:/sensor/x, value:accelX, low:0, high:255, enabled:true, scene:myScene, gate_src:ori:forward, gate_mode:only"
 ```
 
 **Reference mode:** Setting `ip:ip-anotherMessage` copies the IP address from the named message at send time.
@@ -349,13 +351,13 @@ Each running scene spawns a FreeRTOS task that:
 
 1. Sleeps for `send_period_ms`
 2. Skips iteration if scene is disabled
-3. Resets dedup caches on ori change
+3. Resets dedup caches on gate state change
 4. Locks `reg_mutex`
 5. For each message in the scene:
    - Skips if message is disabled
-   - Checks ori conditionals (`ori_only`, `ori_not`)
+   - Evaluates gate conditional (`gate_source` + `gate_mode` + thresholds)
    - Resolves effective IP, port, address, bounds (override → message → scene fallback)
-   - Reads value from `data_streams[]` (or computes ternori binary)
+   - Reads value from `data_streams[]` (or computes gate toggle binary)
    - Applies dedup filter (skip if value unchanged)
    - Locks `send_mutex`
    - Sends float via `MicroOscUdp`
@@ -652,13 +654,27 @@ Only one ori can be active at a time. Ori changes trigger dedup cache clears.
 
 Red, Green, Blue, Yellow, Magenta, Cyan, Orange, Purple, Spring Green, Rose, Chartreuse, Sky Blue
 
-### Ori Conditionals on Messages
+### Gate Conditionals on Messages
 
-| Field | Behavior |
-|-------|----------|
-| `ori_only:name` | Message only sends when the named ori is active |
-| `ori_not:name` | Message is suppressed when the named ori is active |
-| `ternori:name` | Sends `1.0` when ori matches, `0.0` otherwise (ignores sensor value) |
+The gate system generalizes orientation-based conditionals into a unified system that can use any data stream (not just orientations) as a conditional gate.
+
+| Field | Description |
+|-------|-------------|
+| `gate_src:<source>` | Data stream name (e.g. `twist`) or `ori:<name>` for an orientation |
+| `gate_mode:only\|not\|toggle` | `only` = send when gate is active; `not` = suppress when active; `toggle` = send 1.0/0.0 based on active state |
+| `gate_lo:<float>` | Lower threshold (optional, for data stream gates) |
+| `gate_hi:<float>` | Upper threshold (optional, for data stream gates) |
+
+**Gate evaluation for data streams:**
+- Both `gate_lo` and `gate_hi` set: active when value is in [lo, hi]
+- Only `gate_lo`: active when value >= lo
+- Only `gate_hi`: active when value <= hi
+- Neither: active when value >= 0.5
+
+**Backward compatibility:** The old keys `ori_only`, `ori_not`, and `ternori` are still accepted and translate automatically:
+- `ori_only:X` maps to `gate_src:ori:X, gate_mode:only`
+- `ori_not:X` maps to `gate_src:ori:X, gate_mode:not`
+- `ternori:X` maps to `gate_src:ori:X, gate_mode:toggle`
 
 ---
 
@@ -679,7 +695,7 @@ Shows are named snapshots of the entire device state (scenes, messages, oris).
 
 **Message:**
 ```
-"name:xxx, ip:x.x.x.x, port:N, adr:/xxx, value:sensorName, low:0.0000, high:1.0000, enabled:true, scene:sceneName, ori_only:oriName, ori_not:oriName, ternori:oriName"
+"name:xxx, ip:x.x.x.x, port:N, adr:/xxx, value:sensorName, low:0.0000, high:1.0000, enabled:true, scene:sceneName, gate_src:ori:oriName, gate_mode:only, gate_lo:NaN, gate_hi:NaN"
 ```
 
 **Scene:**
