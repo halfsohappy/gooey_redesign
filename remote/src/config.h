@@ -124,6 +124,7 @@ static const char* const SENSOR_NAMES[] = {
     "baro",
     "roll", "pitch", "yaw",
     "twist", "heading", "tilt",
+    "armFwd", "armLat", "armVert", "armLength",
     "quatI", "quatJ", "quatK", "quatR",
     "high", "low"
 };

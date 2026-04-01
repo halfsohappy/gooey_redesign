@@ -52,7 +52,7 @@ The device reads IMU, barometric, and quaternion data from onboard sensors, norm
 | `include/osc_status.h` | Status reporting (error/warn/info/debug) |
 | `include/osc_storage.h` | NVS persistence — messages, scenes, oris, shows |
 | `include/osc_pattern.h` | OSC 1.0 wildcard matching (`*`, `?`, `[]`, `{}`) |
-| `include/data_streams.h` | 25 sensor data streams, names, indices, simulated data |
+| `include/data_streams.h` | 29 sensor data streams, names, indices, simulated data |
 | `include/ori_tracker.h` | Orientation recording, matching, cloud subsampling |
 | `include/network_setup.h` | WiFi provisioning, captive portal, NVS device config |
 | `include/euler_utils.h` | Euler angle decomposition (ZYX, ZXY) |
@@ -182,7 +182,7 @@ The ab7 build defines `-DAB7_BUILD`. Use this to guard ab7-specific code:
 All sensor values are normalized to `[0, 1]` and stored in a global array:
 
 ```cpp
-volatile float data_streams[NUM_DATA_STREAMS]; // 25 elements
+volatile float data_streams[NUM_DATA_STREAMS]; // 29 elements
 ```
 
 | Index | Constant | Name | Description |
@@ -212,6 +212,10 @@ volatile float data_streams[NUM_DATA_STREAMS]; // 25 elements
 | 22 | `TWIST` | twist | Swing-twist: rotation around arm axis |
 | 23 | `HEADING` | heading | Swing-twist: horizontal pointing direction |
 | 24 | `TILT` | tilt | Swing-twist: vertical angle |
+| 25 | `ARM_FWD` | armFwd | Swing-twist accel: along arm axis |
+| 26 | `ARM_LAT` | armLat | Swing-twist accel: lateral |
+| 27 | `ARM_VERT` | armVert | Swing-twist accel: vertical |
+| 28 | `ARM_LENGTH` | armLength | Swing-twist accel: magnitude |
 
 **Helper functions:**
 - `data_stream_name(idx)` — index → name string
@@ -750,7 +754,7 @@ The firmware uses **no heap allocation** after startup. All data lives in fixed 
 | `scenes[64]` | ~512 B | 64 | ~32 KB |
 | `messages[256]` | ~180 B | 256 | ~46 KB |
 | `oris[32]` | ~300 B | 32 | ~10 KB |
-| `data_streams[25]` | 4 B | 25 | 100 B |
+| `data_streams[29]` | 4 B | 29 | 116 B |
 
 To expand capacity, change `MAX_OSC_SCENES`, `MAX_OSC_MESSAGES`, or `MAX_ORIS` in their respective headers. Ensure the ESP32-S3's available RAM can accommodate the increase.
 

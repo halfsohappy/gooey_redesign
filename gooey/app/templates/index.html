@@ -222,31 +222,35 @@
                 <label for="msgValue">Sensor</label>
                 <select id="msgValue">
                   <option value="">— none —</option>
-                  <option value="high">high (constant)</option>
-                  <option value="low">low (constant)</option>
                   <option value="accelX">accelX</option>
                   <option value="accelY">accelY</option>
                   <option value="accelZ">accelZ</option>
                   <option value="accelLength">accelLength</option>
-                  <option value="gaccelX">gaccelX</option>
-                  <option value="gaccelY">gaccelY</option>
-                  <option value="gaccelZ">gaccelZ</option>
-                  <option value="gaccelLength">gaccelLength</option>
+                  <option value="gaccelX">global_accelX</option>
+                  <option value="gaccelY">global_accelY</option>
+                  <option value="gaccelZ">global_accelZ</option>
+                  <option value="gaccelLength">global_accelLength</option>
                   <option value="gyroX">gyroX</option>
                   <option value="gyroY">gyroY</option>
                   <option value="gyroZ">gyroZ</option>
                   <option value="gyroLength">gyroLength</option>
                   <option value="baro">baro</option>
-                  <option value="roll">roll</option>
-                  <option value="pitch">pitch</option>
-                  <option value="yaw">yaw</option>
-                  <option value="twist">twist</option>
-                  <option value="heading">heading</option>
-                  <option value="tilt">tilt</option>
-                  <option value="quatI">quatI</option>
-                  <option value="quatJ">quatJ</option>
-                  <option value="quatK">quatK</option>
-                  <option value="quatR">quatR</option>
+                  <option value="roll">roll (euler)</option>
+                  <option value="pitch">pitch (euler)</option>
+                  <option value="yaw">yaw (euler)</option>
+                  <option value="twist">twist (swing-twist)</option>
+                  <option value="heading">heading (swing-twist)</option>
+                  <option value="tilt">tilt (swing-twist)</option>
+                  <option value="armFwd">armFwd (swing-twist)</option>
+                  <option value="armLat">armLat (swing-twist)</option>
+                  <option value="armVert">armVert (swing-twist)</option>
+                  <option value="armLength">armLength (swing-twist)</option>
+                  <option value="quatI" class="quat-option" hidden>quatI</option>
+                  <option value="quatJ" class="quat-option" hidden>quatJ</option>
+                  <option value="quatK" class="quat-option" hidden>quatK</option>
+                  <option value="quatR" class="quat-option" hidden>quatR</option>
+                  <option value="high">high (constant)</option>
+                  <option value="low">low (constant)</option>
                 </select>
               </div>
             </div>
@@ -889,6 +893,9 @@
             </div>
             <div class="cb-row">
               <label class="cb-label" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label" title="Show raw quaternion components (quatI/J/K/R) in sensor dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion sensors in dropdowns</label>
             </div>
           </div>
 

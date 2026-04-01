@@ -11,7 +11,7 @@ No programming required. No GUI required.
 - [What This System Does](#what-this-system-does)
 - [Device Setup (Provisioning)](#device-setup-provisioning)
 - [OSC Address Format](#osc-address-format)
-- [The 25 Sensor Values](#the-25-sensor-values)
+- [The 29 Sensor Values](#the-29-sensor-values)
 - [Config String Format](#config-string-format)
 - [Creating Messages](#creating-messages)
 - [Creating Scenes](#creating-scenes)
@@ -83,7 +83,7 @@ For example, if your device is named **bart**:
 
 ---
 
-## The 25 Sensor Values
+## The 29 Sensor Values
 
 The device reads these sensor values and normalizes them all to a range of **0 to 1**:
 
@@ -104,6 +104,10 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `twist` | Wrist rotation around arm axis | Gimbal-lock-free wrist roll |
 | `heading` | Horizontal pointing direction | Arm sweep left/right |
 | `tilt` | Vertical angle above/below horizon | Arm raise/lower |
+| `armFwd` | Acceleration along arm direction | Detect forward/back arm thrust |
+| `armLat` | Acceleration lateral to arm | Detect sideways arm movement |
+| `armVert` | Acceleration vertical | Detect arm raise/drop |
+| `armLength` | Arm-frame acceleration magnitude | Overall arm movement intensity |
 | `gaccelX` | World-frame acceleration — X | Motion regardless of device tilt |
 | `gaccelY` | World-frame acceleration — Y | Motion regardless of device tilt |
 | `gaccelZ` | World-frame acceleration — Z | Motion regardless of device tilt |

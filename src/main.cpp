@@ -315,6 +315,37 @@ void setup() {
                 data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
 
+                // ── Swing-twist frame acceleration ────────────────────
+                // Project global-frame accel onto arm coordinate frame:
+                //   armFwd  = along arm direction (swing-rotated twist axis)
+                //   armLat  = perpendicular horizontal (right of arm)
+                //   armVert = vertical (up axis)
+                {
+                    float avx, avy, avz;
+                    rotate_vec(eq_i, eq_j, eq_k, eq_r,
+                               twist_nx, twist_ny, twist_nz, avx, avy, avz);
+                    float a_up = avx*tare_up_x + avy*tare_up_y + avz*tare_up_z;
+                    // Arm forward (horizontal projection of arm direction)
+                    float afx = avx - a_up*tare_up_x;
+                    float afy = avy - a_up*tare_up_y;
+                    float afz = avz - a_up*tare_up_z;
+                    float aflen = sqrtf(afx*afx + afy*afy + afz*afz);
+                    if (aflen > 1e-6f) { afx /= aflen; afy /= aflen; afz /= aflen; }
+                    // Arm right = up × forward
+                    float arx = tare_up_y*afz - tare_up_z*afy;
+                    float ary = tare_up_z*afx - tare_up_x*afz;
+                    float arz = tare_up_x*afy - tare_up_y*afx;
+                    // Project global accel onto arm basis
+                    float af = gax*afx + gay*afy + gaz*afz;
+                    float ar = gax*arx + gay*ary + gaz*arz;
+                    float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
+                    data_streams[ARM_FWD]    = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[ARM_LAT]    = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[ARM_VERT]   = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    float arm_len = sqrtf(af*af + ar*ar + av*av);
+                    data_streams[ARM_LENGTH] = constrain(arm_len / ACCEL_SCALE, 0.0f, 1.0f);
+                }
+
                 // ── Quaternion components (raw, untared) ───────────────
                 // Normalised via *0.5+0.5 → [0,1].  Set low:-1 high:1 on the
                 // OscMessage to recover the native [-1,1] quaternion range.
@@ -500,6 +531,37 @@ void setup() {
                 data_streams[GACCELY]      = constrain((gay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                 data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+
+                // ── Swing-twist frame acceleration ────────────────────
+                // Project global-frame accel onto arm coordinate frame:
+                //   armFwd  = along arm direction (swing-rotated twist axis)
+                //   armLat  = perpendicular horizontal (right of arm)
+                //   armVert = vertical (up axis)
+                {
+                    float avx, avy, avz;
+                    rotate_vec(eq_i, eq_j, eq_k, eq_r,
+                               twist_nx, twist_ny, twist_nz, avx, avy, avz);
+                    float a_up = avx*tare_up_x + avy*tare_up_y + avz*tare_up_z;
+                    // Arm forward (horizontal projection of arm direction)
+                    float afx = avx - a_up*tare_up_x;
+                    float afy = avy - a_up*tare_up_y;
+                    float afz = avz - a_up*tare_up_z;
+                    float aflen = sqrtf(afx*afx + afy*afy + afz*afz);
+                    if (aflen > 1e-6f) { afx /= aflen; afy /= aflen; afz /= aflen; }
+                    // Arm right = up × forward
+                    float arx = tare_up_y*afz - tare_up_z*afy;
+                    float ary = tare_up_z*afx - tare_up_x*afz;
+                    float arz = tare_up_x*afy - tare_up_y*afx;
+                    // Project global accel onto arm basis
+                    float af = gax*afx + gay*afy + gaz*afz;
+                    float ar = gax*arx + gay*ary + gaz*arz;
+                    float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
+                    data_streams[ARM_FWD]    = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[ARM_LAT]    = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[ARM_VERT]   = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    float arm_len = sqrtf(af*af + ar*ar + av*av);
+                    data_streams[ARM_LENGTH] = constrain(arm_len / ACCEL_SCALE, 0.0f, 1.0f);
+                }
 
                 // ── Quaternion components (raw, untared) ───────────────
                 // Normalised via *0.5+0.5 → [0,1].  Set low:-1 high:1 on the

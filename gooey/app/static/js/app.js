@@ -1034,6 +1034,10 @@
     twist: "Swing-twist \u2014 wrist rotation around arm axis (no gimbal lock)",
     heading: "Swing-twist \u2014 horizontal pointing direction",
     tilt: "Swing-twist \u2014 vertical angle above/below horizon",
+    armFwd: "Swing-twist \u2014 acceleration along arm direction",
+    armLat: "Swing-twist \u2014 acceleration lateral to arm",
+    armVert: "Swing-twist \u2014 acceleration vertical",
+    armLength: "Swing-twist \u2014 arm-frame acceleration magnitude",
     quatI: "Quaternion I component (advanced)",
     quatJ: "Quaternion J component (advanced)",
     quatK: "Quaternion K component (advanced)",
@@ -2602,6 +2606,7 @@
         { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
         { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","heading","tilt","quatI","quatJ","quatK","quatR"] },
         { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
+        { title: "Sensors \u2014 Arm Frame (swing-twist)", keys: ["armFwd","armLat","armVert","armLength"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
         { title: "Scene Commands", keys: ["scene","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/scene"] },
@@ -3557,6 +3562,23 @@
         setBulkVisible(true);
       }
       if (chkBulk) chkBulk.addEventListener("change", function () { setBulkVisible(chkBulk.checked); });
+    }());
+
+    /* ── Quaternion sensors toggle ── */
+    (function () {
+      var QUAT_KEY = "gooey_show_quats";
+      var chkQuat = $("#chkShowQuats");
+      function setQuatsVisible(on) {
+        $$(".quat-option").forEach(function (el) { el.hidden = !on; });
+        try { localStorage.setItem(QUAT_KEY, on ? "1" : "0"); } catch (e) {}
+      }
+      var saved = null;
+      try { saved = localStorage.getItem(QUAT_KEY); } catch (e) {}
+      if (saved === "1") {
+        if (chkQuat) chkQuat.checked = true;
+        setQuatsVisible(true);
+      }
+      if (chkQuat) chkQuat.addEventListener("change", function () { setQuatsVisible(chkQuat.checked); });
     }());
 
     var SCRIPT_KEY = "gooey_script_enabled";
