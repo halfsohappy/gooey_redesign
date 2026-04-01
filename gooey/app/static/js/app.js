@@ -1025,18 +1025,16 @@
   var SENSOR_CATEGORIES = [
     { id: "acceleration", label: "Acceleration", hint: "Linear acceleration in body, world, and limb frames",
       sensors: [
-        { value: "accelX", label: "Accel X", hint: "Body-frame left/right" },
-        { value: "accelY", label: "Accel Y", hint: "Body-frame up/down" },
-        { value: "accelZ", label: "Accel Z", hint: "Body-frame forward/back" },
-        { value: "accelLength", label: "Accel Length", hint: "Body-frame overall intensity" },
-        { value: "gaccelX", label: "Global Accel X", hint: "World X axis (gravity-corrected)" },
-        { value: "gaccelY", label: "Global Accel Y", hint: "World Y axis (gravity-corrected)" },
-        { value: "gaccelZ", label: "Global Accel Z", hint: "World Z axis (gravity-corrected)" },
-        { value: "gaccelLength", label: "Global Accel Length", hint: "World overall intensity" },
+        { value: "accelX", label: "Raw X", hint: "Body-frame left/right" },
+        { value: "accelY", label: "Raw Y", hint: "Body-frame up/down" },
+        { value: "accelZ", label: "Raw Z", hint: "Body-frame forward/back" },
+        { value: "gaccelX", label: "Global X", hint: "World X axis (gravity-corrected)" },
+        { value: "gaccelY", label: "Global Y", hint: "World Y axis (gravity-corrected)" },
+        { value: "gaccelZ", label: "Global Z", hint: "World Z axis (gravity-corrected)" },
         { value: "limbFwd", label: "Limb Forward", hint: "Along limb direction (forward/back)" },
         { value: "limbLat", label: "Limb Lateral", hint: "Lateral to limb (sideways)" },
         { value: "limbVert", label: "Limb Vertical", hint: "Vertical relative to limb (up/down)" },
-        { value: "twitch", label: "Twitch", hint: "Overall limb movement intensity" }
+        { value: "twitch", label: "Twitch", hint: "Overall movement intensity (acceleration magnitude)" }
       ]},
     { id: "orientation", label: "Orientation", hint: "Rotation angles \u2014 Euler (gimbal lock) and swing-twist (gimbal-lock-free)",
       sensors: [
@@ -1049,14 +1047,14 @@
       ]},
     { id: "gyroscope", label: "Gyroscope", hint: "Rotational velocity around each axis",
       sensors: [
-        { value: "gyroX", label: "Gyro X", hint: "Rolling" },
-        { value: "gyroY", label: "Gyro Y", hint: "Pitching" },
-        { value: "gyroZ", label: "Gyro Z", hint: "Spinning" },
-        { value: "gyroLength", label: "Gyro Length", hint: "Overall rotation speed" }
+        { value: "gyroX", label: "Raw X", hint: "Rolling" },
+        { value: "gyroY", label: "Raw Y", hint: "Pitching" },
+        { value: "gyroZ", label: "Raw Z", hint: "Spinning" },
+        { value: "gyroLength", label: "Magnitude", hint: "Overall rotation speed" }
       ]},
     { id: "barometer", label: "Barometer", hint: "Barometric pressure sensor",
       sensors: [
-        { value: "baro", label: "Barometer", hint: "Altitude / air pressure" }
+        { value: "baro", label: "Elevation", hint: "Altitude / air pressure" }
       ]},
     { id: "quaternion", label: "Quaternion", hint: "Raw quaternion components \u2014 advanced rotation math", advanced: true,
       sensors: [
@@ -1067,8 +1065,8 @@
       ]},
     { id: "constants", label: "Constants", hint: "Fixed values for output bounds",
       sensors: [
-        { value: "high", label: "High", hint: "Always 1.0 \u2014 maps to the high bound" },
-        { value: "low", label: "Low", hint: "Always 0.0 \u2014 maps to the low bound" }
+        { value: "high", label: "High", hint: "Always returns the high bound" },
+        { value: "low", label: "Low", hint: "Always returns the low bound" }
       ]}
   ];
 
