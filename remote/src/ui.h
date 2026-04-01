@@ -1157,6 +1157,16 @@ static void _handle_menu(InputEvent ev) {
         case EVT_LEFT:
             _pop();
             break;
+        case EVT_TAP_ROW: {
+            // Direct tap on a visible content row (touch4 only).
+            // _tapped_row is the row index within the visible area (0-based).
+            int abs_idx = s.scroll + _tapped_row;
+            if (_tapped_row >= 0 && abs_idx < s.count) {
+                s.selected = abs_idx;
+                if (s.on_select) s.on_select(s.selected);
+            }
+            break;
+        }
         default: break;
     }
 }
@@ -1212,6 +1222,9 @@ static void _draw() {
             char dots[5] = "    ";
             for (int i = 0; i < dot; i++) dots[i] = '.';
             disp_message("Waiting for reply", dots);
+#ifdef TOUCH4_BUILD
+            disp_status("");   // ensure button bar is visible while waiting
+#endif
             break;
         }
     }

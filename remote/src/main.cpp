@@ -35,14 +35,51 @@ void setup() {
     delay(500);
     Serial.println("\n=== TheaterGWD Setup Remote ===");
 
-    // ── TFT display ─────────────────────────────────────────────────────
+#ifdef TOUCH4_BUILD
+    // ── TCA9554PWR I2C GPIO expander ────────────────────────────────────
+    //  Controls LCD reset, touch reset, and backlight enable via EXIO0–2.
+    //  Uses Wire1 (SDA=IO15, SCL=IO7) — the "new board" I2C1 wiring that
+    //  shares the bus with GT911 touch and the RTC.
+    //
+    //  Old-board owners: the expander is on I2C0 (SDA=IO8, SCL=IO9).
+    //  Change Wire1 to Wire in this block and in input_read() if needed.
+
+    Wire1.begin(PIN_TP_SDA, PIN_TP_SCL);
+
+    // Helper: write one byte to a TCA9554 register
+    auto tca_write = [](uint8_t reg, uint8_t val) {
+        Wire1.beginTransmission(TCA9554_ADDR);
+        Wire1.write(reg);
+        Wire1.write(val);
+        Wire1.endTransmission();
+    };
+
+    // EXIO0/1/2 as outputs (0 = output in TCA9554 config register 0x03)
+    tca_write(0x03, 0xF8);   // bits 0-2 = output, bits 3-7 = input (unused)
+    // Assert all resets, backlight off
+    tca_write(0x01, 0x00);
+    delay(10);
+    // Release LCD reset (EXIO2) and touch reset (EXIO0)
+    tca_write(0x01, (1 << EXIO_LCD_RST) | (1 << EXIO_TP_RST));   // 0x05
+    delay(120);   // GT911 requires ≥100 ms after reset before I2C is ready
+    Serial.println("TCA9554 init done");
+#endif
+
+    // ── TFT / LCD display ────────────────────────────────────────────────
     if (!disp_init()) {
         Serial.println("TFT init failed");
         while (true) delay(1000);
     }
+
+#ifdef TOUCH4_BUILD
+    // Enable backlight now that the panel is initialised
+    tca_write(0x01, (1 << EXIO_LCD_RST) | (1 << EXIO_TP_RST) | (1 << EXIO_BL_EN)); // 0x07
+    Serial.println("Backlight enabled");
+#endif
     disp_clear();
     disp_message("Setup Remote", "starting...");
 
+#ifndef TOUCH4_BUILD
     // ── I2C bus (for Gamepad QT) ────────────────────────────────────────
     Wire.begin(PIN_SDA, PIN_SCL);
 
@@ -53,6 +90,12 @@ void setup() {
         disp_message("Gamepad FAIL", "check wiring");
         while (true) delay(1000);
     }
+#else
+    // Touch4: GT911 is already active (reset released above); input_init()
+    // is a no-op but called for consistency.
+    input_init();
+    Serial.println("GT911 touch ready");
+#endif
 
     // ── Load saved settings ─────────────────────────────────────────────
     net_load();

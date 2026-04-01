@@ -65,6 +65,57 @@
 // ── OSC buffer ──────────────────────────────────────────────────────────────
 #define OSC_BUF_SIZE      512
 
+// ── Waveshare ESP32-S3-Touch-LCD-4 overrides (TOUCH4_BUILD) ─────────────────
+//
+//  Replaces screen dimensions, char/row geometry, and adds hardware pin defs.
+//  All other config (network defaults, NVS, sensors, palette …) is shared.
+//
+//  I2C topology (confirmed from Waveshare HTML pin table):
+//    I2C 1  Wire1  SDA=IO15 SCL=IO7  → GT911 touch, TCA9554 expander (new boards)
+//    I2C 0  Wire   SDA=IO8  SCL=IO9  → TCA9554 expander (old boards only)
+//                                       (IO8/IO9 also used as RGB R3/G5)
+//  This build targets new-board wiring; Wire1 is used for both devices.
+//
+#ifdef TOUCH4_BUILD
+
+// Touch (GT911)
+#define PIN_TP_SDA     15   // TP_SDA
+#define PIN_TP_SCL      7   // TP_SCL
+#define PIN_TP_INT     16   // TP_INT (active-low, input)
+
+// TCA9554PWR I2C GPIO expander (addr = 0x20 when A0=A1=A2=GND)
+#define TCA9554_ADDR  0x20
+#define EXIO_TP_RST    0    // EXIO0 — touch panel reset (active-low)
+#define EXIO_BL_EN     1    // EXIO1 — backlight enable (active-high)
+#define EXIO_LCD_RST   2    // EXIO2 — LCD reset (active-low)
+
+// GT911 default 7-bit address when INT is held LOW during reset
+#define GT911_ADDR    0x5D
+
+// 480×480 screen
+#undef  SCREEN_WIDTH
+#undef  SCREEN_HEIGHT
+#define SCREEN_WIDTH   480
+#define SCREEN_HEIGHT  480
+
+// textSize(4) → 24×32 px per glyph — same 20-column width as the original
+#undef  CHAR_W
+#undef  CHAR_H
+#undef  COLS
+#undef  ROWS
+#undef  VISIBLE_ITEMS
+#undef  CONTENT_ROWS
+#undef  STATUS_Y
+#define CHAR_W         24
+#define CHAR_H         32
+#define COLS           (SCREEN_WIDTH  / CHAR_W)   // 20
+#define ROWS           (SCREEN_HEIGHT / CHAR_H)   // 15
+#define VISIBLE_ITEMS  13   // rows 1–13 (row 0 = title, row 14 = button bar)
+#define CONTENT_ROWS   VISIBLE_ITEMS
+#define STATUS_Y       14   // bottom row → touch-button bar
+
+#endif // TOUCH4_BUILD
+
 // ── Sensor value names (for pick list) ──────────────────────────────────────
 static const char* const SENSOR_NAMES[] = {
     "accelX", "accelY", "accelZ", "accelLength",
