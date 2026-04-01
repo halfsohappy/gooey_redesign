@@ -152,6 +152,7 @@ jobs:
     needs: build-desktop
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    environment: main - gooey-theatergwd
 
     steps:
       - uses: actions/checkout@v4
