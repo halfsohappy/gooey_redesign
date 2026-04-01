@@ -2162,7 +2162,7 @@ input.field-error {
   position: fixed;
   z-index: 1000;
   width: 280px;
-  background: var(--surface);
+  background: var(--bg-card);
   border: 1px solid var(--border-focus);
   border-radius: 6px;
   padding: 10px 14px;
@@ -2170,7 +2170,7 @@ input.field-error {
   line-height: 1.6;
   color: var(--text-medium);
   white-space: normal;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 .tooltip-wrap:hover .tooltip-body { display: block; }
