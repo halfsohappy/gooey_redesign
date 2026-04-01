@@ -213,47 +213,25 @@
 
           <div class="card">
             <h2>Create / Edit Message</h2>
-            <div class="form-row">
+            <div class="form-row form-row-even">
               <div class="form-group">
                 <label for="msgName">Name</label>
                 <input type="text" id="msgName" placeholder="e.g. accelX">
               </div>
               <div class="form-group">
+                <label for="msgCategory">Category</label>
+                <select id="msgCategory">
+                  <option value="">— pick —</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="msgValue">Sensor</label>
                 <select id="msgValue">
-                  <option value="">— none —</option>
-                  <option value="accelX">accelX</option>
-                  <option value="accelY">accelY</option>
-                  <option value="accelZ">accelZ</option>
-                  <option value="accelLength">accelLength</option>
-                  <option value="gaccelX">global_accelX</option>
-                  <option value="gaccelY">global_accelY</option>
-                  <option value="gaccelZ">global_accelZ</option>
-                  <option value="gaccelLength">global_accelLength</option>
-                  <option value="gyroX">gyroX</option>
-                  <option value="gyroY">gyroY</option>
-                  <option value="gyroZ">gyroZ</option>
-                  <option value="gyroLength">gyroLength</option>
-                  <option value="baro">baro</option>
-                  <option value="roll">roll (euler)</option>
-                  <option value="pitch">pitch (euler)</option>
-                  <option value="yaw">yaw (euler)</option>
-                  <option value="twist">twist (swing-twist)</option>
-                  <option value="heading">heading (swing-twist)</option>
-                  <option value="tilt">tilt (swing-twist)</option>
-                  <option value="armFwd">armFwd (swing-twist)</option>
-                  <option value="armLat">armLat (swing-twist)</option>
-                  <option value="armVert">armVert (swing-twist)</option>
-                  <option value="armLength">armLength (swing-twist)</option>
-                  <option value="quatI" class="quat-option" hidden>quatI</option>
-                  <option value="quatJ" class="quat-option" hidden>quatJ</option>
-                  <option value="quatK" class="quat-option" hidden>quatK</option>
-                  <option value="quatR" class="quat-option" hidden>quatR</option>
-                  <option value="high">high (constant)</option>
-                  <option value="low">low (constant)</option>
+                  <option value="">— pick category —</option>
                 </select>
               </div>
             </div>
+            <p id="msgCategoryHint" class="sensor-hint"></p>
             <p id="msgValueHint" class="sensor-hint"></p>
             <div class="form-row">
               <div class="form-group">
@@ -331,43 +309,25 @@
           <div class="card" data-card-id="direct-command">
             <h2>Direct Command</h2>
             <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately. If a message or scene with the same name already exists, it will be replaced.</p>
-            <div class="form-row">
+            <div class="form-row form-row-even">
               <div class="form-group">
                 <label for="directName">Name</label>
                 <input type="text" id="directName" value="quickSend" placeholder="name">
               </div>
               <div class="form-group">
+                <label for="directCategory">Category</label>
+                <select id="directCategory">
+                  <option value="">— pick —</option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label for="directValue">Sensor</label>
                 <select id="directValue">
-                  <option value="">— none —</option>
-                  <option value="high">high (constant)</option>
-                  <option value="low">low (constant)</option>
-                  <option value="accelX">accelX</option>
-                  <option value="accelY">accelY</option>
-                  <option value="accelZ">accelZ</option>
-                  <option value="accelLength">accelLength</option>
-                  <option value="gaccelX">gaccelX</option>
-                  <option value="gaccelY">gaccelY</option>
-                  <option value="gaccelZ">gaccelZ</option>
-                  <option value="gaccelLength">gaccelLength</option>
-                  <option value="gyroX">gyroX</option>
-                  <option value="gyroY">gyroY</option>
-                  <option value="gyroZ">gyroZ</option>
-                  <option value="gyroLength">gyroLength</option>
-                  <option value="baro">baro</option>
-                  <option value="roll">roll</option>
-                  <option value="pitch">pitch</option>
-                  <option value="yaw">yaw</option>
-                  <option value="twist">twist</option>
-                  <option value="heading">heading</option>
-                  <option value="tilt">tilt</option>
-                  <option value="quatI">quatI</option>
-                  <option value="quatJ">quatJ</option>
-                  <option value="quatK">quatK</option>
-                  <option value="quatR">quatR</option>
+                  <option value="">— pick category —</option>
                 </select>
               </div>
             </div>
+            <p id="directCategoryHint" class="sensor-hint"></p>
             <p id="directValueHint" class="sensor-hint"></p>
             <div class="form-row">
               <div class="form-group">

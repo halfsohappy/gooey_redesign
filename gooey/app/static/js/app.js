@@ -1013,43 +1013,153 @@
     applyColVisibility();
   }
 
-  /* ── Sensor value description hints ── */
-  var SENSOR_HINTS = {
-    accelX: "Linear acceleration \u2014 left/right",
-    accelY: "Linear acceleration \u2014 up/down",
-    accelZ: "Linear acceleration \u2014 forward/back",
-    accelLength: "Overall acceleration intensity",
-    gaccelX: "World-frame acceleration \u2014 X (gravity-corrected)",
-    gaccelY: "World-frame acceleration \u2014 Y (gravity-corrected)",
-    gaccelZ: "World-frame acceleration \u2014 Z (gravity-corrected)",
-    gaccelLength: "World-frame acceleration magnitude",
-    gyroX: "Rotation speed \u2014 X axis (rolling)",
-    gyroY: "Rotation speed \u2014 Y axis (pitching)",
-    gyroZ: "Rotation speed \u2014 Z axis (spinning)",
-    gyroLength: "Overall rotation speed",
-    baro: "Barometric pressure / altitude",
-    roll: "Euler roll \u2014 tilt left/right",
-    pitch: "Euler pitch \u2014 tilt forward/back",
-    yaw: "Euler yaw \u2014 compass heading",
-    twist: "Swing-twist \u2014 wrist rotation around arm axis (no gimbal lock)",
-    heading: "Swing-twist \u2014 horizontal pointing direction",
-    tilt: "Swing-twist \u2014 vertical angle above/below horizon",
-    armFwd: "Swing-twist \u2014 acceleration along arm direction",
-    armLat: "Swing-twist \u2014 acceleration lateral to arm",
-    armVert: "Swing-twist \u2014 acceleration vertical",
-    armLength: "Swing-twist \u2014 arm-frame acceleration magnitude",
-    quatI: "Quaternion I component (advanced)",
-    quatJ: "Quaternion J component (advanced)",
-    quatK: "Quaternion K component (advanced)",
-    quatR: "Quaternion R / scalar component (advanced)",
-    high: "Constant 1.0 \u2014 maps to the high bound",
-    low: "Constant 0.0 \u2014 maps to the low bound"
-  };
+  /* ── Sensor categories and hints ── */
+  var SENSOR_CATEGORIES = [
+    { id: "accel", label: "Accel", hint: "Raw acceleration in the device\u2019s local body frame",
+      sensors: [
+        { value: "accelX", label: "accelX", hint: "Left/right" },
+        { value: "accelY", label: "accelY", hint: "Up/down" },
+        { value: "accelZ", label: "accelZ", hint: "Forward/back" },
+        { value: "accelLength", label: "accelLength", hint: "Overall intensity" }
+      ]},
+    { id: "globalAccel", label: "Global Accel", hint: "Gravity-corrected acceleration in the world frame",
+      sensors: [
+        { value: "gaccelX", label: "global_accelX", hint: "World X axis" },
+        { value: "gaccelY", label: "global_accelY", hint: "World Y axis" },
+        { value: "gaccelZ", label: "global_accelZ", hint: "World Z axis" },
+        { value: "gaccelLength", label: "global_accelLength", hint: "Overall intensity" }
+      ]},
+    { id: "gyro", label: "Gyro", hint: "Rotational velocity around each axis",
+      sensors: [
+        { value: "gyroX", label: "gyroX", hint: "Rolling" },
+        { value: "gyroY", label: "gyroY", hint: "Pitching" },
+        { value: "gyroZ", label: "gyroZ", hint: "Spinning" },
+        { value: "gyroLength", label: "gyroLength", hint: "Overall rotation speed" }
+      ]},
+    { id: "baro", label: "Baro", hint: "Barometric pressure sensor",
+      sensors: [
+        { value: "baro", label: "baro", hint: "Altitude / air pressure" }
+      ]},
+    { id: "euler", label: "Euler", hint: "Orientation angles \u2014 subject to gimbal lock at extreme poses",
+      sensors: [
+        { value: "roll", label: "roll", hint: "Tilt left/right" },
+        { value: "pitch", label: "pitch", hint: "Tilt forward/back" },
+        { value: "yaw", label: "yaw", hint: "Compass heading" }
+      ]},
+    { id: "swingTwist", label: "Swing-Twist", hint: "Gimbal-lock-free orientation using swing-twist decomposition",
+      sensors: [
+        { value: "twist", label: "twist", hint: "Wrist rotation around limb axis" },
+        { value: "heading", label: "heading", hint: "Horizontal pointing direction" },
+        { value: "tilt", label: "tilt", hint: "Vertical angle above/below horizon" }
+      ]},
+    { id: "limbAccel", label: "Limb Accel", hint: "Acceleration projected onto the swing-twist limb coordinate frame",
+      sensors: [
+        { value: "limbFwd", label: "limbFwd", hint: "Along limb direction (forward/back)" },
+        { value: "limbLat", label: "limbLat", hint: "Lateral to limb (sideways)" },
+        { value: "limbVert", label: "limbVert", hint: "Vertical (up/down)" },
+        { value: "twitch", label: "twitch", hint: "Overall limb movement intensity" }
+      ]},
+    { id: "quat", label: "Quaternion", hint: "Raw quaternion components \u2014 advanced rotation math", advanced: true,
+      sensors: [
+        { value: "quatI", label: "quatI", hint: "I component" },
+        { value: "quatJ", label: "quatJ", hint: "J component" },
+        { value: "quatK", label: "quatK", hint: "K component" },
+        { value: "quatR", label: "quatR", hint: "R (scalar) component" }
+      ]},
+    { id: "const", label: "Constants", hint: "Fixed values for output bounds",
+      sensors: [
+        { value: "high", label: "high", hint: "Always 1.0 \u2014 maps to the high bound" },
+        { value: "low", label: "low", hint: "Always 0.0 \u2014 maps to the low bound" }
+      ]}
+  ];
+
+  // Build flat lookup for backward compat (value → {category hint, sensor hint})
+  var SENSOR_HINTS = {};
+  var SENSOR_TO_CAT = {};
+  SENSOR_CATEGORIES.forEach(function (cat) {
+    cat.sensors.forEach(function (s) {
+      SENSOR_HINTS[s.value] = s.hint;
+      SENSOR_TO_CAT[s.value] = cat.id;
+    });
+  });
+
+  function initSensorPicker(catId, valId, catHintId, valHintId) {
+    var catEl = $("#" + catId), valEl = $("#" + valId);
+    var catHint = $("#" + catHintId), valHint = $("#" + valHintId);
+    if (!catEl || !valEl) return;
+
+    // Populate category dropdown
+    SENSOR_CATEGORIES.forEach(function (cat) {
+      if (cat.advanced) return; // hidden by default
+      var opt = document.createElement("option");
+      opt.value = cat.id; opt.textContent = cat.label;
+      if (cat.advanced) { opt.className = "quat-cat-option"; opt.hidden = true; }
+      catEl.appendChild(opt);
+    });
+
+    function populateSensors(catIdVal) {
+      valEl.innerHTML = "";
+      var none = document.createElement("option");
+      none.value = ""; none.textContent = "\u2014 pick \u2014";
+      valEl.appendChild(none);
+      var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
+      if (!cat) return;
+      cat.sensors.forEach(function (s) {
+        var opt = document.createElement("option");
+        opt.value = s.value; opt.textContent = s.label;
+        valEl.appendChild(opt);
+      });
+      if (catHint) catHint.textContent = cat.hint || "";
+      if (valHint) valHint.textContent = "";
+    }
+
+    catEl.addEventListener("change", function () {
+      populateSensors(catEl.value);
+    });
+    valEl.addEventListener("change", function () {
+      if (valHint) valHint.textContent = SENSOR_HINTS[valEl.value] || "";
+    });
+
+    // Return helpers for programmatic set
+    return {
+      setValue: function (sensorValue) {
+        var catIdVal = SENSOR_TO_CAT[sensorValue] || "";
+        if (catIdVal) {
+          // Ensure cat option exists (for advanced)
+          if (!catEl.querySelector('option[value="' + catIdVal + '"]')) {
+            var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
+            if (cat) {
+              var opt = document.createElement("option");
+              opt.value = cat.id; opt.textContent = cat.label;
+              catEl.appendChild(opt);
+            }
+          }
+          catEl.value = catIdVal;
+          populateSensors(catIdVal);
+          valEl.value = sensorValue;
+          if (valHint) valHint.textContent = SENSOR_HINTS[sensorValue] || "";
+        } else {
+          catEl.value = "";
+          valEl.innerHTML = '<option value="">\u2014 pick category \u2014</option>';
+          if (catHint) catHint.textContent = "";
+          if (valHint) valHint.textContent = "";
+        }
+      },
+      clear: function () {
+        catEl.value = "";
+        valEl.innerHTML = '<option value="">\u2014 pick category \u2014</option>';
+        if (catHint) catHint.textContent = "";
+        if (valHint) valHint.textContent = "";
+      }
+    };
+  }
+
+  var msgPicker = initSensorPicker("msgCategory", "msgValue", "msgCategoryHint", "msgValueHint");
+  var directPicker = initSensorPicker("directCategory", "directValue", "directCategoryHint", "directValueHint");
 
   function populateMsgForm(name, m) {
     $("#msgName").value = name;
-    $("#msgValue").value = m.value || m.val || "";
-    var mh = $("#msgValueHint"); if (mh) mh.textContent = SENSOR_HINTS[$("#msgValue").value] || "";
+    if (msgPicker) msgPicker.setValue(m.value || m.val || "");
     $("#msgIP").value = m.ip || "";
     $("#msgPort").value = m.port || "9000";
     $("#msgAdr").value = m.adr || m.addr || m.address || "";
@@ -1838,7 +1948,7 @@
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
+  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgOriOnly", "msgOriNot", "msgTernori"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -1900,7 +2010,7 @@
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";
-    var mhc = $("#msgValueHint"); if (mhc) mhc.textContent = "";
+    if (msgPicker) msgPicker.clear();
     $("#msgPort").value = "9000";
     updateMsgPreview();
   });
@@ -2103,22 +2213,11 @@
     $("#directPreview").value = parts.join(", ");
   }
 
-  ["directValue", "directIP", "directPort", "directAdr", "directLow", "directHigh", "directPeriod"].forEach(function (id) {
+  ["directCategory", "directValue", "directIP", "directPort", "directAdr", "directLow", "directHigh", "directPeriod"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateDirectPreview);
   });
   updateDirectPreview();
-
-  /* ── Sensor hint change listeners ── */
-  function updateSensorHint(selectId, hintId) {
-    var el = $("#" + selectId), hint = $("#" + hintId);
-    if (!el || !hint) return;
-    el.addEventListener("change", function () {
-      hint.textContent = SENSOR_HINTS[el.value] || "";
-    });
-  }
-  updateSensorHint("msgValue", "msgValueHint");
-  updateSensorHint("directValue", "directValueHint");
 
   $("#btnDirectSend").addEventListener("click", function () {
     var name = ($("#directName").value || "").trim() || "quickSend";
@@ -2606,7 +2705,7 @@
         { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
         { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","heading","tilt","quatI","quatJ","quatK","quatR"] },
         { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
-        { title: "Sensors \u2014 Arm Frame (swing-twist)", keys: ["armFwd","armLat","armVert","armLength"] },
+        { title: "Sensors \u2014 Limb Frame (swing-twist)", keys: ["limbFwd","limbLat","limbVert","twitch"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
         { title: "Scene Commands", keys: ["scene","start","stop","period","override","adrMode","setAll","solo","unsolo","enableAll","save/scene"] },
@@ -3568,8 +3667,20 @@
     (function () {
       var QUAT_KEY = "gooey_show_quats";
       var chkQuat = $("#chkShowQuats");
+      var quatCat = SENSOR_CATEGORIES.filter(function (c) { return c.id === "quat"; })[0];
       function setQuatsVisible(on) {
-        $$(".quat-option").forEach(function (el) { el.hidden = !on; });
+        // Add or remove the quat category option from all category dropdowns
+        $$("select[id$='Category']").forEach(function (sel) {
+          var existing = sel.querySelector('option[value="quat"]');
+          if (on && !existing && quatCat) {
+            var opt = document.createElement("option");
+            opt.value = "quat"; opt.textContent = quatCat.label;
+            sel.appendChild(opt);
+          } else if (!on && existing) {
+            existing.remove();
+            if (sel.value === "quat") { sel.value = ""; sel.dispatchEvent(new Event("change")); }
+          }
+        });
         try { localStorage.setItem(QUAT_KEY, on ? "1" : "0"); } catch (e) {}
       }
       var saved = null;

@@ -104,10 +104,10 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `twist` | Wrist rotation around arm axis | Gimbal-lock-free wrist roll |
 | `heading` | Horizontal pointing direction | Arm sweep left/right |
 | `tilt` | Vertical angle above/below horizon | Arm raise/lower |
-| `armFwd` | Acceleration along arm direction | Detect forward/back arm thrust |
-| `armLat` | Acceleration lateral to arm | Detect sideways arm movement |
-| `armVert` | Acceleration vertical | Detect arm raise/drop |
-| `armLength` | Arm-frame acceleration magnitude | Overall arm movement intensity |
+| `limbFwd` | Acceleration along limb direction | Detect forward/back thrust |
+| `limbLat` | Acceleration lateral to limb | Detect sideways movement |
+| `limbVert` | Acceleration vertical | Detect raise/drop |
+| `twitch` | Limb-frame acceleration magnitude | Overall limb movement intensity |
 | `gaccelX` | World-frame acceleration — X | Motion regardless of device tilt |
 | `gaccelY` | World-frame acceleration — Y | Motion regardless of device tilt |
 | `gaccelZ` | World-frame acceleration — Z | Motion regardless of device tilt |

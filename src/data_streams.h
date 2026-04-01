@@ -53,17 +53,17 @@
 #define TWIST       22  // swing-twist: rotation around arm axis (wrist twist)
 #define HEADING     23  // swing-twist: horizontal pointing direction
 #define TILT        24  // swing-twist: vertical angle above/below horizon
-#define ARM_FWD     25  // swing-twist accel: along arm axis (forward/back)
-#define ARM_LAT     26  // swing-twist accel: lateral (perpendicular horizontal)
-#define ARM_VERT    27  // swing-twist accel: vertical (up/down)
-#define ARM_LENGTH  28  // swing-twist accel: magnitude
+#define LIMB_FWD    25  // swing-twist accel: along limb axis (forward/back)
+#define LIMB_LAT    26  // swing-twist accel: lateral (perpendicular horizontal)
+#define LIMB_VERT   27  // swing-twist accel: vertical (up/down)
+#define TWITCH      28  // swing-twist accel: magnitude (overall limb movement)
 
 // The global data array.  Elements 0–15 are updated continuously by the sensor
 // task.  Elements 16–17 (CONST_ZERO / CONST_ONE) are fixed at 0.0 / 1.0 and
 // never written by the sensor task — they exist so messages can send constants.
 // Elements 18–21 (QUAT_I/J/K/R) hold the raw (untared) quaternion each cycle.
 // Elements 22–24 (TWIST/HEADING/TILT) are swing-twist decomposition outputs.
-// Elements 25–28 (ARM_FWD/LAT/VERT/LENGTH) are swing-twist frame accelerations.
+// Elements 25–28 (LIMB_FWD/LAT/VERT + TWITCH) are swing-twist frame accelerations.
 // Declared volatile because the sensor task (writer) and scene send tasks
 // (readers) run concurrently without a mutex protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
@@ -100,10 +100,10 @@ static inline String data_stream_name(int index) {
         case TWIST:        return "twist";
         case HEADING:      return "heading";
         case TILT:         return "tilt";
-        case ARM_FWD:      return "armFwd";
-        case ARM_LAT:      return "armLat";
-        case ARM_VERT:     return "armVert";
-        case ARM_LENGTH:   return "armLength";
+        case LIMB_FWD:     return "limbFwd";
+        case LIMB_LAT:     return "limbLat";
+        case LIMB_VERT:    return "limbVert";
+        case TWITCH:       return "twitch";
         default:           return "unknown";
     }
 }
@@ -139,10 +139,10 @@ static inline int data_stream_index_from_name(const String& value_name) {
     if (key == "twist")                                               return TWIST;
     if (key == "heading" || key == "hdg")                             return HEADING;
     if (key == "tilt")                                                return TILT;
-    if (key == "armfwd"  || key == "arm_fwd")                         return ARM_FWD;
-    if (key == "armlat"  || key == "arm_lat")                         return ARM_LAT;
-    if (key == "armvert" || key == "arm_vert")                        return ARM_VERT;
-    if (key == "armlength" || key == "arm_length" || key == "armlen") return ARM_LENGTH;
+    if (key == "limbfwd"  || key == "limb_fwd"  || key == "armfwd")    return LIMB_FWD;
+    if (key == "limblat"  || key == "limb_lat"  || key == "armlat")  return LIMB_LAT;
+    if (key == "limbvert" || key == "limb_vert" || key == "armvert") return LIMB_VERT;
+    if (key == "twitch" || key == "armlength" || key == "armlen")    return TWITCH;
     return -1;
 }
 
@@ -204,10 +204,10 @@ static inline void update_simulated_data() {
     data_streams[TILT]    = sinf(2.0f * PI * 0.2f  * t) * 0.5f + 0.5f;  // 0.2 Hz
 
     // Swing-twist acceleration channels
-    data_streams[ARM_FWD]    = sinf(2.0f * PI * 0.45f * t) * 0.5f + 0.5f;  // 0.45 Hz
-    data_streams[ARM_LAT]    = sinf(2.0f * PI * 0.65f * t) * 0.5f + 0.5f;  // 0.65 Hz
-    data_streams[ARM_VERT]   = sinf(2.0f * PI * 0.85f * t) * 0.5f + 0.5f;  // 0.85 Hz
-    data_streams[ARM_LENGTH] = fabsf(sinf(2.0f * PI * 0.4f * t));           // 0.4 Hz
+    data_streams[LIMB_FWD]   = sinf(2.0f * PI * 0.45f * t) * 0.5f + 0.5f;  // 0.45 Hz
+    data_streams[LIMB_LAT]   = sinf(2.0f * PI * 0.65f * t) * 0.5f + 0.5f;  // 0.65 Hz
+    data_streams[LIMB_VERT]  = sinf(2.0f * PI * 0.85f * t) * 0.5f + 0.5f;  // 0.85 Hz
+    data_streams[TWITCH]     = fabsf(sinf(2.0f * PI * 0.4f * t));           // 0.4 Hz
 }
 
 #endif // !AB7_BUILD

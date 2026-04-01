@@ -339,11 +339,11 @@ void setup() {
                     float af = gax*afx + gay*afy + gaz*afz;
                     float ar = gax*arx + gay*ary + gaz*arz;
                     float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
-                    data_streams[ARM_FWD]    = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[ARM_LAT]    = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[ARM_VERT]   = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    float arm_len = sqrtf(af*af + ar*ar + av*av);
-                    data_streams[ARM_LENGTH] = constrain(arm_len / ACCEL_SCALE, 0.0f, 1.0f);
+                    data_streams[LIMB_FWD]   = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_LAT]   = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_VERT]  = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    float limb_len = sqrtf(af*af + ar*ar + av*av);
+                    data_streams[TWITCH]     = constrain(limb_len / ACCEL_SCALE, 0.0f, 1.0f);
                 }
 
                 // ── Quaternion components (raw, untared) ───────────────
@@ -556,11 +556,11 @@ void setup() {
                     float af = gax*afx + gay*afy + gaz*afz;
                     float ar = gax*arx + gay*ary + gaz*arz;
                     float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
-                    data_streams[ARM_FWD]    = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[ARM_LAT]    = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[ARM_VERT]   = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    float arm_len = sqrtf(af*af + ar*ar + av*av);
-                    data_streams[ARM_LENGTH] = constrain(arm_len / ACCEL_SCALE, 0.0f, 1.0f);
+                    data_streams[LIMB_FWD]   = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_LAT]   = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_VERT]  = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    float limb_len = sqrtf(af*af + ar*ar + av*av);
+                    data_streams[TWITCH]     = constrain(limb_len / ACCEL_SCALE, 0.0f, 1.0f);
                 }
 
                 // ── Quaternion components (raw, untared) ───────────────

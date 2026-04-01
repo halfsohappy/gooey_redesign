@@ -615,7 +615,7 @@ THEATER_GWD_PRESETS = {
         "baro",
         "roll", "pitch", "yaw",
         "twist", "heading", "tilt",
-        "armFwd", "armLat", "armVert", "armLength",
+        "limbFwd", "limbLat", "limbVert", "twitch",
     ],
     "commands": {
         "blackout": {
@@ -945,10 +945,10 @@ THEATER_GWD_PRESETS = {
         "twist": "Twist — wrist rotation around the arm axis (swing-twist, no gimbal lock).",
         "heading": "Heading — horizontal pointing direction (swing-twist).",
         "tilt": "Tilt — vertical angle above/below horizon (swing-twist).",
-        "armFwd": "Acceleration along arm direction (swing-twist frame).",
-        "armLat": "Acceleration lateral to arm (swing-twist frame).",
-        "armVert": "Acceleration vertical (swing-twist frame).",
-        "armLength": "Arm-frame acceleration magnitude (swing-twist frame).",
+        "limbFwd": "Acceleration along limb direction (swing-twist frame).",
+        "limbLat": "Acceleration lateral to limb (swing-twist frame).",
+        "limbVert": "Acceleration vertical (swing-twist frame).",
+        "twitch": "Overall limb movement intensity (swing-twist frame).",
         "fallback": "Address mode: use msg address, scene address as fallback.",
         "prepend": "Address mode: scene.adr + msg.adr.",
         "append": "Address mode: msg.adr + scene.adr.",

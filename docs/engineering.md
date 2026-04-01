@@ -212,10 +212,10 @@ volatile float data_streams[NUM_DATA_STREAMS]; // 29 elements
 | 22 | `TWIST` | twist | Swing-twist: rotation around arm axis |
 | 23 | `HEADING` | heading | Swing-twist: horizontal pointing direction |
 | 24 | `TILT` | tilt | Swing-twist: vertical angle |
-| 25 | `ARM_FWD` | armFwd | Swing-twist accel: along arm axis |
-| 26 | `ARM_LAT` | armLat | Swing-twist accel: lateral |
-| 27 | `ARM_VERT` | armVert | Swing-twist accel: vertical |
-| 28 | `ARM_LENGTH` | armLength | Swing-twist accel: magnitude |
+| 25 | `LIMB_FWD` | limbFwd | Swing-twist accel: along limb axis |
+| 26 | `LIMB_LAT` | limbLat | Swing-twist accel: lateral |
+| 27 | `LIMB_VERT` | limbVert | Swing-twist accel: vertical |
+| 28 | `TWITCH` | twitch | Swing-twist accel: magnitude |
 
 **Helper functions:**
 - `data_stream_name(idx)` — index → name string
