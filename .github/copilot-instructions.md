@@ -13,7 +13,7 @@ applications. It consists of two main components:
 Additional directories:
 - `platforms/` — PlatformIO configs for 25+ alternative microcontroller boards.
 - `Formula/` — Homebrew formula for installing the Gooey control center on macOS.
-- `docs/` — User guide and technical guide.
+- `docs/` — Engineering guide, Gooey guide, and OSC guide.
 - `data/` — Font assets used by the firmware captive portal.
 
 ## Build & Run

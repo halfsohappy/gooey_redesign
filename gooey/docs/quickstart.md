@@ -118,7 +118,7 @@ Now that you're up and running:
 | Send raw OSC messages | **Advanced** → **Raw OSC Send** |
 | Send multiple commands at once | **Advanced** → **JSON Batch** |
 | Forward OSC between ports | **Advanced** → **Bridge** |
-| Understand the full architecture | [Technical Guide](../../docs/technical_guide.md) |
+| Understand the full architecture | [Engineering Guide](../../docs/engineering.md) |
 | Fix something that's not working | [Troubleshooting](troubleshooting.md) |
 
 ---

@@ -25,7 +25,7 @@
 //   {name}        — the name of the target message or scene
 //   {command}     — the action to perform (defaults to "assign" if omitted)
 //
-// COMMAND REFERENCE  (see user_guide.md for full documentation):
+// COMMAND REFERENCE  (see docs/osc_guide.md for full documentation):
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // ── MESSAGE COMMANDS (/annieData{dev}/msg/{name}/...) ──────────────────────

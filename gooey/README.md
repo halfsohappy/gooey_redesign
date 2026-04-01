@@ -128,8 +128,9 @@ gooey --no-browser              # Don't auto-open browser
 | **[Homebrew Guide](docs/homebrew.md)** | Homebrew-specific setup, updating, and troubleshooting |
 | **[Quick Start](docs/quickstart.md)** | First-time walkthrough of the UI |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and solutions |
-| **[User Guide](../docs/user_guide.md)** | Full TheaterGWD user guide |
-| **[Technical Guide](../docs/technical_guide.md)** | Architecture and protocol details |
+| **[Gooey Guide](../docs/gooey_guide.md)** | Full Gooey control center guide |
+| **[OSC Guide](../docs/osc_guide.md)** | Controlling the device with raw OSC |
+| **[Engineering Guide](../docs/engineering.md)** | Architecture and protocol details |
 
 ---
 

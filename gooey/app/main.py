@@ -1186,8 +1186,9 @@ def _find_docs_root():
 _DOCS_ROOT = _find_docs_root()
 
 _DOCS_GUIDES = {
-    "user-guide": ("user_guide.md", "User Guide"),
-    "technical-guide": ("technical_guide.md", "Technical Guide"),
+    "gooey-guide": ("gooey_guide.md", "Gooey Guide"),
+    "osc-guide": ("osc_guide.md", "OSC Guide"),
+    "engineering": ("engineering.md", "Engineering Guide"),
 }
 
 _MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
@@ -1200,7 +1201,7 @@ _MD_EXTENSION_CONFIGS = {
 @app.route("/docs/<guide>")
 def docs(guide=None):
     if guide is None:
-        guide = "user-guide"
+        guide = "gooey-guide"
     if guide not in _DOCS_GUIDES:
         return _error("Unknown guide", 404)
     filename, title = _DOCS_GUIDES[guide]
@@ -1213,16 +1214,14 @@ def docs(guide=None):
     md = md_lib.Markdown(extensions=_MD_EXTENSIONS, extension_configs=_MD_EXTENSION_CONFIGS)
     content_html = md.convert(raw)
     toc_html = getattr(md, "toc", "")
-    other_guide = "technical-guide" if guide == "user-guide" else "user-guide"
-    other_title = _DOCS_GUIDES[other_guide][1]
+    other_guides = {k: v[1] for k, v in _DOCS_GUIDES.items() if k != guide}
     return render_template(
         "docs.html",
         title=title,
         content=content_html,
         toc=toc_html,
         guide=guide,
-        other_guide=other_guide,
-        other_title=other_title,
+        other_guides=other_guides,
     )
 
 

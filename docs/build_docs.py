@@ -23,9 +23,10 @@ REPO_ROOT = os.path.dirname(DOCS_DIR)
 OUT_DIR = os.path.join(REPO_ROOT, "docs-site")
 
 GUIDES = [
-    ("user_guide.md",      "user-guide.html",      "User Guide"),
-    ("technical_guide.md", "technical-guide.html",  "Technical Guide"),
-    ("beryl_guide.md",     "beryl-guide.html",      "Beryl Guide"),
+    ("gooey_guide.md",    "gooey-guide.html",     "Gooey Guide"),
+    ("osc_guide.md",      "osc-guide.html",       "OSC Guide"),
+    ("engineering.md",    "engineering.html",      "Engineering Guide"),
+    ("beryl_guide.md",    "beryl-guide.html",      "Beryl Guide"),
 ]
 
 MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
@@ -630,15 +631,21 @@ def build():
     # Index page
     index_guides = [
         (
-            "user-guide.html",
-            "📖",
-            "User Guide",
-            "Practical setup, key concepts, and the complete command reference for theater technicians.",
+            "gooey-guide.html",
+            "🖥️",
+            "Gooey Guide",
+            "Using the browser-based control center to configure devices, manage shows, and monitor OSC traffic.",
         ),
         (
-            "technical-guide.html",
+            "osc-guide.html",
+            "📖",
+            "OSC Guide",
+            "Controlling the device with raw OSC commands from any software — lighting consoles, QLab, TouchDesigner, etc.",
+        ),
+        (
+            "engineering.html",
             "⚙️",
-            "Technical Guide",
+            "Engineering Guide",
             "Firmware architecture, module map, concurrency strategy, and extending the codebase.",
         ),
         (
