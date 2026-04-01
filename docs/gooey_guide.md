@@ -13,10 +13,10 @@ The annieData Control Center is the primary graphical interface for TheaterGWD s
 - [The Layout](#the-layout)
 - [Messages Tab](#messages-tab)
 - [Scenes Tab](#scenes-tab)
-- [Direct Tab](#direct-tab)
 - [Ori Tab](#ori-tab)
 - [Shows Tab](#shows-tab)
 - [Advanced Tab](#advanced-tab)
+- [Python Scripting](#python-scripting)
 - [The Live Feed](#the-live-feed)
 - [Serial Terminal](#serial-terminal)
 - [Reference Panel](#reference-panel)
@@ -185,7 +185,7 @@ The tracker table lists every message with the following columns:
 | **Ori** | Orientation conditions (if any) |
 | **EN** | Enabled/disabled status |
 
-Select any row to reveal its action buttons.
+Select any row to reveal its action buttons. The **column picker** (gear icon) toggles visibility of the Low, High, Scene, and Ori columns — useful for reducing clutter when those fields are not in use.
 
 ![Messages tab showing the tracker table with several messages](images/gooey_messages.png)
 *The message tracker with five messages configured.*
@@ -218,6 +218,28 @@ Select any row to reveal its action buttons.
 | **Save** | Persist to device flash (NVS) |
 | **Clone** | Duplicate with a new name |
 | **Rename** | Change the message name |
+
+### Bulk actions
+
+Enable **Advanced Tools** (bottom of the Advanced tab) to reveal a bulk action row in the tracker. Enter an OSC wildcard pattern and pick an action — it applies to every message matching the pattern.
+
+Supported patterns: `*` (any characters), `?` (single character), `[abc]` (character set), `{foo,bar}` (alternation). A live hint shows how many messages match.
+
+Available bulk actions for messages: Enable, Disable, Info, Delete.
+
+### Direct Command
+
+The **Direct Command** card (below the message tracker) is the fastest path to live data. It creates a message and scene in one step and begins sending immediately.
+
+1. Choose a sensor value from the dropdown
+2. Enter destination IP, port, and OSC address
+3. Set period (send rate)
+4. Click **Send Direct**
+
+Ideal for quick demos and testing — the setup can be refined later in the Messages and Scenes tabs. A **Copy Config** button copies the generated config string to the clipboard.
+
+![Direct Command card with a quick sensor mapping](images/gooey_direct.png)
+*Direct Command — one click to start sending accelX.*
 
 ---
 
@@ -282,23 +304,9 @@ The **setAll** card applies a property change to every message in the scene at o
 
 > Set all → low: 0, high: 255
 
----
+### Scene bulk actions
 
-## Direct Tab
-
-The Direct tab is the fastest path to live data. It creates a message and scene in one step and begins sending immediately.
-
-1. Choose a sensor value from the dropdown
-2. Enter destination IP, port, and OSC address
-3. Set period (send rate)
-4. Click **Go**
-
-Ideal for quick demos and testing — the setup can be refined later in the Messages and Scenes tabs.
-
-The Direct tab also includes a **config builder** — operators select options from dropdowns, and annieData constructs the config string automatically.
-
-![Direct tab with a quick sensor mapping](images/gooey_direct.png)
-*Direct tab — one click to start sending accelX.*
+Like message bulk actions, enable **Advanced Tools** to reveal a bulk action row for scenes. Enter an OSC wildcard pattern and apply Start, Stop, Info, or Delete to all matching scenes.
 
 ---
 
@@ -306,11 +314,7 @@ The Direct tab also includes a **config builder** — operators select options f
 
 Orientations are available on all TheaterGWD devices with a 9-DOF IMU.
 
-Orientations ("oris") enable the device to recognize physical poses and conditionally trigger messages.
-
-### What are oris?
-
-An ori is a saved pose reference — arm raised, pointing forward, resting flat. The device continuously compares its current orientation against saved oris and reports whether a match is active.
+Orientations ("oris") enable the device to recognize physical poses and conditionally trigger messages. An ori is a saved pose reference — arm raised, pointing forward, resting flat. The device continuously compares its current orientation against saved oris and reports whether a match is active.
 
 Messages can be configured to send only when a specific pose is detected, or to emit a trigger value (1 or 0) based on the active ori.
 
@@ -318,8 +322,8 @@ Messages can be configured to send only when a specific pose is detected, or to 
 
 Shows all saved orientations with:
 - **Name** — the ori identifier
-- **Color swatch** — the LED color assigned to this ori
-- **Sample count** — how many quaternion samples define the pose
+- **Color swatch** — the LED color assigned to this ori (auto-assigned from a palette)
+- **Sample count** — how many quaternion samples define the pose (max 8 after processing)
 - **Tolerance** — match tolerance in degrees
 
 ![Ori tab showing saved orientations with color swatches](images/gooey_ori.png)
@@ -330,20 +334,36 @@ Shows all saved orientations with:
 1. Click **Record New**
 2. Enter a name for the orientation
 3. Click **Start Recording**
-4. Hold the device in the desired pose for 3–5 seconds
+4. Hold the device in the desired pose — the UI displays a live sample counter
 5. Click **Stop Recording**
 
-The status indicator displays recording progress. After stopping, the device processes the samples and stores the ori.
+The device collects quaternion samples at ~50 Hz into a 300-sample buffer (roughly 6 seconds of recording). When stopped, the firmware performs two processing steps:
 
-The **instant-save** option captures a single snapshot instead of a timed recording.
+1. **Auto-axis detection** — tests variance along all six cardinal axes (±X, ±Y, ±Z). If one axis has consistently low variance (under ~7 degrees of spread), the ori locks to **axis-aware matching**, which ignores wrist roll and only compares pointing direction. Otherwise it falls back to **full quaternion matching**, which considers the complete 3D orientation.
+
+2. **Farthest-first subsampling** — reduces the raw buffer down to 8 stored samples by greedily selecting the most spread-out quaternions. These 8 samples form the ori's "cloud" — matching is computed as the minimum distance from the device's current orientation to any sample in the cloud.
+
+There is no required recording duration. The buffer caps at ~6 seconds; recording beyond that silently stops accumulating. A few seconds of steady holding is usually sufficient.
+
+### Instant save
+
+The **instant save** option captures a single quaternion snapshot and appends it to an ori's cloud. If the ori already has two or more samples, auto-axis detection re-runs. This is useful for adding coverage to an existing ori — for example, saving the same pointing direction at slightly different arm angles.
+
+### How matching works
+
+Each sensor tick, the device:
+1. Checks the **motion gate** — if gyroscope magnitude exceeds the threshold (~86 deg/s default), matching freezes entirely. This prevents false matches during fast movement.
+2. Computes the minimum distance from the current quaternion to each ori's sample cloud (using axis projection or geodesic distance depending on the ori's mode).
+3. Subtracts the **tolerance** — both the per-ori tolerance and the global tolerance are combined. A negative score means a match.
+4. The ori with the lowest score wins. Only one ori is active at a time.
 
 ### Settings
 
 | Setting | Description |
 |---------|-------------|
-| **Tolerance** | How close the device needs to be to match (degrees). Higher = more forgiving. Default: 10. |
-| **Threshold** | Minimum motion speed to consider matching (rad/s). Filters out noise when still. |
-| **Strict mode** | When on, if no ori is close enough, none is active. When off, the closest ori always wins. |
+| **Tolerance** | How close the device needs to be to match (degrees). Combined with the global tolerance. Higher = more forgiving. Default: 10. |
+| **Motion threshold** | Gyroscope magnitude gate (rad/s). When exceeded, matching freezes entirely — prevents false triggers during fast movement. Default: 1.5. |
+| **Strict mode** | When on, no ori is active if the best score is positive (nothing close enough). When off, the closest ori always wins regardless of distance. |
 
 ### Assigning ori conditions to messages
 
@@ -408,17 +428,7 @@ This replaces all current messages, scenes, and oris on the device.
 
 Accepts any OSC address and arguments for direct transmission to the device — useful for testing commands or sending one-off messages.
 
-### JSON Batch Send
-
-Accepts a JSON array of messages for batch transmission, optionally with intervals between them:
-
-```json
-[
-  {"address": "/annieData/bart/msg/dim1", "args": ["value:accelX, ip:192.168.1.50, port:9000, adr:/fader/1"]},
-  {"address": "/annieData/bart/scene/main/addMsg", "args": ["dim1"]},
-  {"address": "/annieData/bart/scene/main/start", "args": []}
-]
-```
+The **Repeat** button sends the message at a configurable interval (default 1000ms, minimum 10ms) until **Stop Repeat** is clicked. Useful for sustained testing or simulating periodic commands.
 
 ### OSC Bridge
 
@@ -426,6 +436,7 @@ Relays incoming OSC from one port to the device — useful when external softwar
 
 - **Listen Port** — port to receive on
 - **Forward to** — device IP and port
+- **Filter** — optional address pattern to forward selectively
 
 ### Euler Tare
 
@@ -435,6 +446,152 @@ Relays incoming OSC from one port to the device — useful when external softwar
 ### Mobile Remote QR Code
 
 Generates a QR code that opens the mobile remote interface on a phone. See [Mobile Remote](#mobile-remote).
+
+### Device dropdown actions
+
+Right-click (or click the dropdown arrow on) a device tab to access per-device actions:
+
+| Action | What it does |
+|--------|-------------|
+| **Save All** | Persist all messages and scenes to device flash (NVS) |
+| **Load All** | Reload config from device flash |
+| **NVS Clear** | Factory reset the device's stored config |
+| **Blackout** | Stop all scenes on this device |
+| **Restore** | Restart scenes after blackout |
+| **Dedup On/Off** | Toggle duplicate-value suppression — skips sends when the value hasn't changed |
+| **Verbose Mode** | Toggle verbose query output for this device |
+| **Edit Device** | Change device IP, port, or name |
+| **Remove Device** | Remove from the device list |
+
+### Advanced Tools toggle
+
+A checkbox at the bottom of the Advanced tab enables power-user features:
+- Bulk action rows in the message and scene trackers (see [Bulk actions](#bulk-actions))
+- The Python scripting tab (see [Python Scripting](#python-scripting))
+
+### JSON Batch Send (API only)
+
+The backend exposes a `POST /api/send/json` endpoint for batch transmission of multiple OSC messages. This is available for programmatic use and Python scripts but has no dedicated UI in the interface.
+
+```json
+{
+  "host": "192.168.1.50",
+  "port": 8000,
+  "messages": [
+    {"address": "/annieData/bart/msg/dim1", "args": ["value:accelX, ip:192.168.1.50, port:9000, adr:/fader/1"]},
+    {"address": "/annieData/bart/scene/main/addMsg", "args": ["dim1"]},
+    {"address": "/annieData/bart/scene/main/start", "args": []}
+  ]
+}
+```
+
+---
+
+## Python Scripting
+
+The Python tab provides a built-in scripting environment for custom sensor processing, conditional logic, and OSC routing. Enable it via the **Advanced Tools** checkbox in the Advanced tab.
+
+### Running a script
+
+1. Write or load a script in the editor
+2. Choose **Loop** mode (repeats at an interval) or **Run Once** mode
+3. Set the loop interval in milliseconds (default 50ms, minimum 10ms)
+4. Click **Run**
+
+In loop mode, the entire script re-executes each iteration. The `state` dictionary persists between iterations — use it for counters, moving averages, mode flags, and any value that must survive across cycles.
+
+### Sensor access
+
+```python
+# Single-device shorthand
+accel = sensor("accelX")
+all_vals = sensors()          # {"accelX": 0.5, "gyroY": 0.2, ...}
+
+# Multi-device — scoped to the active device
+accel = device.sensor("accelX")
+all_vals = device.sensors()
+```
+
+For multi-device setups, use `device.sensor()` to avoid cross-device clobbering.
+
+### Sending OSC
+
+```python
+osc_send("192.168.1.50", 7000, "/fader/1", 0.75)
+```
+
+### Receiving OSC
+
+```python
+def on_hit(address, args):
+    print(f"Got {address}: {args}")
+
+on_osc("/trigger/*", on_hit)    # register ONCE, outside the loop body
+```
+
+Callbacks fire between loop iterations. Supports OSC wildcard patterns.
+
+### Device control
+
+The `device` proxy provides high-level control over the active device:
+
+```python
+# Message control
+m = device.msg("dimmer1")
+m.enable()
+m.disable()
+m.assign(value="accelX", ip="192.168.1.50", port=9000, adr="/x")
+
+# Scene control
+s = device.scene("main")
+s.start()
+s.stop()
+s.period(100)                  # set send interval (ms)
+s.add_msg("dimmer1", "dimmer2")
+s.solo("dimmer1")
+
+# Device-level
+device.blackout()
+device.restore()
+device.save()
+device.load()
+```
+
+### State, time, and math
+
+| Function | Description |
+|----------|-------------|
+| `state` | Persistent dict — survives across loop iterations |
+| `elapsed()` | Seconds since script started |
+| `dt()` | Seconds since last iteration |
+| `clamp(val, lo, hi)` | Clamp to range |
+| `remap(val, in_lo, in_hi, out_lo, out_hi)` | Linear remap between ranges |
+| `math.*` | Full math module (sin, cos, sqrt, pi, etc.) |
+| `random.*` | Full random module |
+| `deque(maxlen=N)` | Sliding window buffer for running averages |
+
+### Built-in templates
+
+Four templates are available from the dropdown:
+
+| Template | What it demonstrates |
+|----------|---------------------|
+| **Threshold Gate** | Only send when a sensor exceeds a value |
+| **Multi-Sensor Combiner** | Blend accelerometer and gyroscope into an energy metric with exponential smoothing |
+| **Timed Crossfade** | Ping-pong fade between two values over time |
+| **State Machine** | Switch between idle/active/cooldown states based on motion |
+
+### Save and load
+
+Scripts are saved as `.py` files in `gooey/data/scripts/`. Use **Save**, **Save As**, and **Load** to manage them. The editor also auto-saves a draft to browser storage on every keystroke.
+
+### Console
+
+Output from `print()` and `log()` appears in the console below the editor. Errors are highlighted. The **Mirror to Feed** checkbox forwards console output to the live feed panel with a `[py]` prefix.
+
+### Sandboxing
+
+Scripts run in a restricted namespace — no file I/O, no imports, no `exec`/`eval`. Only safe builtins are exposed (abs, len, range, sorted, etc.). The scripting environment is designed for sensor processing and OSC control, not general-purpose Python.
 
 ---
 
@@ -541,6 +698,10 @@ The interface supports simultaneous control of multiple sensor devices:
 
 Each device maintains its own message/scene registry. The live feed displays traffic for all devices — filter by device name as needed.
 
+### Saving and loading device lists
+
+The header toolbar includes **Save Devices** (floppy icon) and **Load Devices** (folder icon) buttons. These export and import the device list as a JSON file (`gooey-devices.json`), making it easy to transfer a multi-device setup between machines or restore a configuration after clearing the browser.
+
 ---
 
 ## Dark/Light Theme
@@ -555,9 +716,9 @@ The **theme toggle** in the bottom-right corner of the header switches between d
 
 1. Launch annieData: `gooey`
 2. Add the device (IP + port)
-3. Open the **Direct tab**
+3. Open the **Messages tab** → scroll to **Direct Command**
 4. Select `accelLength`, enter the console's IP/port/address
-5. Click **Go**
+5. Click **Send Direct**
 6. Verify values are flowing in the live feed
 
 ### Multi-sensor rig

@@ -579,7 +579,7 @@ Payload: "dimmer1, otherScene"
 ---
 
 ## Orientation System
-> This section only applies to the **ab7** board variant. The Bart board does not have orientation tracking.
+> Available on all TheaterGWD devices with a 9-DOF IMU.
 
 ### What are orientations?
 
