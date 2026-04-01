@@ -9,6 +9,7 @@ Requires:  markdown>=3.7  (pip install markdown)
 """
 
 import os
+import shutil
 import sys
 
 try:
@@ -23,10 +24,10 @@ REPO_ROOT = os.path.dirname(DOCS_DIR)
 OUT_DIR = os.path.join(REPO_ROOT, "docs-site")
 
 GUIDES = [
-    ("gooey_guide.md",    "gooey-guide.html",     "Gooey Guide"),
+    ("gooey_guide.md",    "gooey-guide.html",     "GUI Guide"),
     ("osc_guide.md",      "osc-guide.html",       "OSC Guide"),
     ("engineering.md",    "engineering.html",      "Engineering Guide"),
-    ("beryl_guide.md",    "beryl-guide.html",      "Beryl Guide"),
+    ("beryl_guide.md",    "router-guide.html",     "Router Guide"),
 ]
 
 MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
@@ -364,6 +365,15 @@ body {
 
 .docs-article blockquote p { margin-bottom: 0; font-size: 15px; }
 
+.docs-article img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 12px 0;
+  box-shadow: var(--shadow);
+}
+
 .docs-article .headerlink {
   font-size: 14px;
   color: var(--text-light);
@@ -526,7 +536,7 @@ def _guide_page(title, content_html, toc_html, nav_links):
     <nav class="hdr-nav">
 {nav_html}
     </nav>
-    <div class="hdr-title">📚 {title}</div>
+    <div class="hdr-title">{title}</div>
   </header>
 
   <div class="docs-layout">
@@ -554,11 +564,10 @@ def _guide_page(title, content_html, toc_html, nav_links):
 def _index_page(guides):
     cards = "\n".join(
         f"""    <a class="index-card" href="{href}">
-      <div class="index-card-icon">{icon}</div>
       <div class="index-card-title">{title}</div>
       <div class="index-card-desc">{desc}</div>
     </a>"""
-        for href, icon, title, desc in guides
+        for href, _icon, title, desc in guides
     )
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -578,8 +587,8 @@ def _index_page(guides):
   </header>
 
   <div class="index-hero">
-    <div class="index-hero-title">Gooey</div>
-    <div class="index-hero-sub">annieData · Documentation</div>
+    <div class="index-hero-title">annieData</div>
+    <div class="index-hero-sub">TheaterGWD · Documentation</div>
     <div class="index-cards">
 {cards}
     </div>
@@ -599,6 +608,15 @@ def _index_page(guides):
 def build():
     os.makedirs(OUT_DIR, exist_ok=True)
 
+    # Copy images directory
+    images_src = os.path.join(DOCS_DIR, "images")
+    images_dst = os.path.join(OUT_DIR, "images")
+    if os.path.isdir(images_src):
+        if os.path.exists(images_dst):
+            shutil.rmtree(images_dst)
+        shutil.copytree(images_src, images_dst)
+        print(f"  copied {images_src} → {images_dst}")
+
     built = []
     for src_name, out_name, title in GUIDES:
         src_path = os.path.join(DOCS_DIR, src_name)
@@ -617,7 +635,7 @@ def build():
 
     for out_name, title, content_html, toc_html in built:
         nav_links = [
-            ("index.html", "🏠 Home", False),
+            ("index.html", "Home", False),
         ] + [
             (href, label, href == out_name)
             for href, label in all_guides
@@ -632,27 +650,27 @@ def build():
     index_guides = [
         (
             "gooey-guide.html",
-            "🖥️",
-            "Gooey Guide",
-            "Using the browser-based control center to configure devices, manage shows, and monitor OSC traffic.",
+            "",
+            "GUI Guide",
+            "The annieData Control Center — configure devices, manage shows, and monitor OSC traffic from a browser.",
         ),
         (
             "osc-guide.html",
-            "📖",
+            "",
             "OSC Guide",
-            "Controlling the device with raw OSC commands from any software — lighting consoles, QLab, TouchDesigner, etc.",
+            "Control the device with raw OSC commands from any software — lighting consoles, QLab, TouchDesigner.",
         ),
         (
             "engineering.html",
-            "⚙️",
+            "",
             "Engineering Guide",
             "Firmware architecture, module map, concurrency strategy, and extending the codebase.",
         ),
         (
-            "beryl-guide.html",
-            "📡",
-            "Beryl Guide",
-            "Run Gooey on a GL.iNet Beryl travel router for a self-contained, portable show control hub.",
+            "router-guide.html",
+            "",
+            "Router Guide",
+            "Run annieData on a GL.iNet travel router for a self-contained, portable show control hub.",
         ),
     ]
     index_html = _index_page(index_guides)

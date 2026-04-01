@@ -14,7 +14,7 @@ The annieData Control Center is the primary graphical interface for TheaterGWD s
 - [Messages Tab](#messages-tab)
 - [Scenes Tab](#scenes-tab)
 - [Direct Tab](#direct-tab)
-- [Ori Tab (ab7 only)](#ori-tab-ab7-only)
+- [Ori Tab](#ori-tab)
 - [Shows Tab](#shows-tab)
 - [Advanced Tab](#advanced-tab)
 - [The Live Feed](#the-live-feed)
@@ -201,7 +201,7 @@ Select any row to reveal its action buttons.
    - **Address** — OSC address path (e.g., /dmx/1)
    - **Low / High** — output value range
    - **Scene** — optionally assign to an existing scene
-   - **Ori conditions** — ori_only, ori_not, or ternori (ab7 only)
+   - **Ori conditions** — ori_only, ori_not, or ternori
 3. Click **Create**
 
 ![Create message form with fields filled in](images/gooey_message_form.png)
@@ -302,9 +302,9 @@ The Direct tab also includes a **config builder** — operators select options f
 
 ---
 
-## Ori Tab (ab7 only)
+## Ori Tab
 
-> This tab only appears when connected to an **ab7** board.
+Orientations are available on all TheaterGWD devices with a 9-DOF IMU.
 
 Orientations ("oris") enable the device to recognize physical poses and conditionally trigger messages.
 
@@ -518,7 +518,7 @@ After connecting, you see cards for:
 |------|-------------|
 | **Messages** | View and control all messages |
 | **Scenes** | View and control all scenes |
-| **Orientations** | Manage oris (ab7 only) |
+| **Orientations** | Manage oris |
 | **Quick Actions** | Blackout, restore, save, load, list, NVS clear |
 | **Monitor** | Live feed of incoming OSC replies |
 | **Settings** | Edit connection details |

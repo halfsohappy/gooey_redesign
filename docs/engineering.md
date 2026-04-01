@@ -238,8 +238,7 @@ class OscMessage {
     volatile float* value_ptr;            // pointer into data_streams[]
     float bounds[2];                      // output scaling [low, high], default [0, 1]
     bool enabled;
-    // Ori conditionals (ab7 only)
-    String ori_only;   // only send when this ori is active
+    // Ori conditionals    String ori_only;   // only send when this ori is active
     String ori_not;    // suppress when this ori is active
     String ternori;    // send 1.0 when ori matches, 0.0 otherwise
     // Dedup cache
@@ -552,8 +551,7 @@ Payload: "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/x, period:50"
 | `config` | `"ip:x.x.x.x, port:N, adr:/status"` | Set status destination |
 | `level` | `"error\|warn\|info\|debug"` | Set minimum report level |
 
-#### Orientation Commands — `/ori/...` (ab7 only)
-
+#### Orientation Commands — `/ori/...`
 | Command | Payload | Description |
 |---------|---------|-------------|
 | `/ori/register/{name}` | `[r,g,b]` | Pre-register ori slot with optional LED color |
@@ -583,8 +581,7 @@ Replies are sent back to the sender's IP and port at:
 
 ---
 
-## Orientation System (ab7 only)
-
+## Orientation System
 The orientation system allows the device to recognize physical poses and conditionally send messages based on the device's current orientation.
 
 ### Data Structures

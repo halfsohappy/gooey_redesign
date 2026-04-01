@@ -578,8 +578,7 @@ Payload: "dimmer1, otherScene"
 
 ---
 
-## Orientation System (ab7 only)
-
+## Orientation System
 > This section only applies to the **ab7** board variant. The Bart board does not have orientation tracking.
 
 ### What are orientations?
@@ -775,8 +774,7 @@ All commands use the prefix `/annieData/{device}/`. Payload column shows the exp
 | `rename/scene` | `"old, new"` | Rename scene |
 | `move` | `"msg, scene"` | Move message to scene |
 
-### Orientations (ab7 only)
-
+### Orientations
 | Address | Payload | Action |
 |---------|---------|--------|
 | `ori/register/{name}` | `[r,g,b]` | Pre-register slot |
