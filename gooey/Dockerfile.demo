@@ -6,6 +6,7 @@ COPY gooey/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY gooey/ .
+COPY docs/ ../docs/
 
 # Seed demo show files so there's something to explore without real hardware
 RUN mkdir -p data/shows && cat > data/shows/demo-theater.json << 'EOF'

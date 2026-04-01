@@ -1186,7 +1186,7 @@ def _find_docs_root():
 _DOCS_ROOT = _find_docs_root()
 
 _DOCS_GUIDES = {
-    "gooey-guide": ("gooey_guide.md", "Gooey Guide"),
+    "gooey-guide": ("gooey_guide.md", "GUI Guide"),
     "osc-guide": ("osc_guide.md", "OSC Guide"),
     "engineering": ("engineering.md", "Engineering Guide"),
 }
@@ -1195,6 +1195,12 @@ _MD_EXTENSIONS = ["toc", "fenced_code", "tables", "attr_list"]
 _MD_EXTENSION_CONFIGS = {
     "toc": {"permalink": True, "toc_depth": "2-3"},
 }
+
+
+@app.route("/docs/images/<path:filename>")
+def docs_images(filename):
+    images_dir = os.path.join(_DOCS_ROOT, "images")
+    return send_from_directory(images_dir, filename)
 
 
 @app.route("/docs/")
