@@ -1994,6 +1994,7 @@ button.loading::after {
 .welcome-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
 .welcome-steps { display: flex; flex-direction: column; gap: 8px; }
 .welcome-step { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.welcome-tour-btn { margin-top: 18px; font-size: 15px; padding: 10px 28px; }
 .step-num {
   background: var(--accent);
   color: var(--btn-primary-text);

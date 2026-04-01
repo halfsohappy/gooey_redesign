@@ -2411,11 +2411,6 @@
     showToast("Step 2: Query it \u2014 select your device tab, then click \u27f3 Query to load its config.", "info");
     showToast("Step 1: Add a device \u2014 click + in the header to enter your device\u2019s IP and port.", "info");
     showToast("Welcome to the annieData demo \u2014 OSC sending is disabled. Explore freely!", "info");
-
-    // Auto-start tour after a short delay so the page settles first
-    setTimeout(function () {
-      if (window._gooeyTour) window._gooeyTour.start();
-    }, 600);
   }
 
   /* ═══════════════════════════════════════════
