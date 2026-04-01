@@ -1023,11 +1023,11 @@
 
   /* ── Sensor categories and hints ── */
   var SENSOR_CATEGORIES = [
-    { id: "acceleration", label: "Acceleration", hint: "Linear acceleration in body, world, and limb frames",
+    { id: "acceleration", label: "Acceleration", hint: "Linear acceleration in device, world, and limb frames",
       sensors: [
-        { value: "accelX", label: "Raw X", hint: "Body-frame left/right" },
-        { value: "accelY", label: "Raw Y", hint: "Body-frame up/down" },
-        { value: "accelZ", label: "Raw Z", hint: "Body-frame forward/back" },
+        { value: "accelX", label: "Raw X", hint: "Device-frame left/right" },
+        { value: "accelY", label: "Raw Y", hint: "Device-frame up/down" },
+        { value: "accelZ", label: "Raw Z", hint: "Device-frame forward/back" },
         { value: "gaccelX", label: "Global X", hint: "World X axis (gravity-corrected)" },
         { value: "gaccelY", label: "Global Y", hint: "World Y axis (gravity-corrected)" },
         { value: "gaccelZ", label: "Global Z", hint: "World Z axis (gravity-corrected)" },
