@@ -1,12 +1,12 @@
 # Quick Start Guide
 
-A step-by-step walkthrough to go from zero to sending OSC commands to your TheaterGWD device.
+A step-by-step walkthrough — from installation to sending live OSC commands to a TheaterGWD sensor device.
 
 ---
 
-## 1. Install Gooey
+## 1. Install annieData
 
-Pick your preferred method (see [Installation Guide](installation.md) for details):
+Select the preferred method (see [Installation Guide](installation.md) for details):
 
 **macOS (Homebrew):**
 ```bash
@@ -35,21 +35,21 @@ bash install.sh
 gooey
 ```
 
-Your browser opens to [http://127.0.0.1:5000](http://127.0.0.1:5000).
+The default browser opens to [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
-> If port 5000 is busy (common on macOS), use `gooey --port 5001`.
+> If port 5000 is occupied (common on macOS), use `gooey --port 5001`.
 
 ---
 
 ## 3. Connect to Your Device
 
-At the **top of the page**, you'll see the connection bar:
+The **connection bar** appears at the top of the page:
 
-1. **Device Host** — Enter your device's IP address (e.g. `192.168.1.50`)
-2. **Device Port** — Enter the device's OSC port (default: `8000`)
-3. Click **Start Listener** to begin receiving replies from the device
+1. **Device Host** — enter the device's IP address (e.g. `192.168.1.50`)
+2. **Device Port** — enter the device's OSC port (default: `8000`)
+3. Click **Start Listener** to enable reply reception from the device
 
-> **Tip:** If you don't know your device's IP, connect it to your network first and check your router's DHCP client list, or use the device's serial console.
+> **Tip:** If the device IP is unknown, check the router's DHCP client list or connect via the device's serial console.
 
 ---
 
@@ -57,23 +57,23 @@ At the **top of the page**, you'll see the connection bar:
 
 ### Dashboard tab
 
-The Dashboard gives you quick-access buttons:
+The Dashboard provides quick-access buttons:
 
-- **List All** — asks the device to report all configured messages, scenes, and settings. Watch the **live feed** on the right for the reply.
+- **List All** — queries the device for all configured messages, scenes, and settings. The reply appears in the **live feed** on the right.
 - **Status Info** — queries device status (firmware, uptime, etc.)
-- **Blackout** — emergency stop: immediately pauses all OSC output from the device
+- **Blackout** — emergency stop: immediately halts all OSC output from the device
 - **Restore** — resumes output after a blackout
 - **Save** — persists the current configuration to the device's NVS (non-volatile storage)
 
-Try clicking **List All** now. You should see the device's response appear in the live feed panel on the right side of the screen.
+Click **List All** to verify connectivity. The device's response should appear in the live feed panel.
 
 ### Messages tab
 
 Messages define *what* the device sends — which sensor value, to which IP/port/address.
 
 1. Enter a **Message Name** (e.g. `myAccel`)
-2. Pick a **Sensor Value** from the dropdown (e.g. `accelX`)
-3. Enter the **Target IP** where OSC data should go (your computer's IP)
+2. Select a **Sensor Value** from the dropdown (e.g. `accelX`)
+3. Enter the **Target IP** where OSC data should be sent (the host machine's IP)
 4. Enter the **Target Port** (e.g. `9000`)
 5. Enter an **OSC Address** (e.g. `/sensor/accel/x`)
 6. Click **Create**
@@ -89,28 +89,28 @@ Scenes group messages together and control their timing.
 
 ### Direct tab
 
-The fastest path — creates a message, a scene, links them, and starts streaming in one step:
+The fastest path — creates a message, a scene, links them, and starts streaming in a single step:
 
-1. Pick a sensor value
+1. Select a sensor value
 2. Enter target IP, port, and OSC address
-3. Click **Send** — data starts flowing immediately
+3. Click **Send** — data begins flowing immediately
 
 ---
 
 ## 5. Monitor the Live Feed
 
-The **right panel** shows all OSC traffic in real time:
+The **right panel** displays all OSC traffic in real time:
 
-- 🟣 **Sent** messages (commands you sent to the device)
-- 🟢 **Received** messages (replies from the device)
+- **Purple** — sent messages (commands transmitted to the device)
+- **Green** — received messages (replies from the device)
 
-The feed updates automatically via WebSocket — no need to refresh.
+The feed updates automatically via WebSocket — no manual refresh required.
 
 ---
 
 ## 6. Next Steps
 
-Now that you're up and running:
+With the basic setup complete:
 
 | Want to... | Go to... |
 |------------|----------|
@@ -119,7 +119,7 @@ Now that you're up and running:
 | Send multiple commands at once | **Advanced** → **JSON Batch** |
 | Forward OSC between ports | **Advanced** → **Bridge** |
 | Understand the full architecture | [Engineering Guide](../../docs/engineering.md) |
-| Fix something that's not working | [Troubleshooting](troubleshooting.md) |
+| Diagnose an issue | [Troubleshooting](troubleshooting.md) |
 
 ---
 
@@ -128,17 +128,17 @@ Now that you're up and running:
 ### Theater rehearsal setup
 
 ```bash
-# Start with network access so the stage manager's tablet can connect
+# Enable network access so the stage manager's tablet can connect
 gooey --host 0.0.0.0 --port 8080
 ```
 
-Then on the tablet, open `http://<your-computer-ip>:8080`.
+Then on the tablet, open `http://<host-ip>:8080`.
 
 ### Multi-device setup
 
-1. Add each device's IP and port in the **connection bar**
-2. Use the **device registry** to track all devices
-3. Send commands to any device by selecting it from the dropdown
+1. Add each device's IP and port via the **connection bar**
+2. Use the **device registry** to track all connected devices
+3. Select a device from the dropdown to direct commands to it
 
 ### Quick demo
 
@@ -146,6 +146,6 @@ Then on the tablet, open `http://<your-computer-ip>:8080`.
 gooey --port 5001
 ```
 
-1. Go to **Direct** tab
-2. Pick `accelX`, enter target `127.0.0.1:9000 /demo/accel`
-3. Click Send — done! Open any OSC receiver on port 9000 to see data flowing.
+1. Open the **Direct** tab
+2. Select `accelX`, enter target `127.0.0.1:9000 /demo/accel`
+3. Click Send — open any OSC receiver on port 9000 to verify data is flowing.

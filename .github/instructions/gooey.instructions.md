@@ -2,7 +2,7 @@
 applyTo: "gooey/**"
 ---
 
-# Gooey Control Center Instructions
+# annieData Control Center Instructions
 
 These conventions apply to the Python backend and JavaScript/CSS frontend
 in `gooey/`.

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Solutions for common issues when installing or running Gooey.
+Solutions for common issues when installing or running the annieData Control Center.
 
 ---
 
@@ -20,7 +20,7 @@ Solutions for common issues when installing or running Gooey.
 
 ### "command not found: gooey" after Homebrew install
 
-Homebrew's `bin` directory isn't in your `PATH`.
+Homebrew's `bin` directory is not in the `PATH`.
 
 **Apple Silicon Macs (M1/M2/M3/M4):**
 ```bash
@@ -47,7 +47,7 @@ Install Python:
 
 ### "Failed to create venv" on Ubuntu/Debian
 
-The `venv` module isn't installed by default on some Linux distributions:
+The `venv` module is not installed by default on some Linux distributions:
 
 ```bash
 sudo apt install python3-venv
@@ -57,7 +57,7 @@ Then retry installation.
 
 ### pip install fails with "externally-managed-environment"
 
-On newer systems (Python 3.11+), pip may refuse to install system-wide. Use a virtual environment:
+On newer systems (Python 3.11+), pip may refuse system-wide installation. Use a virtual environment:
 
 ```bash
 python3 -m venv .venv
@@ -69,7 +69,7 @@ Or use Homebrew on macOS, which manages its own virtual environment.
 
 ### pip install fails with permission errors
 
-Don't use `sudo pip install`. Instead, use a virtual environment (see above) or install with `--user`:
+Avoid `sudo pip install`. Use a virtual environment (see above) or install with `--user`:
 
 ```bash
 pip install --user .
@@ -103,7 +103,7 @@ netstat -ano | findstr :5000
 
 ### "Address already in use" error
 
-A previous Gooey process is still running. Find and stop it:
+A previous annieData process may still be running. Identify and stop it:
 
 ```bash
 # macOS/Linux
@@ -116,7 +116,7 @@ Or simply use a different port: `gooey --port 5001`
 
 ### Browser doesn't open automatically
 
-Some terminal environments (SSH, tmux, certain IDE terminals) can't open browsers. Open it manually:
+Some terminal environments (SSH, tmux, certain IDE terminals) cannot open browsers. Navigate manually:
 
 ```
 http://127.0.0.1:5000
@@ -129,7 +129,7 @@ gooey --no-browser
 
 ### "ModuleNotFoundError: No module named 'flask'"
 
-Dependencies aren't installed. Fix depends on your install method:
+Dependencies are not installed. The fix depends on the installation method:
 
 **Homebrew:** `brew reinstall gooey`
 
@@ -143,20 +143,20 @@ Dependencies aren't installed. Fix depends on your install method:
 
 ### Device not responding to commands
 
-1. **Check the IP address** — make sure the device IP in the top bar matches the actual device IP
-2. **Check the port** — the device's OSC port must match what you entered
+1. **Check the IP address** — ensure the device IP in the top bar matches the actual device IP
+2. **Check the port** — the device's OSC port must match the entered value
 3. **Check network connectivity:**
    ```bash
    ping <device-ip>
    ```
-4. **Check firewall** — ensure your firewall allows UDP traffic on the device port
-5. **Start the listener** — click "Start Listener" in the top bar to receive replies
+4. **Check firewall** — ensure the firewall allows UDP traffic on the device port
+5. **Start the listener** — click "Start Listener" in the top bar to enable reply reception
 
 ### No replies appearing in the live feed
 
-1. **Is the listener running?** Check that you clicked "Start Listener"
-2. **Is the reply port correct?** The device needs to know where to send replies. Use **Dashboard** → **Status Config** to set the reply IP/port
-3. **Firewall:** Ensure incoming UDP is allowed on your listener port
+1. **Is the listener running?** Confirm "Start Listener" is active
+2. **Is the reply port correct?** The device must know where to send replies — use **Dashboard** → **Status Config** to set the reply IP/port
+3. **Firewall:** Ensure incoming UDP is allowed on the listener port
 
 ### Commands work but sensor data isn't flowing
 
@@ -171,7 +171,7 @@ Dependencies aren't installed. Fix depends on your install method:
 
 ### Page is blank or styles are missing
 
-Hard-refresh the browser:
+Perform a hard refresh:
 - **macOS:** `Cmd + Shift + R`
 - **Windows/Linux:** `Ctrl + Shift + R`
 
@@ -217,7 +217,7 @@ Check the **address mode** on your scene:
 
 ### macOS: "App can't be opened because it is from an unidentified developer"
 
-This shouldn't happen with the Homebrew or pip install. If it does:
+This should not occur with the Homebrew or pip install. If it does:
 1. **System Settings** → **Privacy & Security**
 2. Click **Open Anyway** next to the blocked app
 
@@ -232,7 +232,7 @@ gooey --no-browser
 
 ### Windows: "python" is not recognized
 
-Add Python to your PATH during installation. If already installed, find it:
+Add Python to the PATH during installation. If already installed, locate it:
 
 ```powershell
 where python
@@ -249,7 +249,7 @@ py -m pip install .
 
 ## Getting Help
 
-If you're stuck:
+For additional assistance:
 
 1. **Check the docs:**
    - [Installation Guide](installation.md)
@@ -262,4 +262,4 @@ If you're stuck:
    - What you tried
    - What happened (copy the full error message)
    - Your OS and Python version (`python3 --version`)
-   - How you installed Gooey (Homebrew / pip / script / manual)
+   - How you installed annieData (Homebrew / pip / script / manual)

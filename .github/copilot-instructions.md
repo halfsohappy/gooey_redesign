@@ -8,12 +8,12 @@ applications. It consists of two main components:
 | Component | Directory | Language | Purpose |
 |-----------|-----------|----------|---------|
 | **Firmware** | `src/` | C++ (Arduino) | ESP32-S3 sensor firmware — reads barometer, IMU, magnetometer and streams data as OSC messages over WiFi |
-| **Gooey** | `gooey/` | Python + vanilla JS | Web-based control center (Flask + SocketIO) for managing devices, messages, and scenes |
+| **annieData Control Center** | `gooey/` | Python + vanilla JS | Web-based GUI (Flask + SocketIO) for managing devices, messages, and scenes |
 
 Additional directories:
 - `platforms/` — PlatformIO configs for 25+ alternative microcontroller boards.
-- `Formula/` — Homebrew formula for installing the Gooey control center on macOS.
-- `docs/` — Engineering guide, Gooey guide, and OSC guide.
+- `Formula/` — Homebrew formula for installing the annieData Control Center on macOS.
+- `docs/` — Engineering guide, GUI guide, and OSC guide.
 - `data/` — Font assets used by the firmware captive portal.
 
 ## Build & Run
@@ -30,7 +30,7 @@ pio device monitor            # open serial monitor (115200 baud)
 Use alternative board configs from `platforms/` by copying them over
 `platformio.ini` or using the `-c` flag.
 
-### Gooey Control Center (Python)
+### annieData Control Center (Python)
 
 ```bash
 cd gooey
@@ -55,7 +55,7 @@ brew install halfsohappy/theatergwd/gooey
 ## Testing
 
 There is currently no formal test suite. Validate firmware changes by
-flashing and monitoring serial output. Validate Gooey changes by running
+flashing and monitoring serial output. Validate annieData changes by running
 the web UI and verifying behavior in the browser.
 
 ## Coding Conventions
@@ -115,7 +115,7 @@ the web UI and verifying behavior in the browser.
 - **WiFi provisioning** stores credentials in NVS namespace `device_config`
   with keys: `ssid`, `network_password`, `use_dhcp`, `static_ip`, `port`,
   `device_adr`, `provisioned`.
-- **Gooey device registry** is client-side (JS). Backend API at `/api/devices/`.
+- **annieData device registry** is client-side (JS). Backend API at `/api/devices/`.
   Reply parsing auto-populates the registry from `list`/`info` status messages.
 - **Draggable cards** use `data-card-id` attributes; order persists via
   `localStorage` key `gooey_card_order`. Star tab uses `gooey_starred_cards`.

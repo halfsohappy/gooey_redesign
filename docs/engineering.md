@@ -20,7 +20,7 @@ This document is for **computer engineers** building, extending, or debugging th
 - [Status Reporter](#status-reporter)
 - [Memory Model](#memory-model)
 - [Concurrency & Mutex Strategy](#concurrency--mutex-strategy)
-- [Gooey Backend](#gooey-backend)
+- [annieData Control Center Backend](#anniedata-control-center-backend)
 - [Extending the Firmware](#extending-the-firmware)
 
 ---
@@ -30,10 +30,10 @@ This document is for **computer engineers** building, extending, or debugging th
 TheaterGWD is a wireless motion-sensor-to-OSC translation system for live theater. It consists of:
 
 1. **Firmware** running on ESP32-S3 boards (two variants: **Bart** and **ab7**)
-2. **Gooey** — a Python/Flask web control center for configuring the device over OSC
-3. **OSC protocol** — the transport layer between device, Gooey, and show-control software (lighting consoles, QLab, TouchDesigner, etc.)
+2. **annieData Control Center** — a Python/Flask web GUI for configuring the device over OSC
+3. **OSC protocol** — the transport layer between device, control center, and show-control software (lighting consoles, QLab, TouchDesigner, etc.)
 
-The device reads IMU, barometric, and quaternion data from onboard sensors, normalizes all values to `[0, 1]`, and sends them as OSC float messages over WiFi UDP at configurable rates. Users define **messages** (individual sensor-to-OSC mappings) and **scenes** (groups of messages with a shared send task), all managed through OSC commands or the Gooey GUI.
+The device reads IMU, barometric, and quaternion data from onboard sensors, normalizes all values to `[0, 1]`, and sends them as OSC float messages over WiFi UDP at configurable rates. Users define **messages** (individual sensor-to-OSC mappings) and **scenes** (groups of messages with a shared send task), all managed through OSC commands or the annieData GUI.
 
 ---
 
@@ -62,7 +62,7 @@ The device reads IMU, barometric, and quaternion data from onboard sensors, norm
 | `include/micro_osc_udp.h` | MicroOSC UDP transport wrapper |
 | `include/main.h` | Include orchestrator |
 
-### Gooey (`gooey/`)
+### annieData Control Center (`gooey/`)
 
 | File | Purpose |
 |------|---------|
@@ -81,7 +81,7 @@ The device reads IMU, barometric, and quaternion data from onboard sensors, norm
 | File | Purpose |
 |------|---------|
 | `platformio.ini` | PlatformIO build environments and dependencies |
-| `gooey/install.sh` | Gooey installer (venv + requirements) |
+| `gooey/install.sh` | annieData installer (venv + requirements) |
 | `gooey/requirements.txt` | Python dependencies |
 | `gooey/package.json` | Tauri desktop bundler config |
 
@@ -693,7 +693,7 @@ Backward-compatible with v1 format (single sample with `qi:`, `qj:`, `qk:`, `qr:
 ### Limits
 
 - **On-device:** 16 shows max (`MAX_SHOWS = 16`)
-- **Gooey:** unlimited (JSON files on disk at `gooey/data/shows/`)
+- **annieData:** unlimited (JSON files on disk at `gooey/data/shows/`)
 
 ### Two-Step Load Safety
 
@@ -773,11 +773,11 @@ To expand capacity, change `MAX_OSC_SCENES`, `MAX_OSC_MESSAGES`, or `MAX_ORIS` i
 
 ---
 
-## Gooey Backend
+## annieData Control Center Backend
 
 ### Architecture
 
-Gooey is a **Flask + Flask-SocketIO** application serving a browser-based control center.
+The annieData Control Center is a **Flask + Flask-SocketIO** application serving a browser-based GUI.
 
 ```
 Browser (index.html + app.js)
