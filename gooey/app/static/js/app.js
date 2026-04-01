@@ -3482,15 +3482,11 @@
     var btnRef = $("#btnStartTour");
     if (btnRef) btnRef.addEventListener("click", startTour);
 
-    /* Guide button — open /docs/ in system browser (Tauri) or new tab (local dev) */
+    /* Guide button — open /docs/ in new tab (browser) or navigate in-app (Tauri) */
     var btnGuide = $("#btnGuide");
     if (btnGuide) btnGuide.addEventListener("click", function () {
       var url = location.origin + "/docs/";
-      if (window.__TAURI__) {
-        window.__TAURI__.core.invoke("plugin:shell|open", { path: url });
-      } else {
-        window.open(url, "_blank");
-      }
+      window.open(url, "_blank");
     });
 
     var btnOnboard = $("#btnOnboardTour");

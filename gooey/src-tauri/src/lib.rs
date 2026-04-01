@@ -66,7 +66,7 @@ pub fn run() {
                     "save_devices" => { let _ = win.eval("document.getElementById('btnSaveDevices').click();"); }
                     "load_devices" => { let _ = win.eval("document.getElementById('deviceFileInput').click();"); }
                     "take_tour"    => { let _ = win.eval("if(window._gooeyTour) window._gooeyTour.start();"); }
-                    "user_guide"   => { let _ = win.eval(&format!("window.__TAURI__ ? window.__TAURI__.core.invoke('plugin:shell|open',{{path:'{}'}}) : window.open('{}','_blank');", DOCS_URL, DOCS_URL)); }
+                    "user_guide"   => { let _ = win.eval(&format!("window.open('{}','_blank');", DOCS_URL)); }
                     _ => {}
                 }
             });
