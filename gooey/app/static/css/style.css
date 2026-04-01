@@ -706,6 +706,7 @@ select {
 }
 
 .cb-label input[type="checkbox"] { width: 13px; }
+.cb-label-lg { font-size: 14px; }
 
 /* ── Active list (bridges) ── */
 .active-list { margin-top: 8px; }

@@ -265,16 +265,20 @@
             <div class="gate-section" id="msgGateSection" style="display:none;">
               <div class="form-row form-row-even">
                 <div class="form-group">
-                  <label for="msgGateCategory">Gate Source</label>
-                  <select id="msgGateCategory"></select>
-                </div>
-                <div class="form-group" id="msgGateSensorGroup">
-                  <label for="msgGateSensor">Sensor</label>
-                  <select id="msgGateSensor"></select>
+                  <label for="msgGateSource">Gate Source</label>
+                  <select id="msgGateSource"></select>
                 </div>
                 <div class="form-group" id="msgGateOriGroup" style="display:none;">
                   <label for="msgGateOri">Orientation</label>
                   <input type="text" id="msgGateOri" placeholder="e.g. spotlight" list="oriNameList">
+                </div>
+                <div class="form-group fg-narrow" id="msgGateLoGroup" style="display:none;">
+                  <label for="msgGateLo">Lower</label>
+                  <input type="text" id="msgGateLo" placeholder="≥">
+                </div>
+                <div class="form-group fg-narrow" id="msgGateHiGroup" style="display:none;">
+                  <label for="msgGateHi">Upper</label>
+                  <input type="text" id="msgGateHi" placeholder="≤">
                 </div>
                 <div class="form-group">
                   <label for="msgGateMode">Mode</label>
@@ -287,16 +291,6 @@
                 </div>
               </div>
               <p id="msgGateHint" class="sensor-hint"></p>
-              <div class="form-row" id="msgGateThresholdRow">
-                <div class="form-group fg-narrow">
-                  <label for="msgGateLo">Lower</label>
-                  <input type="text" id="msgGateLo" placeholder="≥">
-                </div>
-                <div class="form-group fg-narrow">
-                  <label for="msgGateHi">Upper</label>
-                  <input type="text" id="msgGateHi" placeholder="≤">
-                </div>
-              </div>
             </div>
             <div class="form-group">
               <label>Config Preview</label>
@@ -794,6 +788,22 @@
 
         <!-- ===== ADVANCED ===== -->
         <section class="section" id="sec-advanced">
+          <div class="card" data-card-id="advanced-tools">
+            <h2>Advanced Tools</h2>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate"> Show gate controls in message form</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Enable the Python tab for custom routing and data processing"><input type="checkbox" id="chkEnableScript"> Show Python tab</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Show raw quaternion components (quatI/J/K/R) in sensor dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion sensors in dropdowns</label>
+            </div>
+          </div>
+
           <div class="card" data-card-id="raw-osc">
             <h2>Raw OSC Send</h2>
             <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated by default.</p>
@@ -868,21 +878,6 @@
             </div>
           </div>
 
-          <div class="card" data-card-id="advanced-tools">
-            <h2>Advanced Tools</h2>
-            <div class="cb-row">
-              <label class="cb-label" title="Enable the Python tab for custom routing and data processing"><input type="checkbox" id="chkEnableScript"> Show Python tab</label>
-            </div>
-            <div class="cb-row">
-              <label class="cb-label" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
-            </div>
-            <div class="cb-row">
-              <label class="cb-label" title="Show raw quaternion components (quatI/J/K/R) in sensor dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion sensors in dropdowns</label>
-            </div>
-            <div class="cb-row">
-              <label class="cb-label" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate"> Show gate controls in message form</label>
-            </div>
-          </div>
 
           <div class="card qr-card" data-card-id="remote-qr">
             <h2>Mobile Remote</h2>

@@ -1036,7 +1036,7 @@
         { value: "limbVert", label: "Limb Vertical", hint: "Vertical relative to limb (up/down)" },
         { value: "twitch", label: "Twitch", hint: "Overall movement intensity (acceleration magnitude)" }
       ]},
-    { id: "orientation", label: "Orientation", hint: "Rotation angles \u2014 Euler (gimbal lock) and swing-twist (gimbal-lock-free)",
+    { id: "orientation", label: "Orientation", hint: "Rotation angles \u2014 Euler angles and swing-twist (limb projected)",
       sensors: [
         { value: "roll", label: "Roll (Euler)", hint: "Tilt left/right \u2014 subject to gimbal lock" },
         { value: "pitch", label: "Pitch (Euler)", hint: "Tilt forward/back \u2014 subject to gimbal lock" },
@@ -1154,119 +1154,88 @@
   var msgPicker = initSensorPicker("msgCategory", "msgValue", "msgCategoryHint", "msgValueHint");
   var directPicker = initSensorPicker("directCategory", "directValue", "directCategoryHint", "directValueHint");
 
-  /* ── Gate picker ── */
-  function initGatePicker(catId, sensorId, oriId, modeId, loId, hiId, hintId, sensorGroupId, oriGroupId, thresholdRowId) {
-    var catEl = $("#" + catId), sensorEl = $("#" + sensorId), oriEl = $("#" + oriId);
+  /* ── Gate picker (flat source dropdown) ── */
+  function initGatePicker(sourceId, oriId, modeId, loId, hiId, hintId, oriGroupId, loGroupId, hiGroupId) {
+    var srcEl = $("#" + sourceId), oriEl = $("#" + oriId);
     var modeEl = $("#" + modeId), loEl = $("#" + loId), hiEl = $("#" + hiId);
     var hintEl = $("#" + hintId);
-    var sensorGroup = $("#" + sensorGroupId), oriGroup = $("#" + oriGroupId);
-    var thresholdRow = $("#" + thresholdRowId);
-    if (!catEl || !modeEl) return null;
+    var oriGroup = $("#" + oriGroupId), loGroup = $("#" + loGroupId), hiGroup = $("#" + hiGroupId);
+    if (!srcEl || !modeEl) return null;
 
-    // Populate gate source category dropdown
+    // Populate flat source dropdown: none, Orientation, then all data streams grouped by category
     var noneOpt = document.createElement("option");
     noneOpt.value = ""; noneOpt.textContent = "\u2014 none \u2014";
-    catEl.appendChild(noneOpt);
+    srcEl.appendChild(noneOpt);
     var oriOpt = document.createElement("option");
     oriOpt.value = "ori"; oriOpt.textContent = "Orientation";
-    catEl.appendChild(oriOpt);
+    srcEl.appendChild(oriOpt);
     SENSOR_CATEGORIES.forEach(function (cat) {
       if (cat.advanced) return;
-      var opt = document.createElement("option");
-      opt.value = cat.id; opt.textContent = cat.label;
-      catEl.appendChild(opt);
-    });
-
-    function populateGateSensors(catIdVal) {
-      sensorEl.innerHTML = "";
-      var none = document.createElement("option");
-      none.value = ""; none.textContent = "\u2014 pick \u2014";
-      sensorEl.appendChild(none);
-      var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
-      if (!cat) return;
+      var grp = document.createElement("optgroup");
+      grp.label = cat.label;
       cat.sensors.forEach(function (s) {
         var opt = document.createElement("option");
         opt.value = s.value; opt.textContent = s.label;
-        sensorEl.appendChild(opt);
+        grp.appendChild(opt);
       });
-    }
+      srcEl.appendChild(grp);
+    });
 
     function updateVisibility() {
-      var v = catEl.value;
+      var v = srcEl.value;
       if (v === "ori") {
-        sensorGroup.style.display = "none";
         oriGroup.style.display = "";
-        thresholdRow.style.display = "none";
+        loGroup.style.display = "none";
+        hiGroup.style.display = "none";
         if (hintEl) hintEl.textContent = "Gate based on orientation tracker state";
       } else if (v) {
-        sensorGroup.style.display = "";
         oriGroup.style.display = "none";
-        thresholdRow.style.display = "";
-        var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === v; })[0];
-        if (hintEl) hintEl.textContent = cat ? cat.hint : "";
+        loGroup.style.display = "";
+        hiGroup.style.display = "";
+        if (hintEl) hintEl.textContent = SENSOR_HINTS[v] || "";
       } else {
-        sensorGroup.style.display = "";
         oriGroup.style.display = "none";
-        thresholdRow.style.display = "none";
+        loGroup.style.display = "none";
+        hiGroup.style.display = "none";
         if (hintEl) hintEl.textContent = "";
       }
     }
 
-    catEl.addEventListener("change", function () {
-      populateGateSensors(catEl.value);
-      updateVisibility();
-    });
-    sensorEl.addEventListener("change", function () {
-      if (hintEl && catEl.value !== "ori") hintEl.textContent = SENSOR_HINTS[sensorEl.value] || "";
-    });
+    srcEl.addEventListener("change", updateVisibility);
     updateVisibility();
 
     return {
-      /** Returns {gate_src, gate_mode, gate_lo, gate_hi} or null if no gate */
       getConfig: function () {
         var mode = modeEl.value;
         if (!mode) return null;
         var src;
-        if (catEl.value === "ori") {
+        if (srcEl.value === "ori") {
           var oriName = oriEl.value.trim();
           if (!oriName) return null;
           src = "ori:" + oriName;
         } else {
-          src = sensorEl.value;
+          src = srcEl.value;
           if (!src) return null;
         }
         var lo = loEl.value.trim();
         var hi = hiEl.value.trim();
         return { gate_src: src, gate_mode: mode, gate_lo: lo, gate_hi: hi };
       },
-      /** Programmatically set gate state from message data */
       setValue: function (gateSrc, gateMode, gateLo, gateHi) {
         if (!gateSrc || !gateMode) { this.clear(); return; }
         modeEl.value = gateMode;
         if (gateSrc.indexOf("ori:") === 0) {
-          catEl.value = "ori";
+          srcEl.value = "ori";
           oriEl.value = gateSrc.substring(4);
-          updateVisibility();
         } else {
-          var catIdVal = SENSOR_TO_CAT[gateSrc] || "";
-          if (catIdVal) {
-            if (!catEl.querySelector('option[value="' + catIdVal + '"]')) {
-              var cat = SENSOR_CATEGORIES.filter(function (c) { return c.id === catIdVal; })[0];
-              if (cat) { var opt = document.createElement("option"); opt.value = cat.id; opt.textContent = cat.label; catEl.appendChild(opt); }
-            }
-            catEl.value = catIdVal;
-            populateGateSensors(catIdVal);
-            sensorEl.value = gateSrc;
-          }
-          updateVisibility();
-          if (hintEl) hintEl.textContent = SENSOR_HINTS[gateSrc] || "";
+          srcEl.value = gateSrc;
         }
         loEl.value = (gateLo != null && gateLo !== "" && !isNaN(gateLo)) ? gateLo : "";
         hiEl.value = (gateHi != null && gateHi !== "" && !isNaN(gateHi)) ? gateHi : "";
+        updateVisibility();
       },
       clear: function () {
-        catEl.value = "";
-        sensorEl.innerHTML = '<option value="">\u2014 pick \u2014</option>';
+        srcEl.value = "";
         oriEl.value = "";
         modeEl.value = "";
         loEl.value = "";
@@ -1277,9 +1246,9 @@
   }
 
   var msgGatePicker = initGatePicker(
-    "msgGateCategory", "msgGateSensor", "msgGateOri", "msgGateMode",
+    "msgGateSource", "msgGateOri", "msgGateMode",
     "msgGateLo", "msgGateHi", "msgGateHint",
-    "msgGateSensorGroup", "msgGateOriGroup", "msgGateThresholdRow"
+    "msgGateOriGroup", "msgGateLoGroup", "msgGateHiGroup"
   );
 
   function populateMsgForm(name, m) {
@@ -2093,7 +2062,7 @@
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgGateCategory", "msgGateSensor", "msgGateOri", "msgGateMode", "msgGateLo", "msgGateHi"].forEach(function (id) {
+  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgGateSource", "msgGateOri", "msgGateMode", "msgGateLo", "msgGateHi"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
