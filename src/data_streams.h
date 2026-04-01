@@ -4,7 +4,7 @@
 //
 // This file defines the global array of sensor data streams that the device
 // reads from its hardware sensors (accelerometer, gyroscope, barometer,
-// Euler angles) and makes available for OSC messages to reference.
+// Euler angles, swing-twist) and makes available for OSC messages to reference.
 //
 // Each stream is identified by a compile-time index constant (e.g. ACCELX,
 // GYROY, BARO). OscMessage objects hold a pointer into this array so their
@@ -26,7 +26,7 @@
 // Stream count and index constants
 // ---------------------------------------------------------------------------
 
-#define NUM_DATA_STREAMS 22
+#define NUM_DATA_STREAMS 25
 
 #define ACCELX       0
 #define ACCELY       1
@@ -50,11 +50,15 @@
 #define QUAT_J      19  // set low:-1 high:1 on the OscMessage to recover the [-1,1] range
 #define QUAT_K      20
 #define QUAT_R      21
+#define TWIST       22  // swing-twist: rotation around arm axis (wrist twist)
+#define HEADING     23  // swing-twist: horizontal pointing direction
+#define TILT        24  // swing-twist: vertical angle above/below horizon
 
 // The global data array.  Elements 0–15 are updated continuously by the sensor
 // task.  Elements 16–17 (CONST_ZERO / CONST_ONE) are fixed at 0.0 / 1.0 and
 // never written by the sensor task — they exist so messages can send constants.
 // Elements 18–21 (QUAT_I/J/K/R) hold the raw (untared) quaternion each cycle.
+// Elements 22–24 (TWIST/HEADING/TILT) are swing-twist decomposition outputs.
 // Declared volatile because the sensor task (writer) and scene send tasks
 // (readers) run concurrently without a mutex protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
@@ -88,6 +92,9 @@ static inline String data_stream_name(int index) {
         case QUAT_J:       return "quatJ";
         case QUAT_K:       return "quatK";
         case QUAT_R:       return "quatR";
+        case TWIST:        return "twist";
+        case HEADING:      return "heading";
+        case TILT:         return "tilt";
         default:           return "unknown";
     }
 }
@@ -120,6 +127,9 @@ static inline int data_stream_index_from_name(const String& value_name) {
     if (key == "quatj" || key == "quat_j" || key == "qj")             return QUAT_J;
     if (key == "quatk" || key == "quat_k" || key == "qk")             return QUAT_K;
     if (key == "quatr" || key == "quat_r" || key == "qr")             return QUAT_R;
+    if (key == "twist")                                               return TWIST;
+    if (key == "heading" || key == "hdg")                             return HEADING;
+    if (key == "tilt")                                                return TILT;
     return -1;
 }
 
@@ -174,6 +184,11 @@ static inline void update_simulated_data() {
     data_streams[QUAT_J] = 0.0f * 0.5f + 0.5f;           // qj = 0 (no Y component)
     data_streams[QUAT_K] = sinf(qangle * 0.5f) * 0.5f + 0.5f;  // qk = sin(θ/2)
     data_streams[QUAT_R] = cosf(qangle * 0.5f) * 0.5f + 0.5f;  // qr = cos(θ/2)
+
+    // Swing-twist channels
+    data_streams[TWIST]   = sinf(2.0f * PI * 0.25f * t) * 0.5f + 0.5f;  // 0.25 Hz
+    data_streams[HEADING] = sinf(2.0f * PI * 0.15f * t) * 0.5f + 0.5f;  // 0.15 Hz
+    data_streams[TILT]    = sinf(2.0f * PI * 0.2f  * t) * 0.5f + 0.5f;  // 0.2 Hz
 }
 
 #endif // !AB7_BUILD

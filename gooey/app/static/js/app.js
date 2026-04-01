@@ -1013,9 +1013,39 @@
     applyColVisibility();
   }
 
+  /* ── Sensor value description hints ── */
+  var SENSOR_HINTS = {
+    accelX: "Linear acceleration \u2014 left/right",
+    accelY: "Linear acceleration \u2014 up/down",
+    accelZ: "Linear acceleration \u2014 forward/back",
+    accelLength: "Overall acceleration intensity",
+    gaccelX: "World-frame acceleration \u2014 X (gravity-corrected)",
+    gaccelY: "World-frame acceleration \u2014 Y (gravity-corrected)",
+    gaccelZ: "World-frame acceleration \u2014 Z (gravity-corrected)",
+    gaccelLength: "World-frame acceleration magnitude",
+    gyroX: "Rotation speed \u2014 X axis (rolling)",
+    gyroY: "Rotation speed \u2014 Y axis (pitching)",
+    gyroZ: "Rotation speed \u2014 Z axis (spinning)",
+    gyroLength: "Overall rotation speed",
+    baro: "Barometric pressure / altitude",
+    roll: "Euler roll \u2014 tilt left/right",
+    pitch: "Euler pitch \u2014 tilt forward/back",
+    yaw: "Euler yaw \u2014 compass heading",
+    twist: "Swing-twist \u2014 wrist rotation around arm axis (no gimbal lock)",
+    heading: "Swing-twist \u2014 horizontal pointing direction",
+    tilt: "Swing-twist \u2014 vertical angle above/below horizon",
+    quatI: "Quaternion I component (advanced)",
+    quatJ: "Quaternion J component (advanced)",
+    quatK: "Quaternion K component (advanced)",
+    quatR: "Quaternion R / scalar component (advanced)",
+    high: "Constant 1.0 \u2014 maps to the high bound",
+    low: "Constant 0.0 \u2014 maps to the low bound"
+  };
+
   function populateMsgForm(name, m) {
     $("#msgName").value = name;
     $("#msgValue").value = m.value || m.val || "";
+    var mh = $("#msgValueHint"); if (mh) mh.textContent = SENSOR_HINTS[$("#msgValue").value] || "";
     $("#msgIP").value = m.ip || "";
     $("#msgPort").value = m.port || "9000";
     $("#msgAdr").value = m.adr || m.addr || m.address || "";
@@ -1866,6 +1896,7 @@
       $("#" + id).value = "";
     });
     $("#msgValue").value = "";
+    var mhc = $("#msgValueHint"); if (mhc) mhc.textContent = "";
     $("#msgPort").value = "9000";
     updateMsgPreview();
   });
@@ -2073,6 +2104,17 @@
     if (el) el.addEventListener("input", updateDirectPreview);
   });
   updateDirectPreview();
+
+  /* ── Sensor hint change listeners ── */
+  function updateSensorHint(selectId, hintId) {
+    var el = $("#" + selectId), hint = $("#" + hintId);
+    if (!el || !hint) return;
+    el.addEventListener("change", function () {
+      hint.textContent = SENSOR_HINTS[el.value] || "";
+    });
+  }
+  updateSensorHint("msgValue", "msgValueHint");
+  updateSensorHint("directValue", "directValueHint");
 
   $("#btnDirectSend").addEventListener("click", function () {
     var name = ($("#directName").value || "").trim() || "quickSend";
@@ -2558,7 +2600,7 @@
 
       var kwCategories = [
         { title: "Sensors \u2014 Body Frame", keys: ["accelX","accelY","accelZ","accelLength","gyroX","gyroY","gyroZ","gyroLength","baro"] },
-        { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","quatI","quatJ","quatK","quatR"] },
+        { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","heading","tilt","quatI","quatJ","quatK","quatR"] },
         { title: "Sensors \u2014 Global Frame", keys: ["gaccelX","gaccelY","gaccelZ","gaccelLength"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },

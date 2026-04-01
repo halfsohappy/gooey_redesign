@@ -295,6 +295,14 @@ body {
   font-weight: 300;
 }
 
+.sensor-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  margin: 2px 0 6px 0;
+  font-style: italic;
+  min-height: 1.2em;
+}
+
 /* ── Forms ── */
 .form-row {
   display: flex;

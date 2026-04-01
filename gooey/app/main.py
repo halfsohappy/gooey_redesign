@@ -614,6 +614,7 @@ THEATER_GWD_PRESETS = {
         "gyroX", "gyroY", "gyroZ", "gyroLength",
         "baro",
         "roll", "pitch", "yaw",
+        "twist", "heading", "tilt",
     ],
     "commands": {
         "blackout": {
@@ -940,6 +941,9 @@ THEATER_GWD_PRESETS = {
         "roll": "Roll — tilt left/right around the X-axis.",
         "pitch": "Pitch — tilt forward/back around the Y-axis.",
         "yaw": "Yaw — compass heading around the Z-axis.",
+        "twist": "Twist — wrist rotation around the arm axis (swing-twist, no gimbal lock).",
+        "heading": "Heading — horizontal pointing direction (swing-twist).",
+        "tilt": "Tilt — vertical angle above/below horizon (swing-twist).",
         "fallback": "Address mode: use msg address, scene address as fallback.",
         "prepend": "Address mode: scene.adr + msg.adr.",
         "append": "Address mode: msg.adr + scene.adr.",

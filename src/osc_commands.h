@@ -130,6 +130,10 @@ extern bool  tare_active;
 // 0 = ZYX (default, singular on Y), 1 = ZXY (singular on X).
 extern int euler_order;
 
+// Swing-twist decomposition axes (defined in main.cpp).
+extern float twist_nx, twist_ny, twist_nz;
+extern float tare_up_x, tare_up_y, tare_up_z;
+
 // ---------------------------------------------------------------------------
 // Command normaliser — accepts camelCase, snake_case, and lowercase
 // ---------------------------------------------------------------------------
@@ -229,6 +233,26 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         // Choose ZXY when Y is most vertical (avoid ZYX singularity), else ZYX.
         euler_order = (vy > vx && vy > vz) ? 1 : 0;
 
+        // Swing-twist: up axis = device axis most aligned with world vertical.
+        float svx = 2.0f*(tare_qi*tare_qk - tare_qr*tare_qj);
+        float svy = 2.0f*(tare_qj*tare_qk + tare_qr*tare_qi);
+        float svz = 1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj);
+        if (vx >= vy && vx >= vz) {
+            tare_up_x = copysignf(1.0f, svx); tare_up_y = 0; tare_up_z = 0;
+        } else if (vy >= vx && vy >= vz) {
+            tare_up_x = 0; tare_up_y = copysignf(1.0f, svy); tare_up_z = 0;
+        } else {
+            tare_up_x = 0; tare_up_y = 0; tare_up_z = copysignf(1.0f, svz);
+        }
+        // Twist axis = device axis least aligned with vertical (most horizontal).
+        if (vx <= vy && vx <= vz) {
+            twist_nx = 1.0f; twist_ny = 0; twist_nz = 0;
+        } else if (vy <= vx && vy <= vz) {
+            twist_nx = 0; twist_ny = 1.0f; twist_nz = 0;
+        } else {
+            twist_nx = 0; twist_ny = 0; twist_nz = 1.0f;
+        }
+
         const char* order_name = (euler_order == 1) ? "ZXY" : "ZYX";
         osc_reply(sender_ip, sender_port, reply_adr,
                   String("TARE SET (") + order_name + ")");
@@ -240,6 +264,8 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         tare_qi = 0.0f; tare_qj = 0.0f; tare_qk = 0.0f; tare_qr = 1.0f;
         tare_active = false;
         euler_order = 0;  // back to default ZYX
+        twist_nx = 1.0f; twist_ny = 0.0f; twist_nz = 0.0f;
+        tare_up_x = 0.0f; tare_up_y = 0.0f; tare_up_z = 1.0f;
         osc_reply(sender_ip, sender_port, reply_adr, "TARE RESET");
         status_reporter().info("tare", "Tare cleared — decomposition: ZYX");
         return;

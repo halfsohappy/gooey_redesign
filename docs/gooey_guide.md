@@ -555,6 +555,24 @@ device.blackout()
 device.restore()
 device.save()
 device.load()
+device.tare()
+device.tare_reset()
+
+# Ori control
+o = device.ori("upstageLeft")
+o.register()                   # pre-register the slot
+o.register("255,0,128")        # with a custom LED color
+o.save()                       # capture current orientation
+o.reset()                      # clear samples, ready to re-record
+o.delete()
+o.info()
+
+# Ori device-level
+device.ori_list()              # list all saved oris
+device.ori_active()            # query which ori is currently matched
+device.ori_clear()             # delete all oris
+device.ori_threshold(0.5)      # motion gate (rad/s)
+device.ori_tolerance(15.0)     # match tolerance (degrees)
 ```
 
 ### State, time, and math

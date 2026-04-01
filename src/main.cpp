@@ -33,6 +33,12 @@ bool  tare_active = false;
 // 1 = ZXY (singular on X/roll — chosen when device Y-axis is most vertical)
 int euler_order = 0;
 
+// Swing-twist decomposition axes — auto-selected at tare time.
+// twist_n = device axis most horizontal at tare (the "arm" axis).
+// tare_up = device axis most vertical at tare (the "up" direction).
+float twist_nx = 1.0f, twist_ny = 0.0f, twist_nz = 0.0f;
+float tare_up_x = 0.0f, tare_up_y = 0.0f, tare_up_z = 1.0f;
+
 #ifdef AB7_BUILD
 
 // SK6812 LED (one pixel)
@@ -232,6 +238,60 @@ void setup() {
                     data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
                 }
 
+                // ── Swing-twist decomposition ─────────────────────────
+                // Splits tare-relative rotation into twist (around arm axis)
+                // and swing (where the arm points).  Uses rotate_vec() from
+                // ori_tracker.h — same helper the ori system uses.
+                {
+                    float qw = eq_r, qx = eq_i, qy = eq_j, qz = eq_k;
+                    float nx = twist_nx, ny = twist_ny, nz = twist_nz;
+
+                    // Project quaternion vector part onto twist axis
+                    float proj = qx*nx + qy*ny + qz*nz;
+                    float qt_len = sqrtf(qw*qw + proj*proj);
+
+                    float twist_deg;
+                    if (qt_len < 1e-6f) {
+                        twist_deg = 0.0f;  // degenerate: pure 180° swing
+                    } else {
+                        twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
+                                    * (180.0f / (float)M_PI);
+                    }
+                    data_streams[TWIST] = (twist_deg + 180.0f) / 360.0f;
+
+                    // Swing: rotate twist axis by the tare-relative quaternion
+                    // to see where the arm now points in the reference frame.
+                    float vx, vy, vz;
+                    rotate_vec(eq_i, eq_j, eq_k, eq_r, nx, ny, nz, vx, vy, vz);
+
+                    // Tilt = elevation angle (dot with up axis)
+                    float v_up = vx*tare_up_x + vy*tare_up_y + vz*tare_up_z;
+                    float tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
+                                     * (180.0f / (float)M_PI);
+                    data_streams[TILT] = (tilt_deg + 90.0f) / 180.0f;
+
+                    // Heading = azimuth in horizontal plane.
+                    // Reference forward = twist axis projected horizontal at tare.
+                    float n_up = nx*tare_up_x + ny*tare_up_y + nz*tare_up_z;
+                    float fx = nx - n_up*tare_up_x;
+                    float fy = ny - n_up*tare_up_y;
+                    float fz = nz - n_up*tare_up_z;
+                    float flen = sqrtf(fx*fx + fy*fy + fz*fz);
+                    if (flen > 1e-6f) { fx /= flen; fy /= flen; fz /= flen; }
+                    // Right = up × forward
+                    float rx = tare_up_y*fz - tare_up_z*fy;
+                    float ry = tare_up_z*fx - tare_up_x*fz;
+                    float rz = tare_up_x*fy - tare_up_y*fx;
+                    // Remove vertical component from v
+                    float hx = vx - v_up*tare_up_x;
+                    float hy = vy - v_up*tare_up_y;
+                    float hz = vz - v_up*tare_up_z;
+                    float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
+                                               hx*fx + hy*fy + hz*fz)
+                                        * (180.0f / (float)M_PI);
+                    data_streams[HEADING] = (heading_deg + 180.0f) / 360.0f;
+                }
+
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
                 float ax, ay, az;
                 imu_get_accel(ax, ay, az);
@@ -362,6 +422,60 @@ void setup() {
                     data_streams[ROLL]   = (roll  + 180.0f) / 360.0f;
                     data_streams[PITCH]  = (pitch + 90.0f)  / 180.0f;  // asin [-90,+90]
                     data_streams[YAW]    = (yaw   + 180.0f) / 360.0f;
+                }
+
+                // ── Swing-twist decomposition ─────────────────────────
+                // Splits tare-relative rotation into twist (around arm axis)
+                // and swing (where the arm points).  Uses rotate_vec() from
+                // ori_tracker.h — same helper the ori system uses.
+                {
+                    float qw = eq_r, qx = eq_i, qy = eq_j, qz = eq_k;
+                    float nx = twist_nx, ny = twist_ny, nz = twist_nz;
+
+                    // Project quaternion vector part onto twist axis
+                    float proj = qx*nx + qy*ny + qz*nz;
+                    float qt_len = sqrtf(qw*qw + proj*proj);
+
+                    float twist_deg;
+                    if (qt_len < 1e-6f) {
+                        twist_deg = 0.0f;  // degenerate: pure 180° swing
+                    } else {
+                        twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
+                                    * (180.0f / (float)M_PI);
+                    }
+                    data_streams[TWIST] = (twist_deg + 180.0f) / 360.0f;
+
+                    // Swing: rotate twist axis by the tare-relative quaternion
+                    // to see where the arm now points in the reference frame.
+                    float vx, vy, vz;
+                    rotate_vec(eq_i, eq_j, eq_k, eq_r, nx, ny, nz, vx, vy, vz);
+
+                    // Tilt = elevation angle (dot with up axis)
+                    float v_up = vx*tare_up_x + vy*tare_up_y + vz*tare_up_z;
+                    float tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
+                                     * (180.0f / (float)M_PI);
+                    data_streams[TILT] = (tilt_deg + 90.0f) / 180.0f;
+
+                    // Heading = azimuth in horizontal plane.
+                    // Reference forward = twist axis projected horizontal at tare.
+                    float n_up = nx*tare_up_x + ny*tare_up_y + nz*tare_up_z;
+                    float fx = nx - n_up*tare_up_x;
+                    float fy = ny - n_up*tare_up_y;
+                    float fz = nz - n_up*tare_up_z;
+                    float flen = sqrtf(fx*fx + fy*fy + fz*fz);
+                    if (flen > 1e-6f) { fx /= flen; fy /= flen; fz /= flen; }
+                    // Right = up × forward
+                    float rx = tare_up_y*fz - tare_up_z*fy;
+                    float ry = tare_up_z*fx - tare_up_x*fz;
+                    float rz = tare_up_x*fy - tare_up_y*fx;
+                    // Remove vertical component from v
+                    float hx = vx - v_up*tare_up_x;
+                    float hy = vy - v_up*tare_up_y;
+                    float hz = vz - v_up*tare_up_z;
+                    float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
+                                               hx*fx + hy*fy + hz*fz)
+                                        * (180.0f / (float)M_PI);
+                    data_streams[HEADING] = (heading_deg + 180.0f) / 360.0f;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────

@@ -11,7 +11,7 @@ No programming required. No GUI required.
 - [What This System Does](#what-this-system-does)
 - [Device Setup (Provisioning)](#device-setup-provisioning)
 - [OSC Address Format](#osc-address-format)
-- [The 22 Sensor Values](#the-22-sensor-values)
+- [The 25 Sensor Values](#the-25-sensor-values)
 - [Config String Format](#config-string-format)
 - [Creating Messages](#creating-messages)
 - [Creating Scenes](#creating-scenes)
@@ -83,7 +83,7 @@ For example, if your device is named **bart**:
 
 ---
 
-## The 22 Sensor Values
+## The 25 Sensor Values
 
 The device reads these sensor values and normalizes them all to a range of **0 to 1**:
 
@@ -101,6 +101,9 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `roll` | Roll angle | Tilt left/right |
 | `pitch` | Pitch angle | Tilt forward/back |
 | `yaw` | Yaw angle | Compass heading |
+| `twist` | Wrist rotation around arm axis | Gimbal-lock-free wrist roll |
+| `heading` | Horizontal pointing direction | Arm sweep left/right |
+| `tilt` | Vertical angle above/below horizon | Arm raise/lower |
 | `gaccelX` | World-frame acceleration — X | Motion regardless of device tilt |
 | `gaccelY` | World-frame acceleration — Y | Motion regardless of device tilt |
 | `gaccelZ` | World-frame acceleration — Z | Motion regardless of device tilt |
@@ -112,7 +115,7 @@ The device reads these sensor values and normalizes them all to a range of **0 t
 | `low` | Always 0.0 | Constant zero |
 | `high` | Always 1.0 | Constant one |
 
-For most theater work, **accelX/Y/Z**, **accelLength**, **gyroLength**, and **roll/pitch/yaw** are the most useful.
+For most theater work, **accelX/Y/Z**, **accelLength**, **gyroLength**, and **roll/pitch/yaw** are the most useful. For body-mounted sensors where gimbal lock is a concern, use **twist/heading/tilt** instead — these use swing-twist decomposition and are stable at any arm angle.
 
 ---
 

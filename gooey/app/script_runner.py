@@ -237,6 +237,53 @@ class SceneProxy:
         return f"<SceneProxy {self._name!r} @ {self._dev}>"
 
 
+class OriProxy:
+    """High-level handle for a single named ori (saved orientation).
+
+    Returned by ``device.ori("name")``.
+    """
+
+    def __init__(self, name, host, port, dev_name, engine):
+        self._name   = name
+        self._host   = host
+        self._port   = port
+        self._dev    = dev_name
+        self._engine = engine
+
+    def _cmd(self, command, payload=None):
+        address = f"/annieData/{self._dev}/ori/{command}/{self._name}"
+        self._engine.send_message(
+            self._host, self._port, address,
+            [payload] if payload is not None else None,
+        )
+
+    def save(self):
+        """Capture the device's current orientation into this ori."""
+        self._cmd("save")
+
+    def delete(self):
+        """Delete this ori from the device."""
+        self._cmd("delete")
+
+    def reset(self):
+        """Clear recorded samples — ready to re-record."""
+        self._cmd("reset")
+
+    def info(self):
+        """Ask the device to reply with this ori's details."""
+        self._cmd("info")
+
+    def register(self, color=None):
+        """Pre-register the slot on the device.
+
+        *color*: optional ``"r,g,b"`` string (e.g. ``"255,0,128"``).
+        """
+        self._cmd("register", color)
+
+    def __repr__(self):
+        return f"<OriProxy {self._name!r} @ {self._dev}>"
+
+
 class DeviceProxy:
     """High-level handle for the active TheaterGWD device.
 
@@ -283,6 +330,10 @@ class DeviceProxy:
         """Return a SceneProxy for *name* (may be an OSC wildcard pattern)."""
         return SceneProxy(name, self.host, self.port, self.name, self._engine)
 
+    def ori(self, name):
+        """Return an OriProxy for *name*."""
+        return OriProxy(name, self.host, self.port, self.name, self._engine)
+
     # ── Device-level commands ──
 
     def _cmd(self, suffix, payload=None):
@@ -327,6 +378,42 @@ class DeviceProxy:
     def list_all(self, verbose=False):
         """Ask the device to send back all objects."""
         self._cmd("list/all", "verbose=1" if verbose else None)
+
+    # ── Tare / Ori device commands ──
+
+    def tare(self):
+        """Capture current orientation as the zero reference for Euler and swing-twist."""
+        self._cmd("tare")
+
+    def tare_reset(self):
+        """Clear the tare — return to absolute world-frame angles."""
+        self._cmd("tare/reset")
+
+    def ori_clear(self):
+        """Delete all saved oris on the device."""
+        self._cmd("ori/clear")
+
+    def ori_list(self):
+        """Ask the device to list all saved oris."""
+        self._cmd("ori/list")
+
+    def ori_active(self):
+        """Ask the device which ori is currently matched."""
+        self._cmd("ori/active")
+
+    def ori_threshold(self, rad_per_sec=None):
+        """Set or query the ori motion-gate threshold (rad/s).
+
+        Call with no argument to query; pass a float to set.
+        """
+        self._cmd("ori/threshold", str(rad_per_sec) if rad_per_sec is not None else None)
+
+    def ori_tolerance(self, degrees=None):
+        """Set or query the ori angular match tolerance (degrees).
+
+        Call with no argument to query; pass a float to set.
+        """
+        self._cmd("ori/tolerance", str(degrees) if degrees is not None else None)
 
     # ── Registry snapshots ──
 
