@@ -926,7 +926,11 @@ select {
 
 /* ── Gate Section ── */
 th.gate-section, td.gate-section { display: table-cell; }
-.gate-section .form-row-even > .form-group { flex: 1 1 0; min-width: 0; }
+.gate-row { display: flex; gap: 8px; }
+.gate-row .gate-src   { flex: 2 1 0; min-width: 0; }
+.gate-row .gate-bound { flex: 1 1 0; min-width: 0; }
+.gate-row .gate-ori   { flex: 2 1 0; min-width: 0; }
+.gate-row .gate-mode  { flex: 2 1 0; min-width: 0; }
 
 /* Ori color swatches */
 .ori-color-swatch {
