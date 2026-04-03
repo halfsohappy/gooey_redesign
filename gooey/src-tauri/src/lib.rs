@@ -100,7 +100,32 @@ pub fn run() {
         .expect("error while running Gooey");
 }
 
+/// On macOS 12+, the OS silently blocks LAN UDP unless the app has been
+/// granted local-network permission. Permission is only requested when the
+/// *main app process* (which owns the Info.plist) makes a local-network
+/// connection attempt — child processes / raw sidecars never trigger the
+/// dialog on their own.
+///
+/// Sending a zero-byte datagram to the mDNS multicast address is the
+/// canonical trigger: the send itself will fail, but macOS intercepts the
+/// attempt and shows the "annieData wants to find and connect to devices on
+/// your local network" prompt using our NSLocalNetworkUsageDescription.
+#[cfg(target_os = "macos")]
+fn request_local_network_permission() {
+    use std::net::UdpSocket;
+    if let Ok(sock) = UdpSocket::bind("0.0.0.0:0") {
+        let _ = sock.send_to(&[], "224.0.0.251:5353");
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn request_local_network_permission() {}
+
 fn start_sidecar(app: AppHandle, child_holder: Arc<Mutex<Option<CommandChild>>>) {
+    // Trigger the macOS local-network permission dialog before the sidecar
+    // starts sending OSC traffic (no-op on other platforms).
+    request_local_network_permission();
+
     let (mut rx, child) = app
         .shell()
         .sidecar("gooey-server")

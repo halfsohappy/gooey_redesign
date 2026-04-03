@@ -39,7 +39,8 @@
     ],
     "macOS": {
       "signingIdentity": "-",
-      "entitlements": "entitlements.plist"
+      "entitlements": "entitlements.plist",
+      "infoPlist": "Info.plist"
     }
   }
 }
