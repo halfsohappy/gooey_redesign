@@ -70,7 +70,11 @@ git tag "$TAG"
 git push
 git push origin "$TAG"
 
-echo "triggering docs build..."
-gh workflow run build-docs.yml --ref "$TAG"
+if command -v gh &>/dev/null; then
+  echo "triggering docs build..."
+  gh workflow run build-docs.yml --ref "$TAG"
+else
+  echo "note: gh CLI not found — trigger docs build manually or install gh"
+fi
 
 echo "✓ released ${TAG}"
