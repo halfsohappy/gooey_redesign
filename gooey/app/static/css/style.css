@@ -682,7 +682,7 @@ select {
 #sceneTable col.col-status { width: 130px; }
 #sceneTable col.col-name   { width: 120px; }
 #sceneTable col.col-msgs   { /* flex */ }
-#sceneTable col.col-acts   { width: 80px; }
+#sceneTable col.col-acts   { width: 100px; }
 #sceneTable td { overflow: hidden; }
 
 #sceneTable th {
