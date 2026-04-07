@@ -1381,11 +1381,11 @@
       tr.id = "sr-" + name;
       tr.dataset.sceneName = name;
       tr.innerHTML =
+        '<td><span class="scene-pill ' + pillClass + '"><span class="scene-dot"></span>' + pillLabel + '</span></td>' +
         '<td><div class="scene-acts" onclick="event.stopPropagation()">' +
           '<button class="scene-btn scene-btn-go" data-act="start" title="Start scene">▶</button>' +
           '<button class="scene-btn scene-btn-stp" data-act="stop"  title="Stop scene">■</button>' +
         '</div></td>' +
-        '<td><span class="scene-pill ' + pillClass + '"><span class="scene-dot"></span>' + pillLabel + '</span></td>' +
         '<td><span class="scene-name">' + esc(name) + '</span></td>' +
         '<td><span class="scene-msg-cell" id="smsg-' + esc(name) + '">' + esc(msgsStr || "—") + '</span></td>';
       tr.addEventListener("click", function () { toggleSceneExp(name); });
