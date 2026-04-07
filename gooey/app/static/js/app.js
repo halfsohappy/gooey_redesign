@@ -3326,6 +3326,14 @@
      INLINE FIELD VALIDATION
      ═══════════════════════════════════════════ */
 
+  /* ── Assume IP: expand a bare last-octet number to a full IP ── */
+  var _assumeIpPrefix = "";
+  function expandIp(val) {
+    if (!_assumeIpPrefix) return val;
+    if (/^\d{1,3}$/.test(val.trim())) return _assumeIpPrefix + val.trim();
+    return val;
+  }
+
   function validateField(input, isValid, msg) {
     var hint;
     if (!isValid) {
@@ -3353,12 +3361,15 @@
   });
 
   /* IP validation */
-  ["statusIP", "msgIP", "sceneIP", "directIP", "rawHost", "bridgeOutHost"].forEach(function (fieldId) {
+  ["statusIP", "msgIP", "sceneIP", "directIP", "rawHost", "bridgeOutHost", "deviceConfigIP"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
       var v = el.value.trim();
       if (!v) return; /* allow empty */
+      /* Expand shorthand: bare last-octet number → prefix + number */
+      var expanded = expandIp(v);
+      if (expanded !== v) { el.value = expanded; v = expanded; }
       validateField(el, /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v), "Enter a valid IP address");
     });
   });
@@ -3861,7 +3872,60 @@
       if (chkGate) chkGate.addEventListener("change", function () { setGateVisible(chkGate.checked); });
     }());
 
-    var SCRIPT_KEY = "gooey_script_enabled";
+    /* ── Assume IP ── */
+    (function () {
+      var ASSUME_IP_KEY        = "gooey_assume_ip";
+      var ASSUME_IP_CUSTOM_KEY = "gooey_assume_ip_custom";
+      var sel         = $("#assumeIpSelect");
+      var customGroup = $("#assumeIpCustomGroup");
+      var customInput = $("#assumeIpCustom");
+
+      function getPrefix() {
+        if (!sel) return "";
+        if (sel.value === "custom") return customInput ? customInput.value.trim() : "";
+        return sel.value || "";
+      }
+
+      function updateIpLabels(prefix) {
+        _assumeIpPrefix = prefix;
+        var badge = prefix ? " (" + prefix + "X)" : "";
+        $$(".assume-ip-hint").forEach(function (el) { el.textContent = badge; });
+      }
+
+      function applySelection() {
+        if (sel && sel.value === "custom") {
+          if (customGroup) customGroup.style.display = "";
+        } else {
+          if (customGroup) customGroup.style.display = "none";
+        }
+        var prefix = getPrefix();
+        updateIpLabels(prefix);
+        try {
+          localStorage.setItem(ASSUME_IP_KEY, sel ? sel.value : "");
+          if (customInput) localStorage.setItem(ASSUME_IP_CUSTOM_KEY, customInput.value.trim());
+        } catch (e) {}
+      }
+
+      /* Restore from localStorage */
+      (function () {
+        var savedVal = null, savedCustom = "";
+        try {
+          savedVal   = localStorage.getItem(ASSUME_IP_KEY);
+          savedCustom = localStorage.getItem(ASSUME_IP_CUSTOM_KEY) || "";
+        } catch (e) {}
+        if (savedVal !== null && sel) {
+          sel.value = savedVal;
+          if (customInput) customInput.value = savedCustom;
+          applySelection();
+        }
+      }());
+
+      if (sel) sel.addEventListener("change", applySelection);
+      if (customInput) {
+        customInput.addEventListener("blur", applySelection);
+        customInput.addEventListener("change", applySelection);
+      }
+    }());
     var SCRIPT_DRAFT_KEY = "gooey_script_draft";
     var SCRIPT_NAME_KEY = "gooey_script_name";
     var navBtn = $("#navScript");

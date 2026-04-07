@@ -235,7 +235,7 @@
             <p id="msgValueHint" class="sensor-hint"></p>
             <div class="form-row">
               <div class="form-group">
-                <label for="msgIP">Target IP</label>
+                <label for="msgIP">Target IP<span class="assume-ip-hint"></span></label>
                 <input type="text" id="msgIP" placeholder="192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
@@ -347,7 +347,7 @@
             <p id="directValueHint" class="sensor-hint"></p>
             <div class="form-row">
               <div class="form-group">
-                <label for="directIP">Target IP</label>
+                <label for="directIP">Target IP<span class="assume-ip-hint"></span></label>
                 <input type="text" id="directIP" value="192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
@@ -461,7 +461,7 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="sceneIP">IP</label>
+                <label for="sceneIP">IP<span class="assume-ip-hint"></span></label>
                 <input type="text" id="sceneIP" placeholder="e.g. 192.168.1.50">
               </div>
               <div class="form-group fg-narrow">
@@ -804,6 +804,28 @@
             <div class="cb-row">
               <label class="cb-label cb-label-lg" title="Show raw quaternion components (quatI/J/K/R) in data stream dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion data streams in dropdowns</label>
             </div>
+            <div class="assume-ip-section">
+              <div class="form-row" style="align-items:flex-end">
+                <div class="form-group">
+                  <label for="assumeIpSelect">Assume IP</label>
+                  <select id="assumeIpSelect">
+                    <option value="">— none —</option>
+                    <option value="192.168.8.">192.168.8.X</option>
+                    <option value="192.168.1.">192.168.1.X</option>
+                    <option value="192.168.0.">192.168.0.X</option>
+                    <option value="10.0.0.">10.0.0.X</option>
+                    <option value="10.0.1.">10.0.1.X</option>
+                    <option value="172.16.0.">172.16.0.X</option>
+                    <option value="custom">Custom…</option>
+                  </select>
+                </div>
+                <div class="form-group" id="assumeIpCustomGroup" style="display:none">
+                  <label for="assumeIpCustom">Custom prefix</label>
+                  <input type="text" id="assumeIpCustom" placeholder="e.g. 192.168.2.">
+                </div>
+              </div>
+              <p class="hint-text" style="margin:0 0 4px">Type just the last octet (e.g. <strong>80</strong>) in any IP field — it will expand to the full address on blur.</p>
+            </div>
           </div>
 
           <div class="card" data-card-id="raw-osc">
@@ -811,7 +833,7 @@
             <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated by default.</p>
             <div class="form-row">
               <div class="form-group">
-                <label for="rawHost">Host</label>
+                <label for="rawHost">Host<span class="assume-ip-hint"></span></label>
                 <input type="text" id="rawHost" value="127.0.0.1">
               </div>
               <div class="form-group fg-narrow">
@@ -852,7 +874,7 @@
                 <input type="number" id="bridgeInPort" value="7001" min="1" max="65535">
               </div>
               <div class="form-group">
-                <label for="bridgeOutHost">→ Host</label>
+                <label for="bridgeOutHost">→ Host<span class="assume-ip-hint"></span></label>
                 <input type="text" id="bridgeOutHost" value="127.0.0.1">
               </div>
               <div class="form-group fg-narrow">
@@ -1143,7 +1165,7 @@
         <p class="hint-text" style="margin:0 0 10px">Tell the device where to send status messages so you can monitor it in the live feed.</p>
         <div class="form-row">
           <div class="form-group">
-            <label for="statusIP">Your IP</label>
+            <label for="statusIP">Your IP<span class="assume-ip-hint"></span></label>
             <input type="text" id="statusIP" placeholder="192.168.1.x">
           </div>
           <div class="form-group fg-narrow">
@@ -1185,7 +1207,7 @@
       <div class="modal-body">
         <div class="form-row">
           <div class="form-group">
-            <label for="deviceConfigIP">IP Address <span class="hint">(or "me" for this computer)</span></label>
+            <label for="deviceConfigIP">IP Address<span class="assume-ip-hint"></span> <span class="hint">(or "me" for this computer)</span></label>
             <input type="text" id="deviceConfigIP" placeholder="192.168.1.100" autocomplete="off">
           </div>
           <div class="form-group fg-narrow">

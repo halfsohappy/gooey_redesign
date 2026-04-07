@@ -342,6 +342,21 @@ label {
   display: block;
 }
 
+.assume-ip-hint {
+  font-weight: 400;
+  text-transform: none;
+  font-size: 10px;
+  color: var(--accent);
+  letter-spacing: 0;
+  margin-left: 3px;
+}
+
+.assume-ip-section {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
 input[type="text"],
 input[type="number"],
 textarea,
