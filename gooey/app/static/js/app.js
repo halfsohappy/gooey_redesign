@@ -1382,12 +1382,12 @@
       tr.dataset.sceneName = name;
       tr.innerHTML =
         '<td><span class="scene-pill ' + pillClass + '"><span class="scene-dot"></span>' + pillLabel + '</span></td>' +
+        '<td><span class="scene-name" title="' + esc(name) + '">' + esc(name.length > 10 ? name.slice(0, 10) + '…' : name) + '</span></td>' +
+        '<td><span class="scene-msg-cell" id="smsg-' + esc(name) + '">' + esc(msgsStr || "—") + '</span></td>' +
         '<td><div class="scene-acts" onclick="event.stopPropagation()">' +
           '<button class="scene-btn scene-btn-go" data-act="start" title="Start scene">▶</button>' +
           '<button class="scene-btn scene-btn-stp" data-act="stop"  title="Stop scene">■</button>' +
-        '</div></td>' +
-        '<td><span class="scene-name" title="' + esc(name) + '">' + esc(name.length > 10 ? name.slice(0, 10) + '…' : name) + '</span></td>' +
-        '<td><span class="scene-msg-cell" id="smsg-' + esc(name) + '">' + esc(msgsStr || "—") + '</span></td>';
+        '</div></td>';
       tr.addEventListener("click", function () { toggleSceneExp(name); });
       tr.querySelectorAll(".scene-btn").forEach(function (btn) {
         btn.addEventListener("click", function () { sceneAction(btn.dataset.act, name); });

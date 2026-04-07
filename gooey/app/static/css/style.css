@@ -679,10 +679,11 @@ select {
   font-size: 14px;
   margin-top: 6px;
 }
-#sceneTable col.col-status { width: 130px; }
-#sceneTable col.col-name   { width: 140px; }
+#sceneTable col.col-status { width: 110px; }
+#sceneTable col.col-name   { width: 120px; }
 #sceneTable col.col-msgs   { /* flex */ }
-#sceneTable col.col-acts   { width: 90px; }
+#sceneTable col.col-acts   { width: 80px; }
+#sceneTable td { overflow: hidden; }
 
 #sceneTable th {
   font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
