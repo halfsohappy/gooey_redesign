@@ -2,6 +2,8 @@ name: Build annieData
 
 on:
   push:
+    tags:
+      - 'v[0-9]*'
   workflow_dispatch:
 
 permissions:
@@ -151,7 +153,7 @@ jobs:
   publish-pypi:
     needs: build-desktop
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/')
     environment: main - gooey-theatergwd
 
     steps:

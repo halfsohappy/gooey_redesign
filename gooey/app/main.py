@@ -715,13 +715,13 @@ THEATER_GWD_PRESETS = {
             "category": "message",
         },
         "clone_msg": {
-            "address": "/annieData/{device}/clone/msg",
+            "address": "/annieData/{device}/msg/clone",
             "description": "Duplicate a message to a new name.",
             "payload": "sourceName, destName",
             "category": "message",
         },
         "rename_msg": {
-            "address": "/annieData/{device}/rename/msg",
+            "address": "/annieData/{device}/msg/rename",
             "description": "Rename a message.",
             "payload": "oldName, newName",
             "category": "message",
@@ -817,13 +817,13 @@ THEATER_GWD_PRESETS = {
             "category": "scene",
         },
         "clone_scene": {
-            "address": "/annieData/{device}/clone/scene",
+            "address": "/annieData/{device}/scene/clone",
             "description": "Duplicate a scene to a new name.",
             "payload": "sourceName, destName",
             "category": "scene",
         },
         "rename_scene": {
-            "address": "/annieData/{device}/rename/scene",
+            "address": "/annieData/{device}/scene/rename",
             "description": "Rename a scene.",
             "payload": "oldName, newName",
             "category": "scene",

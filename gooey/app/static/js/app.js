@@ -71,11 +71,6 @@
       btn.classList.add("active");
       var sec = $("#sec-" + btn.dataset.section);
       if (sec) sec.classList.add("active");
-      /* Auto-refresh shows panel when navigated to */
-      if (btn.dataset.section === "shows") {
-        if (getActiveDev()) sendCmd(addr("/annieData/{device}/show/list"), null);
-        _refreshShowLibrary();
-      }
     });
   });
 
@@ -478,13 +473,13 @@
     dd.style.display = "block";
     $("#devDdTitle").textContent = d.name;
     $("#devDdInfo").textContent = d.host + ":" + d.port;
-    /* Reflect dedup state: highlight the active mode */
-    var dedupOn = d.dedup === true;
-    var dedupOff = d.dedup === false;
-    var onSpan = $("#devDdDedupOn .dd-toggle-on") || $("#devDdDedupOn").querySelector(".dd-toggle-on");
-    var offSpan = $("#devDdDedupOff .dd-toggle-off") || $("#devDdDedupOff").querySelector(".dd-toggle-off");
-    if (onSpan) onSpan.classList.toggle("dd-toggle-active", dedupOn);
-    if (offSpan) offSpan.classList.toggle("dd-toggle-active", dedupOff);
+    /* Reflect on_change state: highlight the active mode */
+    var onChangeOn = d.on_change === true;
+    var onChangeOff = d.on_change === false;
+    var onSpan = $("#devDdOnChangeOn .dd-toggle-on") || $("#devDdOnChangeOn").querySelector(".dd-toggle-on");
+    var offSpan = $("#devDdOnChangeOff .dd-toggle-off") || $("#devDdOnChangeOff").querySelector(".dd-toggle-off");
+    if (onSpan) onSpan.classList.toggle("dd-toggle-active", onChangeOn);
+    if (offSpan) offSpan.classList.toggle("dd-toggle-active", onChangeOff);
     /* Reflect verbose mode state */
     var verbBtn = $("#devDdVerbose");
     if (verbBtn) verbBtn.textContent = d.verbose ? "◉ Verbose Mode ON" : "○ Verbose Mode";
@@ -551,26 +546,6 @@
     if (e.target === this) this.classList.add("hidden");
   });
 
-  $("#devDdSave").addEventListener("click", function () {
-    var id = _dropdownDeviceId;
-    if (!id || !devices[id]) { closeDevDropdown(); return; }
-    var d = devices[id];
-    sendToDevice(id, "/annieData/" + d.name + "/save", null).then(function (res) {
-      if (res.status === "ok") toast("Saved: " + d.name, "success");
-    });
-    closeDevDropdown();
-  });
-
-  $("#devDdLoad").addEventListener("click", function () {
-    var id = _dropdownDeviceId;
-    if (!id || !devices[id]) { closeDevDropdown(); return; }
-    var d = devices[id];
-    sendToDevice(id, "/annieData/" + d.name + "/load", null).then(function (res) {
-      if (res.status === "ok") toast("Loaded: " + d.name, "success");
-    });
-    closeDevDropdown();
-  });
-
   $("#devDdNvsClear").addEventListener("click", function () {
     var id = _dropdownDeviceId;
     if (!id || !devices[id]) { closeDevDropdown(); return; }
@@ -603,22 +578,22 @@
     closeDevDropdown();
   });
 
-  $("#devDdDedupOn").addEventListener("click", function () {
+  $("#devDdOnChangeOn").addEventListener("click", function () {
     var id = _dropdownDeviceId;
     if (!id || !devices[id]) { closeDevDropdown(); return; }
     var d = devices[id];
-    sendToDevice(id, "/annieData/" + d.name + "/dedup", "on").then(function (res) {
-      if (res.status === "ok") toast("Dedup on: " + d.name, "success");
+    sendToDevice(id, "/annieData/" + d.name + "/on_change", "on").then(function (res) {
+      if (res.status === "ok") toast("On Change on: " + d.name, "success");
     });
     closeDevDropdown();
   });
 
-  $("#devDdDedupOff").addEventListener("click", function () {
+  $("#devDdOnChangeOff").addEventListener("click", function () {
     var id = _dropdownDeviceId;
     if (!id || !devices[id]) { closeDevDropdown(); return; }
     var d = devices[id];
-    sendToDevice(id, "/annieData/" + d.name + "/dedup", "off").then(function (res) {
-      if (res.status === "ok") toast("Dedup off: " + d.name, "success");
+    sendToDevice(id, "/annieData/" + d.name + "/on_change", "off").then(function (res) {
+      if (res.status === "ok") toast("On Change off: " + d.name, "success");
     });
     closeDevDropdown();
   });
@@ -704,7 +679,7 @@
   var CMD_ADDRESSES = {
     blackout:       "/annieData/{device}/blackout",
     restore:        "/annieData/{device}/restore",
-    dedup:          "/annieData/{device}/dedup",
+    on_change:      "/annieData/{device}/on_change",
     save:           "/annieData/{device}/save",
     load:           "/annieData/{device}/load",
     nvs_clear:      "/annieData/{device}/nvs/clear",
@@ -778,10 +753,10 @@
         text.split(/\n/).forEach(function (line) {
           var trimmed = line.trim();
           if (!trimmed) return;
-          /* Parse device-level state lines (dedup:on/off) */
-          var dedupMatch = trimmed.match(/^dedup:(on|off)$/i);
-          if (dedupMatch) {
-            dev.dedup = dedupMatch[1].toLowerCase() === "on";
+          /* Parse device-level state lines (on_change:on/off) */
+          var on_changeMatch = trimmed.match(/^on_change:(on|off)$/i);
+          if (on_changeMatch) {
+            dev.on_change = on_changeMatch[1].toLowerCase() === "on";
             return;
           }
           if (/^messages\s*\(\d+\):/i.test(trimmed)) { curBlock = "msg";   return; }
@@ -799,9 +774,9 @@
           }
           if (curBlock === "scene") {
             var pParams = parseConfigString(trimmed);
-            // Extract send period from "[RUNNING, 50ms, …]" or "[STOPPED, 50ms, …]".
-            var periodM = trimmed.match(/\[(?:RUNNING|STOPPED),\s*(\d+)ms/i);
-            if (periodM) pParams.period = periodM[1];
+            // Extract send period and running state from "[RUNNING, 50ms, …]" or "[STOPPED, 50ms, …]".
+            var periodM = trimmed.match(/\[(RUNNING|STOPPED),\s*(\d+)ms/i);
+            if (periodM) { pParams.period = periodM[2]; pParams.running = /RUNNING/i.test(periodM[1]); }
             dev.scenes[n] = Object.assign(dev.scenes[n] || {}, pParams);
           }
         });
@@ -828,6 +803,8 @@
     if (sceneMatch) {
       var pName = sceneMatch[1];
       var pParams = parseConfigString(sceneMatch[2]);
+      var infoRunM = sceneMatch[2].match(/\[(RUNNING|STOPPED)/i);
+      if (infoRunM) pParams.running = /RUNNING/i.test(infoRunM[1]);
       dev.scenes[pName] = Object.assign(dev.scenes[pName] || {}, pParams);
       renderSceneTable();
       refreshAllDropdowns();
@@ -920,10 +897,10 @@
       return;
     }
 
-    /* ── Parse dedup reply ── */
-    var dedupReply = text.match(/^DEDUP\s+(ON|OFF)$/i);
-    if (dedupReply) {
-      dev.dedup = dedupReply[1].toUpperCase() === "ON";
+    /* ── Parse on_change reply ── */
+    var onChangeReply = text.match(/^on_change\s+(ON|OFF)$/i);
+    if (onChangeReply) {
+      dev.on_change = onChangeReply[1].toUpperCase() === "ON";
       return;
     }
 
@@ -964,61 +941,125 @@
      MESSAGE TABLE
      ═══════════════════════════════════════════ */
 
+  function getMsgScenes(dev, msgName) {
+    var found = [];
+    if (!dev || !dev.scenes) return found;
+    Object.keys(dev.scenes).forEach(function (sname) {
+      var msgs = (dev.scenes[sname].msgs || "").replace(/\+/g, ",");
+      var list = msgs.split(",").map(function (s) { return s.trim(); });
+      if (list.indexOf(msgName) !== -1) found.push(sname);
+    });
+    if (found.length === 0) {
+      var sc = dev.messages && dev.messages[msgName] && dev.messages[msgName].scene;
+      if (sc) found.push(sc);
+    }
+    return found;
+  }
+
+  function buildGateStr(m) {
+    if (m.gate_src || m.gate_source) {
+      var gs = m.gate_src || m.gate_source;
+      var gm = m.gate_mode || "";
+      var s = gm + ":" + gs;
+      if (m.gate_lo != null && m.gate_lo !== "") s += " \u2265" + m.gate_lo;
+      if (m.gate_hi != null && m.gate_hi !== "") s += " \u2264" + m.gate_hi;
+      return s;
+    }
+    if (m.ori_only || m.orionly) return "only:ori:" + (m.ori_only || m.orionly);
+    if (m.ori_not  || m.orinot)  return "not:ori:"  + (m.ori_not  || m.orinot);
+    if (m.ternori)                return "toggle:ori:" + m.ternori;
+    return "";
+  }
+
   function renderMsgTable() {
     var dev = getActiveDev();
     var tbody = $("#msgTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.messages).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No messages tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
       return;
     }
     Object.keys(dev.messages).forEach(function (name) {
       var m = dev.messages[name];
-      var gateStr = "";
-      if (m.gate_src || m.gate_source) {
-        var gs = m.gate_src || m.gate_source;
-        var gm = m.gate_mode || "";
-        gateStr = gm + ":" + gs;
-        if (m.gate_lo != null && m.gate_lo !== "") gateStr += " \u2265" + m.gate_lo;
-        if (m.gate_hi != null && m.gate_hi !== "") gateStr += " \u2264" + m.gate_hi;
-      }
-      // Legacy compat
-      else if (m.ori_only || m.orionly) gateStr = "only:ori:" + (m.ori_only || m.orionly);
-      else if (m.ori_not || m.orinot) gateStr = "not:ori:" + (m.ori_not || m.orinot);
-      else if (m.ternori) gateStr = "toggle:ori:" + m.ternori;
+      var sensor  = esc(m.value || m.val || "—");
+      var low     = m.low  || m.min || "";
+      var high    = m.high || m.max || "";
+      var range   = (low !== "" && high !== "") ? esc(low) + " \u2192 " + esc(high) : "";
+      var ip      = esc(m.ip  || "—");
+      var port    = esc(m.port || "—");
+      var adr     = esc(m.adr || m.addr || m.address || "—");
+      var gateStr = buildGateStr(m);
+      var scenes  = getMsgScenes(dev, name);
+      var isSoloed = !!m.soloed;
+
+      var sceneTags = scenes.map(function (s) {
+        return '<span class="msg-stag">' + esc(s) + '</span>';
+      }).join("") || '<span style="color:var(--text-light);font-size:12px">—</span>';
+
+      /* ── data row ── */
       var tr = document.createElement("tr");
+      tr.className = "msg-data-row";
+      tr.id = "mr-" + name;
       tr.dataset.msgName = name;
       tr.innerHTML =
-        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
-        '<td class="cell-mono" data-label="Sensor">' + esc(m.value || m.val || "") + '</td>' +
-        '<td class="cell-mono" data-label="IP">' + esc(m.ip || "") + '</td>' +
-        '<td class="cell-mono" data-label="Port">' + esc(m.port || "") + '</td>' +
-        '<td class="cell-mono" data-label="Address">' + esc(m.adr || m.addr || m.address || "") + '</td>' +
-        '<td class="cell-mono" data-label="Low" data-col="low">' + esc(m.low || m.min || "") + '</td>' +
-        '<td class="cell-mono" data-label="High" data-col="high">' + esc(m.high || m.max || "") + '</td>' +
-        '<td class="cell-mono" data-label="Scene" data-col="scene">' + esc(m.scene || "") + '</td>' +
-        '<td class="cell-mono gate-section" data-label="Gate" data-col="gate">' + esc(gateStr || "\u2014") + '</td>' +
-        '<td data-label="EN">' + (m.enabled === "false" ? '<span class="en-off">×</span>' : '<span class="en-on">✓</span>') + '</td>' +
-        '<td class="cell-actions">' +
-          '<button class="tbl-btn" data-act="info" title="Show message info" aria-label="Info">i</button>' +
-          '<button class="tbl-btn tbl-btn-success" data-act="enable" title="Enable message" aria-label="Enable"><span class="act-icon">✓</span></button>' +
-          '<button class="tbl-btn" data-act="disable" title="Disable message" aria-label="Disable"><span class="act-icon">×</span></button>' +
-          '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete message" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
-        '</td>';
-      /* Row click → populate edit form */
-      tr.querySelector(".cell-name").addEventListener("click", function () {
-        populateMsgForm(name, m);
+        '<td><span class="msg-name">' + esc(name) + '</span></td>' +
+        '<td><div class="msg-scene-tags">' + sceneTags + '</div></td>' +
+        '<td><div class="msg-sensor-cell">' +
+          '<span class="msg-sensor-name">' + sensor + '</span>' +
+          (range ? '<span class="msg-sensor-range">' + range + '</span>' : '') +
+        '</div></td>' +
+        '<td><div class="msg-solo-cell" onclick="event.stopPropagation()">' +
+          '<button class="msg-btn-solo' + (isSoloed ? ' soloed' : '') + '" data-msgname="' + esc(name) + '">' +
+            'solo' +
+          '</button>' +
+        '</div></td>';
+      tr.addEventListener("click", function () { toggleMsgExp(name); });
+      tr.querySelector(".msg-btn-solo").addEventListener("click", function (e) {
+        var btn = e.currentTarget;
+        var active = btn.classList.toggle("soloed");
+        m.soloed = active;
+        msgAction(active ? "solo" : "unsolo", name);
       });
-      /* Action buttons */
-      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+
+      /* ── expand row ── */
+      var expTr = document.createElement("tr");
+      expTr.className = "msg-exp-row";
+      expTr.id = "me-" + name;
+      expTr.innerHTML =
+        '<td colspan="4"><div class="msg-exp-inner" id="mei-' + esc(name) + '">' +
+          '<span class="msg-exp-item"><span class="msg-exp-label">ip</span><span class="msg-exp-val">' + ip + '</span></span>' +
+          '<span class="msg-exp-item"><span class="msg-exp-label">port</span><span class="msg-exp-val">' + port + '</span></span>' +
+          '<span class="msg-exp-item"><span class="msg-exp-label">address</span><span class="msg-exp-val">' + adr + '</span></span>' +
+          (gateStr ? '<span class="msg-exp-item"><span class="msg-exp-label">gate</span><span class="msg-exp-val">' + esc(gateStr) + '</span></span>' : '') +
+          '<span class="msg-exp-item msg-exp-actions" onclick="event.stopPropagation()">' +
+            '<button class="msg-exp-btn" data-act="enable">enable</button><span class="msg-exp-sep">·</span>' +
+            '<button class="msg-exp-btn" data-act="disable">disable</button><span class="msg-exp-sep">·</span>' +
+            '<button class="msg-exp-btn" data-act="info">resync?</button><span class="msg-exp-sep">·</span>' +
+            '<button class="msg-exp-btn" data-act="save">save</button><span class="msg-exp-sep">·</span>' +
+            '<button class="msg-exp-btn" data-act="edit">edit</button><span class="msg-exp-sep">·</span>' +
+            '<button class="msg-exp-btn danger" data-act="delete">delete</button>' +
+          '</span>' +
+        '</div></td>';
+      expTr.querySelectorAll("[data-act]").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          msgAction(btn.dataset.act, name);
+          var act = btn.dataset.act;
+          if (act === "edit") { populateMsgForm(name, m); }
+          else { msgAction(act, name); }
         });
       });
+
       tbody.appendChild(tr);
+      tbody.appendChild(expTr);
     });
-    applyColVisibility();
+  }
+
+  function toggleMsgExp(name) {
+    var dataRow = document.getElementById("mr-" + name);
+    var expRow  = document.getElementById("me-" + name);
+    if (!dataRow || !expRow) return;
+    var isOpen = expRow.classList.contains("visible");
+    expRow.classList.toggle("visible", !isOpen);
+    dataRow.classList.toggle("open", !isOpen);
   }
 
   /* ── Sensor categories and hints ── */
@@ -1289,6 +1330,8 @@
       case "info":    template = "/annieData/{device}/msg/{name}/info"; break;
       case "enable":  template = "/annieData/{device}/msg/{name}/enable"; break;
       case "disable": template = "/annieData/{device}/msg/{name}/disable"; break;
+      case "solo":    template = "/annieData/{device}/msg/{name}/solo"; break;
+      case "unsolo":  template = "/annieData/{device}/msg/{name}/unsolo"; break;
       case "save":    sendCmd(addr("/annieData/{device}/save/msg"), name); return;
       case "delete":  template = "/annieData/{device}/msg/{name}/delete"; break;
       default: return;
@@ -1313,40 +1356,104 @@
     var tbody = $("#sceneTableBody");
     tbody.innerHTML = "";
     if (!dev || Object.keys(dev.scenes).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No scenes tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No scenes tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';
       return;
     }
     Object.keys(dev.scenes).forEach(function (name) {
       var p = dev.scenes[name];
       var msgsStr = p.msgs || "";
       if (typeof msgsStr === "string") msgsStr = msgsStr.replace(/\+/g, ", ");
+      var isRunning = !!p.running;
+      var rowState  = isRunning ? "run" : "stop";
+      var expState  = isRunning ? "run-exp" : "stop-exp";
+      var pillClass = isRunning ? "scene-pill-run" : "scene-pill-stop";
+      var pillLabel = isRunning ? "ACTIVE" : "STOPPED";
+      var overrides = (p.override || "—").replace(/\+/g, ", ");
+      var adrMode   = esc(p.adrMode || p.adrmode || p.adr_mode || "fallback");
+      var ip        = esc(p.ip || "—");
+      var port      = esc(p.port || "9000");
+      var adr       = esc(p.adr || "—");
+      var period    = esc(p.period || "50") + "ms";
+
+      /* ── data row ── */
       var tr = document.createElement("tr");
+      tr.className = "scene-data-row " + rowState;
+      tr.id = "sr-" + name;
       tr.dataset.sceneName = name;
       tr.innerHTML =
-        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
-        '<td class="cell-mono" data-label="Period">' + esc(p.period || "50") + ' ms</td>' +
-        '<td class="cell-mono" data-label="Adr Mode">' + esc(p.adrMode || p.adrmode || p.adr_mode || "fallback") + '</td>' +
-        '<td class="cell-mono" data-label="Overrides">' + esc(p.override || "—") + '</td>' +
-        '<td class="cell-mono" data-label="Messages" style="max-width:140px;overflow:hidden;text-overflow:ellipsis" title="' + esc(msgsStr) + '">' + esc(msgsStr || "—") + '</td>' +
-        '<td class="cell-actions" data-label="Actions">' +
-          '<button class="tbl-btn tbl-btn-success" data-act="start" title="Start scene" aria-label="Start scene">▶</button>' +
-          '<button class="tbl-btn tbl-btn-stop" data-act="stop" title="Stop scene" aria-label="Stop scene">■</button>' +
-          '<button class="tbl-btn" data-act="info" title="Show scene info" aria-label="Info">i</button>' +
-          '<button class="tbl-btn" data-act="enableAll" title="Enable all messages" aria-label="Enable all">✓</button>' +
-          '<button class="tbl-btn" data-act="unsolo" title="Unsolo all messages" aria-label="Unsolo">▸</button>' +
-          '<button class="tbl-btn" data-act="save" title="Save to device NVS" aria-label="Save to device"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4l-4-3zm1 14H4v-4h8v4zm1 0V9H3v6H2V2h1v4h8V2h.59L14 4.41V15h-1zM4 2v4h6V2H4z"/></svg></button>' +
-          '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete scene" aria-label="Delete"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4L4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg></button>' +
-        '</td>';
-      tr.querySelector(".cell-name").addEventListener("click", function () {
-        populateSceneForm(name, p);
+        '<td><span class="scene-pill ' + pillClass + '"><span class="scene-dot"></span>' + pillLabel + '</span></td>' +
+        '<td><div class="scene-acts" onclick="event.stopPropagation()">' +
+          '<button class="scene-btn scene-btn-go" data-act="start" title="Start scene">▶</button>' +
+          '<button class="scene-btn scene-btn-stp" data-act="stop"  title="Stop scene">■</button>' +
+        '</div></td>' +
+        '<td><span class="scene-name">' + esc(name) + '</span></td>' +
+        '<td><span class="scene-msg-cell" id="smsg-' + esc(name) + '">' + esc(msgsStr || "—") + '</span></td>';
+      tr.addEventListener("click", function () { toggleSceneExp(name); });
+      tr.querySelectorAll(".scene-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () { sceneAction(btn.dataset.act, name); });
       });
-      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
+
+      /* ── expand row ── */
+      var expTr = document.createElement("tr");
+      expTr.className = "scene-exp-row " + expState;
+      expTr.id = "se-" + name;
+      expTr.innerHTML =
+        '<td colspan="4"><div class="scene-exp-inner" id="sei-' + esc(name) + '">' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">overrides</span><span class="scene-exp-val">' + esc(overrides) + '</span></span>' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">address</span><span class="scene-exp-val">' + adr + '</span></span>' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">mode</span><span class="scene-exp-val">' + adrMode + '</span></span>' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">ip</span><span class="scene-exp-val">' + ip + '</span></span>' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">port</span><span class="scene-exp-val">' + port + '</span></span>' +
+          '<span class="scene-exp-item"><span class="scene-exp-label">period</span><span class="scene-exp-val">' + period + '</span></span>' +
+          '<span class="scene-exp-item scene-exp-actions" onclick="event.stopPropagation()">' +
+            '<button class="scene-exp-resync" data-act="info"      title="Re-query scene info">RESYNC?</button>' +
+            '<span class="scene-exp-sep">·</span>' +
+            '<button class="scene-exp-act"   data-act="enableAll"  title="Enable all messages">ENABLE ALL</button>' +
+            '<span class="scene-exp-sep">·</span>' +
+            '<button class="scene-exp-act"   data-act="unsolo"     title="Unsolo all messages">UNSOLO</button>' +
+            '<span class="scene-exp-sep">·</span>' +
+            '<button class="scene-exp-act"   data-act="save"       title="Save to device NVS">SAVE</button>' +
+            '<span class="scene-exp-sep">·</span>' +
+            '<button class="scene-exp-act"   data-act="edit"       title="Edit in form">EDIT</button>' +
+            '<span class="scene-exp-sep">·</span>' +
+            '<button class="scene-exp-act danger" data-act="delete" title="Delete scene">DELETE</button>' +
+          '</span>' +
+        '</div></td>';
+      expTr.querySelectorAll("[data-act]").forEach(function (btn) {
         btn.addEventListener("click", function () {
-          sceneAction(btn.dataset.act, name);
+          var act = btn.dataset.act;
+          if (act === "edit") { populateSceneForm(name, p); }
+          else { sceneAction(act, name); }
         });
       });
+
       tbody.appendChild(tr);
+      tbody.appendChild(expTr);
     });
+  }
+
+  function toggleSceneExp(name) {
+    var dataRow  = document.getElementById("sr-" + name);
+    var expRow   = document.getElementById("se-" + name);
+    var msgEl    = document.getElementById("smsg-" + name);
+    var expInner = document.getElementById("sei-" + name);
+    if (!dataRow || !expRow) return;
+    var isOpen = expRow.classList.contains("visible");
+    if (!isOpen) {
+      var clipped = msgEl && msgEl.scrollWidth > msgEl.clientWidth;
+      var existing = expInner.querySelector(".scene-exp-all");
+      if (existing) existing.remove();
+      if (clipped) {
+        var allMsgs = document.createElement("span");
+        allMsgs.className = "scene-exp-all";
+        allMsgs.innerHTML =
+          '<span class="scene-exp-label">all messages</span>' +
+          '<span class="scene-exp-val">' + esc(msgEl.textContent) + '</span>';
+        expInner.appendChild(allMsgs);
+      }
+    }
+    expRow.classList.toggle("visible", !isOpen);
+    dataRow.classList.toggle("open", !isOpen);
   }
 
   function populateSceneForm(name, p) {
@@ -1385,8 +1492,10 @@
     sendCmd(addr(template, name), null).then(function (res) {
       if (res.status === "ok") {
         toast(act + ": " + name, "success");
+        var dev = getActiveDev();
+        if (act === "start" && dev && dev.scenes[name]) { dev.scenes[name].running = true;  renderSceneTable(); }
+        if (act === "stop"  && dev && dev.scenes[name]) { dev.scenes[name].running = false; renderSceneTable(); }
         if (act === "delete") {
-          var dev = getActiveDev();
           if (dev) { delete dev.scenes[name]; renderSceneTable(); refreshAllDropdowns(); }
         }
       }
@@ -2151,7 +2260,7 @@
     var src = ($("#msgSrcName").value || "").trim();
     var dest = ($("#msgDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/clone/msg"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/msg/clone"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") toast("Cloned: " + src + " → " + dest, "success");
     });
   });
@@ -2160,7 +2269,7 @@
     var src = ($("#msgSrcName").value || "").trim();
     var dest = ($("#msgDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/rename/msg"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/msg/rename"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") {
         toast("Renamed: " + src + " → " + dest, "success");
         var dev = getActiveDev();
@@ -2178,8 +2287,8 @@
      SCENES
      ═══════════════════════════════════════════ */
 
-  /* Apply scene config */
-  $("#btnSceneApply").addEventListener("click", function () {
+  /* Apply scene config helper */
+  function applySceneConfig(thenStart) {
     var name = ($("#sceneName").value || "").trim();
     if (!name) { toast("Scene name required", "error"); return; }
     var period = ($("#scenePeriod").value || "").trim();
@@ -2190,7 +2299,6 @@
     var low = ($("#sceneLow").value || "").trim();
     var high = ($("#sceneHigh").value || "").trim();
 
-    /* Build override string from checkboxes */
     var ovParts = [];
     if ($("#ovIP").checked) ovParts.push("ip");
     if ($("#ovPort").checked) ovParts.push("port");
@@ -2198,8 +2306,6 @@
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
 
-    /* Build assign config and send primary scene config command.
-       Prefix ">" in a field value triggers registry reference syntax (key>refName). */
     function cfgPairS(key, val) {
       if (val.charAt(0) === ">") return key + ">" + val.substring(1);
       return key + ":" + val;
@@ -2212,47 +2318,34 @@
     if (high) cfgParts.push(cfgPairS("high", high));
     var cfg = cfgParts.join(", ");
 
-    /* Send commands for scene settings */
     var promises = [];
     promises.push(sendCmd(addr("/annieData/{device}/scene/{name}", name), cfg || null));
-    // Wrap period in quotes so python-osc sends it as OSC string type 's'.
-    // Without quotes, _coerce_arg converts "50" → int 50 → type 'i', and the
-    // firmware's nextAsString() returns "" on an integer arg → period gets
-    // clamped to 1ms regardless of the value sent.
     if (period) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/period", name), '"' + period + '"'));
     if (mode) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/adrMode", name), mode));
     promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
 
     Promise.all(promises).then(function () {
-      toast("Scene config applied: " + name, "success");
-      var dev = getActiveDev();
-      if (dev) {
-        dev.scenes[name] = Object.assign(dev.scenes[name] || {}, {
-          ip: ip, port: port, adr: sceneAdr, low: low, high: high,
-          period: period, adrMode: mode, override: ovParts.join(", ")
-        });
-        renderSceneTable();
-        refreshAllDropdowns();
-      }
+      var startStop = thenStart
+        ? addr("/annieData/{device}/scene/{name}/start", name)
+        : addr("/annieData/{device}/scene/{name}/stop",  name);
+      sendCmd(startStop, null).then(function () {
+        toast("Scene " + (thenStart ? "started" : "applied") + ": " + name, "success");
+        var dev = getActiveDev();
+        if (dev) {
+          dev.scenes[name] = Object.assign(dev.scenes[name] || {}, {
+            ip: ip, port: port, adr: sceneAdr, low: low, high: high,
+            period: period, adrMode: mode, override: ovParts.join(", "),
+            running: thenStart
+          });
+          renderSceneTable();
+          refreshAllDropdowns();
+        }
+      });
     });
-  });
+  }
 
-  /* Start/Stop */
-  $("#btnSceneStart").addEventListener("click", function () {
-    var name = ($("#sceneName").value || "").trim();
-    if (!name) { toast("Scene name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/scene/{name}/start", name), null).then(function (res) {
-      if (res.status === "ok") toast("Started: " + name, "success");
-    });
-  });
-
-  $("#btnSceneStop").addEventListener("click", function () {
-    var name = ($("#sceneName").value || "").trim();
-    if (!name) { toast("Scene name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/scene/{name}/stop", name), null).then(function (res) {
-      if (res.status === "ok") toast("Stopped: " + name, "success");
-    });
-  });
+  $("#btnSceneApplyActive").addEventListener("click",   function () { applySceneConfig(true);  });
+  $("#btnSceneApplyStopped").addEventListener("click",  function () { applySceneConfig(false); });
 
   /* Add/Remove/Solo/Move messages */
   $("#btnSceneAddMsg").addEventListener("click", function () {
@@ -2305,7 +2398,7 @@
     var src = ($("#sceneSrcName").value || "").trim();
     var dest = ($("#sceneDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/clone/scene"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/scene/clone"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") toast("Cloned: " + src + " → " + dest, "success");
     });
   });
@@ -2314,7 +2407,7 @@
     var src = ($("#sceneSrcName").value || "").trim();
     var dest = ($("#sceneDestName").value || "").trim();
     if (!src || !dest) { toast("Both names required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/rename/scene"), src + ", " + dest).then(function (res) {
+    sendCmd(addr("/annieData/{device}/scene/rename"), src + ", " + dest).then(function (res) {
       if (res.status === "ok") {
         toast("Renamed: " + src + " → " + dest, "success");
         var dev = getActiveDev();
@@ -3331,8 +3424,20 @@
   function expandIp(val) {
     if (!_assumeIpPrefix) return val;
     var trimmed = val.trim();
-    var n = parseInt(trimmed, 10);
-    if (/^\d{1,3}$/.test(trimmed) && n >= 0 && n <= 255) return _assumeIpPrefix + trimmed;
+    /* Count dots in prefix to know how many octets the user must supply */
+    var prefixDots = (_assumeIpPrefix.match(/\./g) || []).length;
+    var needed = 4 - prefixDots;
+    if (needed < 1 || needed > 3) return val;
+    /* Build pattern for `needed` dot-separated octet groups */
+    var octetGroup = "\\d{1,3}";
+    var groups = [];
+    for (var i = 0; i < needed; i++) groups.push(octetGroup);
+    var re = new RegExp("^" + groups.join("\\.") + "$");
+    if (re.test(trimmed)) {
+      var octets = trimmed.split(".");
+      var valid = octets.every(function (o) { var n = parseInt(o, 10); return n >= 0 && n <= 255; });
+      if (valid) return _assumeIpPrefix + trimmed;
+    }
     return val;
   }
 
@@ -3890,7 +3995,13 @@
 
       function updateIpLabels(prefix) {
         _assumeIpPrefix = prefix;
-        var badge = prefix ? " (" + prefix + "X)" : "";
+        var badge = "";
+        if (prefix) {
+          var prefixDots = (prefix.match(/\./g) || []).length;
+          var needed = 4 - prefixDots;
+          var placeholders = ["X", "Y", "Z"].slice(0, needed);
+          badge = " (" + prefix + placeholders.join(".") + ")";
+        }
         $$(".assume-ip-hint").forEach(function (el) { el.textContent = badge; });
       }
 

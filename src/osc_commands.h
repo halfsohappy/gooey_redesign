@@ -72,7 +72,7 @@
 // ── GLOBAL COMMANDS (/annieData{dev}/...) ──────────────────────────────────
 //   blackout               — stop ALL scene tasks immediately
 //   restore                — restart all scenes that have messages
-//   dedup                  — toggle duplicate value suppression (payload: on/off/1/0)
+//   on_change                  — toggle duplicate value suppression (payload: on/off/1/0)
 //
 // ── DIRECT COMMAND (/annieData{dev}/direct/{name}) ────────────────────────
 //   (config string payload) — one-step: create msg + scene, add, and start
@@ -277,20 +277,20 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
-    if (norm_adr == "/dedup") {
+    if (norm_adr == "/on_change") {
         String arg = osc_msg.nextAsString();
         String a = osc_lower_copy(osc_trim_copy(String(arg)));
         if (a == "on" || a == "1" || a == "true") {
-            set_dedup_enabled(true);
-            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP ON");
+            set_on_change_enabled(true);
+            osc_reply(sender_ip, sender_port, reply_adr, "ON_CHANGE ON");
             status_reporter().info("engine", "Duplicate suppression enabled");
         } else if (a == "off" || a == "0" || a == "false") {
-            set_dedup_enabled(false);
-            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP OFF");
+            set_on_change_enabled(false);
+            osc_reply(sender_ip, sender_port, reply_adr, "ON_CHANGE OFF");
             status_reporter().info("engine", "Duplicate suppression disabled");
         } else {
-            String state = get_dedup_enabled() ? "ON" : "OFF";
-            osc_reply(sender_ip, sender_port, reply_adr, "DEDUP " + state);
+            String state = get_on_change_enabled() ? "ON" : "OFF";
+            osc_reply(sender_ip, sender_port, reply_adr, "ON_CHANGE " + state);
         }
         return;
     }
@@ -502,7 +502,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         } else if (sub == "/all" || sub == "") {
             String result = "";
             if (verbose) {
-                result += "dedup:" + String(get_dedup_enabled() ? "on" : "off") + "\n";
+                result += "on_change:" + String(get_on_change_enabled() ? "on" : "off") + "\n";
             }
             result += "Scenes (" + String(reg.scene_count) + "):";
             if (reg.scene_count == 0) {
@@ -526,128 +526,6 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         } else {
             Serial.println("  → list: unknown target '" + sub + "'");
             status_reporter().warning("cmd", "Unknown list target: " + sub);
-        }
-
-        reg.unlock();
-        return;
-    }
-
-    // ── CLONE COMMANDS ─────────────────────────────────────────────────────
-    //    Payload: single CSV string "sourceName, destName"
-
-    if (norm_adr.startsWith("/clone")) {
-        String sub = normalise_cmd(address.substring(6));  // after "/clone"
-        String arg = osc_msg.nextAsString();
-        arg.trim();
-        int comma = arg.indexOf(',');
-        if (comma < 0) {
-            status_reporter().error("cmd", "clone requires a CSV string: \"source, destination\"");
-            return;
-        }
-        String src_name  = osc_trim_copy(arg.substring(0, comma));
-        String dest_name = osc_trim_copy(arg.substring(comma + 1));
-        if (src_name.length() == 0 || dest_name.length() == 0) {
-            status_reporter().error("cmd", "clone requires two non-empty names: \"source, destination\"");
-            return;
-        }
-
-        reg.lock();
-
-        if (sub == "/msg" || sub == "/message") {
-            OscMessage* src = reg.find_msg(src_name);
-            if (!src) {
-                status_reporter().error("cmd", "clone/msg: source '" + src_name + "' not found");
-                reg.unlock();
-                return;
-            }
-            OscMessage* dest = reg.get_or_create_msg(dest_name);
-            if (!dest) {
-                status_reporter().error("cmd", "clone/msg: registry full");
-                reg.unlock();
-                return;
-            }
-            // Copy all fields except name.
-            *dest = *src;
-            dest->name = dest_name;
-            dest->exist.name = true;
-            status_reporter().info("cmd", "Cloned msg '" + src_name + "' → '" + dest_name + "'");
-        } else if (sub == "/scene") {
-            OscScene* src = reg.find_scene(src_name);
-            if (!src) {
-                status_reporter().error("cmd", "clone/scene: source '" + src_name + "' not found");
-                reg.unlock();
-                return;
-            }
-            OscScene* dest = reg.get_or_create_scene(dest_name);
-            if (!dest) {
-                status_reporter().error("cmd", "clone/scene: registry full");
-                reg.unlock();
-                return;
-            }
-            // Copy config but not task state.
-            dest->ip             = src->ip;
-            dest->port           = src->port;
-            dest->osc_address    = src->osc_address;
-            dest->bounds[0]      = src->bounds[0];
-            dest->bounds[1]      = src->bounds[1];
-            dest->send_period_ms = clamp_scene_period_ms(src->send_period_ms);
-            dest->address_mode   = src->address_mode;
-            dest->overrides      = src->overrides;
-            dest->exist          = src->exist;
-            dest->exist.name     = true;
-            dest->name           = dest_name;
-            // Copy message list.
-            dest->msg_count = src->msg_count;
-            memcpy(dest->msg_indices, src->msg_indices,
-                   src->msg_count * sizeof(int));
-            status_reporter().info("cmd", "Cloned scene '" + src_name + "' → '" + dest_name + "'");
-        } else {
-            status_reporter().warning("cmd", "Unknown clone target: " + sub);
-        }
-
-        reg.unlock();
-        return;
-    }
-
-    // ── RENAME COMMANDS ────────────────────────────────────────────────────
-    //    Payload: single CSV string "oldName, newName"
-
-    if (norm_adr.startsWith("/rename")) {
-        String sub = normalise_cmd(address.substring(7));  // after "/rename"
-        String arg = osc_msg.nextAsString();
-        arg.trim();
-        int comma = arg.indexOf(',');
-        if (comma < 0) {
-            status_reporter().error("cmd", "rename requires a CSV string: \"oldName, newName\"");
-            return;
-        }
-        String old_name = osc_trim_copy(arg.substring(0, comma));
-        String new_name = osc_trim_copy(arg.substring(comma + 1));
-        if (old_name.length() == 0 || new_name.length() == 0) {
-            status_reporter().error("cmd", "rename requires two non-empty names: \"oldName, newName\"");
-            return;
-        }
-
-        reg.lock();
-
-        if (sub == "/msg" || sub == "/message") {
-            OscMessage* m = reg.find_msg(old_name);
-            if (!m) {
-                status_reporter().error("cmd", "rename/msg: '" + old_name + "' not found");
-            } else {
-                m->name = new_name;
-                status_reporter().info("cmd", "Renamed msg '" + old_name + "' → '" + new_name + "'");
-            }
-        } else if (sub == "/scene") {
-            OscScene* p = reg.find_scene(old_name);
-            if (!p) {
-                status_reporter().error("cmd", "rename/scene: '" + old_name + "' not found");
-            } else {
-                p->name = new_name;
-                status_reporter().info("cmd", "Renamed scene '" + old_name + "' → '" + new_name + "'");
-            }
-        } else {
-            status_reporter().warning("cmd", "Unknown rename target: " + sub);
         }
 
         reg.unlock();
@@ -1482,6 +1360,119 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     // Strip category prefix to get /{name}/{command}.
     if (is_msg)   address = address.substring(4);   // strip "/msg"
     if (is_scene) address = address.substring(6);    // strip "/scene"
+
+    // ── CLONE (/msg/clone or /scene/clone) ────────────────────────────────
+    //    Payload: single CSV string "sourceName, destName"
+
+    if (address == "/clone") {
+        String arg = osc_msg.nextAsString();
+        arg.trim();
+        int comma = arg.indexOf(',');
+        if (comma < 0) {
+            status_reporter().error("cmd", "clone requires a CSV string: \"source, destination\"");
+            return;
+        }
+        String src_name  = osc_trim_copy(arg.substring(0, comma));
+        String dest_name = osc_trim_copy(arg.substring(comma + 1));
+        if (src_name.length() == 0 || dest_name.length() == 0) {
+            status_reporter().error("cmd", "clone requires two non-empty names: \"source, destination\"");
+            return;
+        }
+
+        reg.lock();
+
+        if (is_msg) {
+            OscMessage* src = reg.find_msg(src_name);
+            if (!src) {
+                status_reporter().error("cmd", "msg/clone: source '" + src_name + "' not found");
+                reg.unlock();
+                return;
+            }
+            OscMessage* dest = reg.get_or_create_msg(dest_name);
+            if (!dest) {
+                status_reporter().error("cmd", "msg/clone: registry full");
+                reg.unlock();
+                return;
+            }
+            *dest = *src;
+            dest->name = dest_name;
+            dest->exist.name = true;
+            status_reporter().info("cmd", "Cloned msg '" + src_name + "' → '" + dest_name + "'");
+        } else {
+            OscScene* src = reg.find_scene(src_name);
+            if (!src) {
+                status_reporter().error("cmd", "scene/clone: source '" + src_name + "' not found");
+                reg.unlock();
+                return;
+            }
+            OscScene* dest = reg.get_or_create_scene(dest_name);
+            if (!dest) {
+                status_reporter().error("cmd", "scene/clone: registry full");
+                reg.unlock();
+                return;
+            }
+            dest->ip             = src->ip;
+            dest->port           = src->port;
+            dest->osc_address    = src->osc_address;
+            dest->bounds[0]      = src->bounds[0];
+            dest->bounds[1]      = src->bounds[1];
+            dest->send_period_ms = clamp_scene_period_ms(src->send_period_ms);
+            dest->address_mode   = src->address_mode;
+            dest->overrides      = src->overrides;
+            dest->exist          = src->exist;
+            dest->exist.name     = true;
+            dest->name           = dest_name;
+            dest->msg_count      = src->msg_count;
+            memcpy(dest->msg_indices, src->msg_indices,
+                   src->msg_count * sizeof(int));
+            status_reporter().info("cmd", "Cloned scene '" + src_name + "' → '" + dest_name + "'");
+        }
+
+        reg.unlock();
+        return;
+    }
+
+    // ── RENAME (/msg/rename or /scene/rename) ─────────────────────────────
+    //    Payload: single CSV string "oldName, newName"
+
+    if (address == "/rename") {
+        String arg = osc_msg.nextAsString();
+        arg.trim();
+        int comma = arg.indexOf(',');
+        if (comma < 0) {
+            status_reporter().error("cmd", "rename requires a CSV string: \"oldName, newName\"");
+            return;
+        }
+        String old_name = osc_trim_copy(arg.substring(0, comma));
+        String new_name = osc_trim_copy(arg.substring(comma + 1));
+        if (old_name.length() == 0 || new_name.length() == 0) {
+            status_reporter().error("cmd", "rename requires two non-empty names: \"oldName, newName\"");
+            return;
+        }
+
+        reg.lock();
+
+        if (is_msg) {
+            OscMessage* m = reg.find_msg(old_name);
+            if (!m) {
+                status_reporter().error("cmd", "msg/rename: '" + old_name + "' not found");
+            } else {
+                m->name = new_name;
+                status_reporter().info("cmd", "Renamed msg '" + old_name + "' → '" + new_name + "'");
+            }
+        } else {
+            OscScene* p = reg.find_scene(old_name);
+            if (!p) {
+                status_reporter().error("cmd", "scene/rename: '" + old_name + "' not found");
+            } else {
+                p->name = new_name;
+                status_reporter().info("cmd", "Renamed scene '" + old_name + "' → '" + new_name + "'");
+            }
+        }
+
+        reg.unlock();
+        return;
+    }
 
     // Parse name and command from the remaining /{name}/{command}.
     //   /name/command  →  name, command

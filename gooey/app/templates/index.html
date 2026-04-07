@@ -111,17 +111,15 @@
     <div class="dev-dropdown-title" id="devDdTitle">Device</div>
     <div class="dev-dropdown-info" id="devDdInfo"></div>
     <div class="dev-dropdown-sep"></div>
-    <button class="dev-dropdown-item" id="devDdSave">↓ Save All</button>
-    <button class="dev-dropdown-item" id="devDdLoad">↑ Load All</button>
-    <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">× NVS Clear</button>
-    <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item" id="devDdBlackout">■ Device Blackout</button>
     <button class="dev-dropdown-item" id="devDdRestore">◆ Device Restore</button>
-    <button class="dev-dropdown-item" id="devDdDedupOn" title="Enable duplicate-value suppression — skip sends when value hasn't changed">↺ Duplicate Msgs <span class="dd-toggle-on">ON</span></button>
-    <button class="dev-dropdown-item" id="devDdDedupOff" title="Disable duplicate-value suppression — send every value regardless of change">↺ Duplicate Msgs <span class="dd-toggle-off">OFF</span></button>
+    <button class="dev-dropdown-item" id="devDdOnChangeOn" title="Enable on_change filter — skip sends when value hasn't changed">↺ Only On Change: <span class="dd-toggle-on">ON</span></button>
+    <button class="dev-dropdown-item" id="devDdOnChangeOff" title="Disable on_change filter — send every value regardless of change">↺ Only On Change: <span class="dd-toggle-off">OFF</span></button>
     <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item" id="devDdVerbose">◉ Verbose Mode</button>
     <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
+    <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">× NVS Clear</button>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
 
@@ -170,32 +168,29 @@
               </div>
             </div>
             <p class="hint-text">Click the device tab → Query to populate from device, or add manually below. Select a row to edit.</p>
-            <div style="overflow-x:auto">
-              <table class="data-table" id="msgTable">
+              <table id="msgTable">
+                <colgroup>
+                  <col class="msg-col-name">
+                  <col class="msg-col-scenes">
+                  <col class="msg-col-sensor">
+                  <col class="msg-col-solo">
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Sensor</th>
-                    <th>IP</th>
-                    <th>Port</th>
-                    <th>Address</th>
-                    <th data-col="low">Low</th>
-                    <th data-col="high">High</th>
-                    <th data-col="scene">Scene</th>
-                    <th class="gate-section" data-col="gate">Gate</th>
-                    <th>EN</th>
+                    <th>Scenes</th>
+                    <th><div class="msg-th-sensor"><span>Sensor</span><span>Range</span></div></th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody id="msgTableBody">
-                  <tr><td colspan="11"><div class="empty-state">
+                  <tr><td colspan="4"><div class="empty-state">
                     <div class="empty-icon">○</div>
                     <div class="empty-text">No messages tracked yet.</div>
                     <div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div>
                   </div></td></tr>
                 </tbody>
               </table>
-            </div>
             <!-- Bulk action row for pattern matching -->
             <div class="bulk-action-row" id="msgBulkRow">
               <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
@@ -388,21 +383,24 @@
         <section class="section" id="sec-scenes">
           <div class="card">
             <h2>Scene Tracker</h2>
-            <p class="hint-text">Click <strong>⟳ Query</strong> to populate from device. Start/stop scenes directly from the table.</p>
-            <div style="overflow-x:auto">
-              <table class="data-table" id="sceneTable">
+            <p class="hint-text">Click <strong>Query</strong> to populate from device. Start/stop scenes directly from the table.</p>
+              <table id="sceneTable">
+                <colgroup>
+                  <col class="col-status">
+                  <col class="col-acts">
+                  <col class="col-name">
+                  <col class="col-msgs">
+                </colgroup>
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Period</th>
-                    <th>Adr Mode</th>
-                    <th>Overrides</th>
-                    <th>Messages</th>
+                    <th>Status</th>
                     <th></th>
+                    <th>Name</th>
+                    <th>Messages</th>
                   </tr>
                 </thead>
                 <tbody id="sceneTableBody">
-                  <tr><td colspan="6"><div class="empty-state">
+                  <tr><td colspan="4"><div class="empty-state">
                     <div class="empty-icon">○</div>
                     <div class="empty-text">No scenes tracked yet.</div>
                     <div class="empty-sub">Query the device or create a scene below.</div>
@@ -410,7 +408,6 @@
                   </div></td></tr>
                 </tbody>
               </table>
-            </div>
             <!-- Bulk action row for pattern matching -->
             <div class="bulk-action-row" id="sceneBulkRow">
               <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
@@ -473,7 +470,7 @@
                 <input type="text" id="sceneAdr" placeholder="e.g. /sensor">
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-row form-row-lowhigh">
               <div class="form-group fg-narrow">
                 <label for="sceneLow">Low</label>
                 <input type="number" id="sceneLow" step="any" placeholder="e.g. 0">
@@ -482,21 +479,21 @@
                 <label for="sceneHigh">High</label>
                 <input type="number" id="sceneHigh" step="any" placeholder="e.g. 255">
               </div>
-            </div>
-            <div class="form-group">
-              <label>
-                Override Flags
-                <button class="help-btn" aria-label="Help: Override flags" title="Override flags" onclick="toggleHelp('overrideFlagsHelp'); return false;">?</button>
-              </label>
-              <div id="overrideFlagsHelp" class="help-box hidden">
-                Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
-              </div>
-              <div class="cb-row">
-                <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
-                <label class="cb-label"><input type="checkbox" id="ovPort"> port</label>
-                <label class="cb-label"><input type="checkbox" id="ovAdr"> adr</label>
-                <label class="cb-label"><input type="checkbox" id="ovLow"> low</label>
-                <label class="cb-label"><input type="checkbox" id="ovHigh"> high</label>
+              <div class="form-group form-group-override">
+                <label>
+                  Override Flags
+                  <button class="help-btn" aria-label="Help: Override flags" title="Override flags" onclick="toggleHelp('overrideFlagsHelp'); return false;">?</button>
+                </label>
+                <div id="overrideFlagsHelp" class="help-box hidden">
+                  Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
+                </div>
+                <div class="cb-row">
+                  <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
+                  <label class="cb-label"><input type="checkbox" id="ovPort"> port</label>
+                  <label class="cb-label"><input type="checkbox" id="ovAdr"> adr</label>
+                  <label class="cb-label"><input type="checkbox" id="ovLow"> low</label>
+                  <label class="cb-label"><input type="checkbox" id="ovHigh"> high</label>
+                </div>
               </div>
             </div>
             <div class="form-group">
@@ -505,9 +502,8 @@
               <div class="preview-input" id="scenePreviewCfg" style="padding:6px 10px; min-height:26px;">&nbsp;</div>
             </div>
             <div class="btn-row">
-              <button class="btn btn-primary" id="btnSceneApply" title="Send this scene config to the device">Apply to Device</button>
-              <button class="btn btn-accent" id="btnSceneStart" title="Start streaming this scene">▶ Start</button>
-              <button class="btn btn-stop" id="btnSceneStop" title="Stop streaming this scene">■ Stop</button>
+              <button class="btn btn-accent" id="btnSceneApplyActive" title="Apply config and start scene immediately">Apply Active</button>
+              <button class="btn btn-primary" id="btnSceneApplyStopped" title="Apply config without starting scene">Apply Stopped</button>
             </div>
           </div>
 
@@ -736,6 +732,14 @@
         <!-- ===== SHOWS ===== -->
         <section class="section" id="sec-shows">
 
+          <div class="card" data-card-id="shows-query">
+            <h2>Query</h2>
+            <div class="btn-row">
+              <button class="btn btn-secondary" id="btnShowListDevice">Query Device Shows</button>
+              <button class="btn btn-secondary" id="btnShowListLibrary">Refresh Library</button>
+            </div>
+          </div>
+
           <div class="card" data-card-id="shows-save">
             <h2>Save Current State as Show</h2>
             <p class="hint-text">Snapshots all current messages, scenes, and oris on the device into a named slot (up to 4 on device, unlimited in Gooey library).</p>
@@ -755,9 +759,6 @@
           <div class="card" data-card-id="shows-device">
             <h2>On Device</h2>
             <p class="hint-text">Shows stored in device NVS (max 16). Loading a show replaces <strong>all</strong> current messages, scenes, and oris on the device.</p>
-            <div class="btn-row" style="margin-bottom:8px">
-              <button class="btn btn-secondary" id="btnShowListDevice">Refresh</button>
-            </div>
             <table class="data-table" id="showDeviceTable">
               <thead><tr><th>Name</th><th>Actions</th></tr></thead>
               <tbody id="showDeviceTableBody">
@@ -772,9 +773,6 @@
           <div class="card" data-card-id="shows-library">
             <h2>Local Library</h2>
             <p class="hint-text">Shows saved as JSON files in <code>gooey/data/shows/</code>. Human-readable and editable. Load to device pushes all data then saves a device NVS snapshot.</p>
-            <div class="btn-row" style="margin-bottom:8px">
-              <button class="btn btn-secondary" id="btnShowListLibrary">Refresh</button>
-            </div>
             <table class="data-table" id="showLibraryTable">
               <thead><tr><th>Name</th><th>Saved</th><th>Actions</th></tr></thead>
               <tbody id="showLibraryTableBody">
@@ -793,16 +791,16 @@
           <div class="card" data-card-id="advanced-tools">
             <h2>Advanced Tools</h2>
             <div class="cb-row">
-              <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate"> Show gate controls in message form</label>
+              <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate" style="transform: scale(1.25);" >  Show Gate Controls for messages</label>
             </div>
             <div class="cb-row">
-              <label class="cb-label cb-label-lg" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions"> Show Bulk Actions in message and scene trackers</label>
+                <label class="cb-label cb-label-lg" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions" style="transform: scale(1.25);">  Show Bulk Actions in message and scene trackers</label>
             </div>
             <div class="cb-row">
-              <label class="cb-label cb-label-lg" title="Enable the Python tab for custom routing and data processing"><input type="checkbox" id="chkEnableScript"> Show Python tab</label>
+              <label class="cb-label cb-label-lg" title="Enable the Python tab for custom routing and data processing"><input type="checkbox" id="chkEnableScript" style="transform: scale(1.25);">  Show Python tab</label>
             </div>
             <div class="cb-row">
-              <label class="cb-label cb-label-lg" title="Show raw quaternion components (quatI/J/K/R) in data stream dropdowns"><input type="checkbox" id="chkShowQuats"> Show quaternion data streams in dropdowns</label>
+              <label class="cb-label cb-label-lg" title="Show raw quaternion components (quatI/J/K/R) in data stream dropdowns"><input type="checkbox" id="chkShowQuats" style="transform: scale(1.25);">  Show quaternion data streams in data streams</label>
             </div>
             <div class="assume-ip-section">
               <div class="form-row" style="align-items:flex-end">
@@ -816,6 +814,9 @@
                     <option value="10.0.0.">10.0.0.X</option>
                     <option value="10.0.1.">10.0.1.X</option>
                     <option value="172.16.0.">172.16.0.X</option>
+                    <option value="192.168.">192.168.X.Y</option>
+                    <option value="10.0.">10.0.X.Y</option>
+                    <option value="10.">10.X.Y.Z</option>
                     <option value="custom">Custom…</option>
                   </select>
                 </div>
@@ -1011,7 +1012,7 @@
                   <tr><td><code>device.name / .host / .port</code></td><td>Active device identity.</td></tr>
                   <tr><td><code>device.blackout()</code> / <code>.restore()</code></td><td>Stop or restart all scenes immediately.</td></tr>
                   <tr><td><code>device.save()</code> / <code>.load()</code></td><td>Persist or reload NVS config on the device.</td></tr>
-                  <tr><td><code>device.dedup()</code></td><td>Toggle duplicate-suppression on the device.</td></tr>
+                  <tr><td><code>device.on_change()</code></td><td>Toggle duplicate-suppression on the device.</td></tr>
                   <tr><td><code>device.list_msgs()</code> / <code>.list_scenes()</code></td><td>Ask the device to report its objects (replies update gooey's tables).</td></tr>
                   <tr><td colspan="2" class="ref-section-header">Message proxy &mdash; <code>device.msg("name")</code></td></tr>
                   <tr><td><code>.enable()</code> / <code>.disable()</code></td><td>Enable or mute the message. Name may be an OSC wildcard pattern.</td></tr>
