@@ -1386,7 +1386,7 @@
           '<button class="scene-btn scene-btn-go" data-act="start" title="Start scene">▶</button>' +
           '<button class="scene-btn scene-btn-stp" data-act="stop"  title="Stop scene">■</button>' +
         '</div></td>' +
-        '<td><span class="scene-name">' + esc(name) + '</span></td>' +
+        '<td><span class="scene-name" title="' + esc(name) + '">' + esc(name.length > 10 ? name.slice(0, 10) + '…' : name) + '</span></td>' +
         '<td><span class="scene-msg-cell" id="smsg-' + esc(name) + '">' + esc(msgsStr || "—") + '</span></td>';
       tr.addEventListener("click", function () { toggleSceneExp(name); });
       tr.querySelectorAll(".scene-btn").forEach(function (btn) {
@@ -1406,6 +1406,8 @@
           '<span class="scene-exp-item"><span class="scene-exp-label">port</span><span class="scene-exp-val">' + port + '</span></span>' +
           '<span class="scene-exp-item"><span class="scene-exp-label">period</span><span class="scene-exp-val">' + period + '</span></span>' +
           '<span class="scene-exp-item scene-exp-actions" onclick="event.stopPropagation()">' +
+            '<button class="scene-exp-act"   data-act="edit"       title="Edit in form">EDIT</button>' +
+            '<span class="scene-exp-sep">·</span>' +
             '<button class="scene-exp-resync" data-act="info"      title="Re-query scene info">RESYNC?</button>' +
             '<span class="scene-exp-sep">·</span>' +
             '<button class="scene-exp-act"   data-act="enableAll"  title="Enable all messages">ENABLE ALL</button>' +
@@ -1413,8 +1415,6 @@
             '<button class="scene-exp-act"   data-act="unsolo"     title="Unsolo all messages">UNSOLO</button>' +
             '<span class="scene-exp-sep">·</span>' +
             '<button class="scene-exp-act"   data-act="save"       title="Save to device NVS">SAVE</button>' +
-            '<span class="scene-exp-sep">·</span>' +
-            '<button class="scene-exp-act"   data-act="edit"       title="Edit in form">EDIT</button>' +
             '<span class="scene-exp-sep">·</span>' +
             '<button class="scene-exp-act danger" data-act="delete" title="Delete scene">DELETE</button>' +
           '</span>' +
