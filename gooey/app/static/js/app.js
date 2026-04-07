@@ -3330,7 +3330,9 @@
   var _assumeIpPrefix = "";
   function expandIp(val) {
     if (!_assumeIpPrefix) return val;
-    if (/^\d{1,3}$/.test(val.trim())) return _assumeIpPrefix + val.trim();
+    var trimmed = val.trim();
+    var n = parseInt(trimmed, 10);
+    if (/^\d{1,3}$/.test(trimmed) && n >= 0 && n <= 255) return _assumeIpPrefix + trimmed;
     return val;
   }
 
