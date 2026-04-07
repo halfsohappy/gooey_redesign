@@ -440,10 +440,10 @@
                   Address Mode
                   <span class="tooltip-wrap">
                     <span class="help-icon">?</span>
-                    <span class="tooltip-body">
-                      <strong>fallback</strong> — use message's own address; scene value only if message has none.<br>
-                      <strong>override</strong> — always use scene's address instead of message's.<br>
-                      <strong>prepend</strong> — prepend scene address to message address.<br>
+                    <span class="tooltip-body tooltip-body-wide">
+                      <strong>fallback</strong> — use message's own address; scene value only if message has none.<br><br>
+                      <strong>override</strong> — always use scene's address instead of message's.<br><br>
+                      <strong>prepend</strong> — prepend scene address to message address.<br><br>
                       <strong>append</strong> — append scene address after message address.
                     </span>
                   </span>
@@ -482,11 +482,13 @@
               <div class="form-group form-group-override">
                 <label>
                   Override Flags
-                  <button class="help-btn" aria-label="Help: Override flags" title="Override flags" onclick="toggleHelp('overrideFlagsHelp'); return false;">?</button>
+                  <span class="tooltip-wrap">
+                    <span class="help-icon">?</span>
+                    <span class="tooltip-body">
+                      Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
+                    </span>
+                  </span>
                 </label>
-                <div id="overrideFlagsHelp" class="help-box hidden">
-                  Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
-                </div>
                 <div class="cb-row">
                   <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
                   <label class="cb-label"><input type="checkbox" id="ovPort"> port</label>

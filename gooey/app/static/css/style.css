@@ -679,7 +679,7 @@ select {
   font-size: 14px;
   margin-top: 6px;
 }
-#sceneTable col.col-status { width: 110px; }
+#sceneTable col.col-status { width: 130px; }
 #sceneTable col.col-name   { width: 120px; }
 #sceneTable col.col-msgs   { /* flex */ }
 #sceneTable col.col-acts   { width: 80px; }
@@ -771,7 +771,7 @@ tr.scene-data-row.run .scene-name { color: var(--accent); }
 .scene-btn:hover { background: var(--bg-hover); }
 .scene-btn-go  { background: var(--accent); border-color: var(--accent); color: var(--bg-card); font-size: 21px; padding-top: 4px; padding-bottom: 8px; }
 .scene-btn-go:hover  { background: var(--accent-hover); border-color: var(--accent-hover); }
-.scene-btn-stp { border-color: rgba(214,69,65,.3); color: var(--danger); font-size: 21px; padding-top: 4px; padding-bottom: 8px; }
+.scene-btn-stp { border-color: rgba(214,69,65,.3); color: var(--danger); font-size: 21px; padding-top: 4px; padding-bottom: 8px; margin-right: 6px; }
 .scene-btn-stp:hover { background: var(--danger-dim); }
 
 /* ═══════════════════════════════════════════
@@ -2366,12 +2366,17 @@ input.field-error {
   cursor: help;
   margin-left: 4px;
   vertical-align: middle;
+  position: relative;
+  top: -3px;
 }
 .tooltip-body {
   display: none;
   position: fixed;
   z-index: 1000;
   width: 280px;
+}
+.tooltip-body-wide {
+  width: 420px;
   background: var(--bg-card);
   border: 1px solid var(--border-focus);
   border-radius: 6px;
