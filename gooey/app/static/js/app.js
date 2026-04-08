@@ -1014,7 +1014,10 @@
             'solo' +
           '</button>' +
         '</div></td>';
-      tr.addEventListener("click", function () { toggleMsgExp(name); });
+      tr.addEventListener("click", function (e) {
+        if (e.metaKey || e.ctrlKey) { populateMsgForm(name, m); return; }
+        toggleMsgExp(name);
+      });
       tr.querySelector(".msg-btn-solo").addEventListener("click", function (e) {
         var btn = e.currentTarget;
         var active = btn.classList.toggle("soloed");
