@@ -462,7 +462,7 @@ Right-click (or click the dropdown arrow on) a device tab to access per-device a
 | **NVS Clear** | Factory reset the device's stored config |
 | **Blackout** | Stop all scenes on this device |
 | **Restore** | Restart scenes after blackout |
-| **Dedup On/Off** | Toggle duplicate-value suppression — skips sends when the value hasn't changed |
+| **On_Change On/Off** | Toggle duplicate-value suppression — skips sends when the value hasn't changed |
 | **Verbose Mode** | Toggle verbose query output for this device |
 | **Edit Device** | Change device IP, port, or name |
 | **Remove Device** | Remove from the device list |

@@ -72,21 +72,21 @@ static inline bool get_send_logging_enabled() { return _send_logging_enabled; }
 // Optional duplicate suppression — skip sends when value hasn't changed
 // ---------------------------------------------------------------------------
 
-static bool _dedup_enabled = false;
+static bool _on_change_enabled = false;
 
-static inline bool get_dedup_enabled() { return _dedup_enabled; }
+static inline bool get_on_change_enabled() { return _on_change_enabled; }
 
-/// Clear the dedup cache on every message in the registry.
-static inline void clear_all_dedup_caches() {
+/// Clear the on_change cache on every message in the registry.
+static inline void clear_all_on_change_caches() {
     OscRegistry& reg = osc_registry();
     for (uint16_t i = 0; i < reg.msg_count; i++) {
-        reg.messages[i].clear_dedup_cache();
+        reg.messages[i].clear_on_change_cache();
     }
 }
 
-static inline void set_dedup_enabled(bool enabled) {
-    _dedup_enabled = enabled;
-    clear_all_dedup_caches();
+static inline void set_on_change_enabled(bool enabled) {
+    _on_change_enabled = enabled;
+    clear_all_on_change_caches();
 }
 
 // ---------------------------------------------------------------------------
@@ -234,13 +234,13 @@ void scene_send_task(void* param) {
 
         if (!scene->enabled) continue;
 
-        // Reset dedup caches whenever the active ori changes so that messages
+        // Reset on_change caches whenever the active ori changes so that messages
         // always fire at least once after each ori transition.
-        if (_dedup_enabled) {
+        if (_on_change_enabled) {
             int cur_ori_index = ori_tracker().active_ori_index;
             if (cur_ori_index != last_ori_index) {
                 last_ori_index = cur_ori_index;
-                clear_all_dedup_caches();
+                clear_all_on_change_caches();
             }
         }
 
@@ -310,7 +310,7 @@ void scene_send_task(void* param) {
             val = eff_low + val * (eff_high - eff_low);
 
             // Duplicate suppression: skip if value hasn't changed.
-            if (_dedup_enabled && msg._has_last_sent && msg._last_sent_val == val) {
+            if (_on_change_enabled && msg._has_last_sent && msg._last_sent_val == val) {
                 continue;
             }
 

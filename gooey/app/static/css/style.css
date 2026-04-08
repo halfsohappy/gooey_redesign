@@ -2387,6 +2387,12 @@ input.field-error {
   white-space: normal;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   pointer-events: none;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.tooltip-body-wide strong {
+  color: #c0b0e0;
+  font-weight: 600;
 }
 .tooltip-wrap:hover .tooltip-body { display: block; }
 
@@ -2955,7 +2961,7 @@ html.dark .script-ref-content code {
 .bulk-select {
   flex: 0 0 auto;
   width: auto;
-  padding: 0.3rem 0.4rem;
+  padding: 0 0.4rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   font-size: 0.8rem;
@@ -2966,4 +2972,24 @@ html.dark .script-ref-content code {
   font-size: 0.75rem;
   color: var(--text-light);
   white-space: nowrap;
+}
+/* Bulk row: all elements same height */
+.bulk-action-row .bulk-input,
+.bulk-action-row .bulk-select,
+.bulk-action-row .btn {
+  height: 30px !important;
+  box-sizing: border-box;
+}
+.bulk-action-row .btn {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 30px;
+}
+/* Python editor inline rows: buttons match select height */
+.form-row-inline { align-items: flex-end !important; }
+.form-row-inline .btn {
+  height: 37px;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 37px;
 }

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "qr-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "7823", "--directory", "/tmp"],
+      "port": 7823
+    },
+    {
+      "name": "gooey",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import sys; sys.path.insert(0,'.'); from app.main import create_app; app,sio=create_app(); sio.run(app,host='127.0.0.1',port=5255,use_reloader=False,allow_unsafe_werkzeug=True)"],
+      "port": 5255,
+      "cwd": "gooey"
+    }
+  ]
+}

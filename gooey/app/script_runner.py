@@ -360,9 +360,9 @@ class DeviceProxy:
         """Reload config from device flash."""
         self._cmd("load")
 
-    def dedup(self):
+    def on_change(self):
         """Toggle duplicate-suppression on the device."""
-        self._cmd("dedup")
+        self._cmd("on_change")
 
     def flush(self):
         """Flush a pending transactional batch."""

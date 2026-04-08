@@ -250,7 +250,7 @@ class OscMessage {
     uint8_t gate_mode;     // GATE_NONE=0, GATE_ONLY=1, GATE_NOT=2, GATE_TOGGLE=3
     float gate_lo;         // lower threshold (NaN = unset)
     float gate_hi;         // upper threshold (NaN = unset)
-    // Dedup cache
+    // on_change cache
     float _last_sent_val;
     bool _has_last_sent;
 };
@@ -351,14 +351,14 @@ Each running scene spawns a FreeRTOS task that:
 
 1. Sleeps for `send_period_ms`
 2. Skips iteration if scene is disabled
-3. Resets dedup caches on gate state change
+3. Resets on_change caches on gate state change
 4. Locks `reg_mutex`
 5. For each message in the scene:
    - Skips if message is disabled
    - Evaluates gate conditional (`gate_source` + `gate_mode` + thresholds)
    - Resolves effective IP, port, address, bounds (override → message → scene fallback)
    - Reads value from `data_streams[]` (or computes gate toggle binary)
-   - Applies dedup filter (skip if value unchanged)
+   - Applies on_change filter (skip if value unchanged)
    - Locks `send_mutex`
    - Sends float via `MicroOscUdp`
    - Unlocks `send_mutex`
@@ -393,9 +393,9 @@ MicroOscUdp<1024> osc(&Udp);   // 1024-byte receive buffer
 
 `osc_send_mutex()` serializes all UDP writes to prevent interleaved packets across tasks.
 
-### Dedup System
+### on_change System
 
-When enabled, each message caches its last sent value. If the new value equals the cached value, the send is skipped. Dedup caches are cleared on ori transitions to ensure all messages re-send.
+When enabled, each message caches its last sent value. If the new value equals the cached value, the send is skipped. on_change caches are cleared on ori transitions to ensure all messages re-send.
 
 ---
 
@@ -526,7 +526,7 @@ Payload: "value:accelX, ip:192.168.1.50, port:9000, adr:/sensor/x, period:50"
 |---------|---------|-------------|
 | `/blackout` | — | Stop all scene tasks immediately |
 | `/restore` | — | Restart all scenes |
-| `/dedup` | `"on"` / `"off"` | Toggle duplicate suppression |
+| `/on_change` | `"on"` / `"off"` | Toggle duplicate suppression |
 | `/tare` | — | Capture current orientation as zero reference |
 | `/tare/reset` | — | Clear tare |
 | `/tare/status` | — | Query tare state |
@@ -642,7 +642,7 @@ Each sensor tick, the tracker compares the current quaternion against all saved 
 4. The ori with the lowest score wins
 5. If `strict_matching` is on and the winning score > 0, no ori is active
 
-Only one ori can be active at a time. Ori changes trigger dedup cache clears.
+Only one ori can be active at a time. Ori changes trigger on_change cache clears.
 
 ### Button Workflow (ab7)
 

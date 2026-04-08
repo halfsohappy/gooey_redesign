@@ -201,7 +201,7 @@
                 <option value="info">Info</option>
                 <option value="delete">Delete</option>
               </select>
-              <button class="btn btn-sm" id="btnMsgBulk">Apply</button>
+              <button class="btn btn-sm btn-primary" id="btnMsgBulk">Apply</button>
               <span class="bulk-hint" id="msgBulkHint"></span>
             </div>
           </div>
@@ -418,7 +418,7 @@
                 <option value="info">Info</option>
                 <option value="delete">Delete</option>
               </select>
-              <button class="btn btn-sm" id="btnSceneBulk">Apply</button>
+              <button class="btn btn-sm btn-primary" id="btnSceneBulk">Apply</button>
               <span class="bulk-hint" id="sceneBulkHint"></span>
             </div>
           </div>
@@ -441,9 +441,9 @@
                   <span class="tooltip-wrap">
                     <span class="help-icon">?</span>
                     <span class="tooltip-body tooltip-body-wide">
-                      <strong>fallback</strong> — use message's own address; scene value only if message has none.<br><br>
-                      <strong>override</strong> — always use scene's address instead of message's.<br><br>
-                      <strong>prepend</strong> — prepend scene address to message address.<br><br>
+                      <strong>fallback</strong> — use message address; scene value only if message has none.<br>
+                      <strong>override</strong> — always use scene address instead of message address.<br>
+                      <strong>prepend</strong> — prepend scene address to message address.<br>
                       <strong>append</strong> — append scene address after message address.
                     </span>
                   </span>
@@ -484,7 +484,7 @@
                   Override Flags
                   <span class="tooltip-wrap">
                     <span class="help-icon">?</span>
-                    <span class="tooltip-body">
+                    <span class="tooltip-body tooltip-body-wide">
                       Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
                     </span>
                   </span>
@@ -941,7 +941,7 @@
               </div>
             </div>
 
-            <div class="form-row" style="align-items:flex-end; gap:6px;">
+            <div class="form-row form-row-inline" style="align-items:flex-end; gap:6px;">
               <div class="form-group" style="flex:1; margin-bottom:0;">
                 <label for="scriptLoadSelect">Saved Scripts</label>
                 <select id="scriptLoadSelect">
@@ -956,7 +956,7 @@
 
             <div class="form-group" style="flex:1">
               <label for="scriptTemplateSelect">Templates</label>
-              <div class="form-row" style="gap:6px; align-items:flex-end">
+              <div class="form-row form-row-inline" style="gap:6px; align-items:flex-end">
                 <select id="scriptTemplateSelect" style="flex:1">
                   <option value="">-- select a template --</option>
                   <option value="threshold_gate">Threshold Gate</option>

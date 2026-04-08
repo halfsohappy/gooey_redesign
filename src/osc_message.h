@@ -223,7 +223,7 @@ public:
         r.exist.adr   = exist.adr   || o.exist.adr;
         r.osc_address = exist.adr   ? osc_address : o.osc_address;
 
-        // Merge scene lists: take all scenes from both, dedup via add_scene.
+        // Merge scene lists: take all scenes from both, on_change via add_scene.
         for (uint8_t i = 0; i < scene_count; i++)   r.add_scene(scenes[i]);
         for (uint8_t i = 0; i < o.scene_count; i++) r.add_scene(o.scenes[i]);
 
@@ -267,8 +267,8 @@ public:
     /// Build a human-readable summary of this message (for list/info replies).
     String to_info_string(bool verbose = false) const;
 
-    /// Clear the dedup cache so the next send always transmits.
-    void clear_dedup_cache() { _has_last_sent = false; _last_sent_val = 0.0f; }
+    /// Clear the on_change cache so the next send always transmits.
+    void clear_on_change_cache() { _has_last_sent = false; _last_sent_val = 0.0f; }
 };
 
 #endif // OSC_MESSAGE_H

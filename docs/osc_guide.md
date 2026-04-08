@@ -335,14 +335,14 @@ Payload: "prepend"
 
 ### The four modes
 
-**fallback** (default) — Use the message's address. If the message has no address, use the scene's.
+**fallback** (default) — Use the message address. If the message has no address, use the scene address.
 
 ```
 Scene: /mixer    Message: /fader1    → sends to /fader1
 Scene: /mixer    Message: (none)     → sends to /mixer
 ```
 
-**override** — Always use the scene's address, ignoring the message's.
+**override** — Always use the scene address, ignoring the message address.
 
 ```
 Scene: /mixer    Message: /fader1    → sends to /mixer
@@ -382,11 +382,11 @@ All scenes stop sending. Use this during emergencies or between cues.
 
 All scenes resume sending.
 
-### Dedup — suppress duplicate values
+### On_Change — suppress duplicate values
 
 ```
-/annieData/bart/dedup "on"
-/annieData/bart/dedup "off"
+/annieData/bart/on_change "on"
+/annieData/bart/on_change "off"
 ```
 
 When on, the device skips sending a value if it hasn't changed since last time. Reduces network traffic for slow-moving sensors.
@@ -746,7 +746,7 @@ All commands use the prefix `/annieData/{device}/`. Payload column shows the exp
 |---------|---------|--------|
 | `blackout` | — | Stop all scenes |
 | `restore` | — | Restart all scenes |
-| `dedup` | `"on"` / `"off"` | Duplicate suppression |
+| `on_change` | `"on"` / `"off"` | Duplicate suppression |
 | `tare` | — | Zero orientation |
 | `tare/reset` | — | Clear tare |
 | `tare/status` | — | Query tare |
