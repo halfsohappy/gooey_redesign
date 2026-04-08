@@ -216,24 +216,30 @@ static inline float resolve_high(const OscMessage& m, const OscScene& p) {
 }
 
 // ---------------------------------------------------------------------------
-// Gate evaluation helper — shared by scene-level and message-level checks
+// Gate evaluation helpers — shared by scene-level and message-level checks
 // ---------------------------------------------------------------------------
+
+/// Read the current value of a gate source.  Returns false if the source
+/// cannot be resolved (unknown stream name, msg not yet sent, etc.).
+static inline bool read_gate_value(const String& gate_source, float& out) {
+    if (gate_source.startsWith("msg:")) {
+        OscMessage* gm = osc_registry().find_msg(gate_source.substring(4));
+        if (!gm || !gm->_has_last_sent) return false;
+        out = gm->_last_sent_val;
+        return true;
+    }
+    int gi = data_stream_index_from_name(gate_source);
+    if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
+    out = data_streams[gi];
+    return true;
+}
 
 static inline bool eval_gate_active(const String& gate_source, float gate_lo, float gate_hi) {
     if (gate_source.startsWith("ori:")) {
         return ori_tracker().is_active(gate_source.substring(4));
     }
     float gv;
-    if (gate_source.startsWith("msg:")) {
-        // Use a message's last-sent (scaled) value as the gate input.
-        OscMessage* gm = osc_registry().find_msg(gate_source.substring(4));
-        if (!gm || !gm->_has_last_sent) return false;
-        gv = gm->_last_sent_val;
-    } else {
-        int gi = data_stream_index_from_name(gate_source);
-        if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
-        gv = data_streams[gi];
-    }
+    if (!read_gate_value(gate_source, gv)) return false;
     bool has_lo = !isnan(gate_lo), has_hi = !isnan(gate_hi);
     if (has_lo && has_hi) return (gv >= gate_lo && gv <= gate_hi);
     if (has_lo)           return (gv >= gate_lo);
@@ -287,15 +293,7 @@ void scene_send_task(void* param) {
         if (scene->gate_mode == GATE_RISING || scene->gate_mode == GATE_FALLING) {
             // Read current gate source value.
             float cur_val;
-            if (scene->gate_source.startsWith("msg:")) {
-                OscMessage* gm = reg.find_msg(scene->gate_source.substring(4));
-                if (!gm || !gm->_has_last_sent) continue;
-                cur_val = gm->_last_sent_val;
-            } else {
-                int gi = data_stream_index_from_name(scene->gate_source);
-                if (gi < 0 || gi >= NUM_DATA_STREAMS) continue;
-                cur_val = data_streams[gi];
-            }
+            if (!read_gate_value(scene->gate_source, cur_val)) continue;
 
             float trigger = isnan(scene->gate_lo) ? 0.5f : scene->gate_lo;
             float slew    = isnan(scene->gate_hi) ? 0.0f : scene->gate_hi;

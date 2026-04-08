@@ -163,7 +163,7 @@ static inline String scene_to_save_string(const OscScene& p) {
            : (p.gate_mode == GATE_NOT)  ? "not"
            : (p.gate_mode == GATE_RISING)  ? "rising"
            : (p.gate_mode == GATE_FALLING) ? "falling"
-           : "only";
+           : "unknown";
         if (!isnan(p.gate_lo)) { s += ", gate_lo:" + String(p.gate_lo, 4); }
         if (!isnan(p.gate_hi)) { s += ", gate_hi:" + String(p.gate_hi, 4); }
     }
