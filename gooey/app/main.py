@@ -331,8 +331,10 @@ def api_remote_qr():
                     f'rx="2.5" ry="2.5" fill="{COLOR}"/>'
                 )
             else:
-                cx, cy, rv = x + SZ / 2, y + SZ / 2, SZ / 2 * 0.78
-                parts.append(f'<circle cx="{cx}" cy="{cy}" r="{rv}" fill="{COLOR}"/>')
+                parts.append(
+                    f'<rect x="{x+1}" y="{y+1}" width="{SZ-2}" height="{SZ-2}" '
+                    f'fill="{COLOR}"/>'
+                )
 
     full = N * SZ + PAD * 2
     svg = (

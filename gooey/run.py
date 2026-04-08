@@ -28,8 +28,8 @@ examples:
         help="Web server port (default: $PORT env var, or 5000)",
     )
     parser.add_argument(
-        "--host", type=str, default="127.0.0.1",
-        help="Web server host (default: 127.0.0.1)",
+        "--host", type=str, default="0.0.0.0",
+        help="Web server host (default: 0.0.0.0 — listens on all interfaces)",
     )
     parser.add_argument(
         "--no-browser", action="store_true",
@@ -43,7 +43,8 @@ examples:
     args = parser.parse_args()
     app, socketio = create_app()
 
-    url = f"http://{args.host}:{args.port}"
+    local_host = "127.0.0.1" if args.host == "0.0.0.0" else args.host
+    url = f"http://{local_host}:{args.port}"
     print(f"\n  TheaterGWD Control Center")
     print(f"  ────────────────────────")
     print(f"  Running at: {url}")
