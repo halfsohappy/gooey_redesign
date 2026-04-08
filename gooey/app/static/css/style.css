@@ -792,11 +792,11 @@ tr.scene-data-row.run .scene-name { color: var(--accent); }
 
 #msgTable th {
   font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--text-light); padding: 0 10px 10px; text-align: left;
+  color: var(--text-light); padding: 4px 10px 5px; text-align: left;
   font-weight: 400; border-bottom: 1px solid var(--border);
 }
 .msg-th-sensor { display: flex; justify-content: space-between; }
-#msgTable td { padding: 11px 10px; vertical-align: middle; font-size: 14px; }
+#msgTable td { padding: 8px 10px; vertical-align: middle; font-size: 14px; }
 
 /* data rows */
 tr.msg-data-row { cursor: pointer; }
@@ -835,9 +835,9 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 .section-content:has(#sec-messages.active) {
   padding: 0;
 }
-/* Strip the card box from the tracker */
+/* Strip the card box from the tracker but keep card bg on the content */
 .msg-tracker-card {
-  background: none !important;
+  background: var(--bg-card) !important;
   border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
@@ -848,33 +848,33 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 #sec-messages .card:not(.msg-tracker-card) {
   margin: 12px;
 }
-/* Sticky toolbar (title + col picker) */
+/* Sticky toolbar (title + col picker) — fixed height so offsets below are reliable */
 .msg-tracker-card .tbl-toolbar {
   position: sticky;
   top: 0;
   z-index: 11;
-  background: var(--header-bg);
+  background: var(--bg-card);
   margin-bottom: 0;
-  padding: 8px 12px;
+  height: 42px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border);
 }
-/* Sticky filter bar directly below toolbar */
+/* Sticky filter bar directly below toolbar (toolbar = 42px) */
 .msg-tracker-card .msg-scene-filter {
   position: sticky;
-  top: 37px;
+  top: 42px;
   z-index: 10;
-  background: var(--header-bg);
+  background: var(--bg-card);
 }
-/* Sticky column headers below filter bar (or toolbar if filter hidden) */
+/* Sticky column headers: 42px when filter hidden, 76px when filter visible (42+34) */
 .msg-tracker-card #msgTable thead th {
   position: sticky;
-  top: 37px;
+  top: 42px;
   z-index: 9;
-  background: var(--header-bg);
+  background: var(--bg-card);
 }
-.msg-tracker-card .msg-scene-filter ~ #msgTable thead th,
 .msg-tracker-card #msgSceneFilter[style*="flex"] ~ #msgTable thead th {
-  top: 75px;
+  top: 76px;
 }
 
 /* ── Message scene filter bar ── */
@@ -949,6 +949,11 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 .empty-icon { font-size: 32px; margin-bottom: 8px; }
 .empty-text { font-size: 15px; font-weight: 600; margin-bottom: 4px; color: var(--text-dark); }
 .empty-sub { font-size: 13px; margin-bottom: 14px; }
+.empty-state-inline {
+  padding: 8px 12px;
+  font-size: 13px;
+  text-align: left;
+}
 
 /* ── Toggle / Checkbox ── */
 .toggle-switch {
