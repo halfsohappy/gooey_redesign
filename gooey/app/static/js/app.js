@@ -2290,7 +2290,7 @@
 
   /* Config preview update */
   function previewPair(key, val) {
-    if (val.charAt(0) === ">") return key + ">" + val.substring(1);
+    if (val.charAt(0) === "<") return key + "<" + val.substring(1);
     return key + ":" + val;
   }
   function updateMsgPreview() {
@@ -2331,12 +2331,12 @@
     function resolveName(val, ori) {
       return val.toLowerCase() === "name" ? (ori ? "ori_" + name : "/" + name) : val;
     }
-    /* Build key:value or key>refName pairs.
-       If a field value starts with ">", the rest is a registry reference name
-       and the separator becomes ">" instead of ":" (firmware key>refName syntax).
-       Example: typing ">myScene" in the IP field sends "ip>myScene". */
+    /* Build key:value or key<refName pairs.
+       If a field value starts with "<", the rest is a registry reference name
+       and the separator becomes "<" instead of ":" (firmware key<refName syntax).
+       Example: typing "<myScene" in the IP field sends "ip<myScene". */
     function cfgPair(key, val) {
-      if (val.charAt(0) === ">") return key + ">" + val.substring(1);
+      if (val.charAt(0) === "<") return key + "<" + val.substring(1);
       return key + ":" + val;
     }
     var isStringType = ($("#msgValue").value === "string");
@@ -2471,7 +2471,7 @@
     if ($("#ovHigh").checked) ovParts.push("high");
 
     function cfgPairS(key, val) {
-      if (val.charAt(0) === ">") return key + ">" + val.substring(1);
+      if (val.charAt(0) === "<") return key + "<" + val.substring(1);
       return key + ":" + val;
     }
     var cfgParts = [];
@@ -2622,7 +2622,7 @@ $("#btnSceneMove").addEventListener("click", function () {
     var name = ($("#msgName").value || "").trim();
     if (!name) { toast("Message name required", "error"); return; }
     function cfgPairD(key, val) {
-      if (val.charAt(0) === ">") return key + ">" + val.substring(1);
+      if (val.charAt(0) === "<") return key + "<" + val.substring(1);
       return key + ":" + val;
     }
     var isDirStrType = ($("#msgValue").value === "string");
