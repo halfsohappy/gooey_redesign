@@ -332,9 +332,7 @@
 
         <!-- ===== SCENES ===== -->
         <section class="section" id="sec-scenes">
-          <div class="card">
-            <h2>Scene Tracker</h2>
-            <p class="hint-text">Click <strong>Query</strong> to populate from device. Start/stop scenes directly from the table.</p>
+          <div class="card scene-tracker-card">
               <table id="sceneTable">
                 <colgroup>
                   <col class="col-status">
@@ -351,12 +349,7 @@
                   </tr>
                 </thead>
                 <tbody id="sceneTableBody">
-                  <tr><td colspan="4"><div class="empty-state">
-                    <div class="empty-icon">○</div>
-                    <div class="empty-text">No scenes tracked yet.</div>
-                    <div class="empty-sub">Query the device or create a scene below.</div>
-                    <button class="btn btn-sm" onclick="document.getElementById('btnQueryVerbose').click()">→ Query Device Now</button>
-                  </div></td></tr>
+                  <tr><td colspan="4"><div class="empty-state empty-state-inline">No scenes tracked yet — Query device or create one below.</div></td></tr>
                 </tbody>
               </table>
             <!-- Bulk action row for pattern matching -->

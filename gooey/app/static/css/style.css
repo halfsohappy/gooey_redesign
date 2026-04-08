@@ -687,10 +687,10 @@ select {
 
 #sceneTable th {
   font-size: 11px; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--text-light); padding: 0 12px 10px; text-align: left;
+  color: var(--text-light); padding: 4px 12px 5px; text-align: left;
   font-weight: 400; border-bottom: 1px solid var(--border);
 }
-#sceneTable td { padding: 11px 12px; vertical-align: middle; font-size: 14px; }
+#sceneTable td { padding: 8px 12px; vertical-align: middle; font-size: 14px; }
 
 /* data rows */
 tr.scene-data-row { cursor: pointer; }
@@ -864,6 +864,28 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 }
 .msg-tracker-card #msgSceneFilter[style*="flex"] ~ #msgTable thead th {
   top: 34px;
+}
+
+/* ── Scene tracker flat layout (mirrors msg-tracker-card) ── */
+.section-content:has(#sec-scenes.active) {
+  padding: 0;
+}
+.scene-tracker-card {
+  background: var(--bg-card) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+}
+#sec-scenes .card:not(.scene-tracker-card) {
+  margin: 12px;
+}
+.scene-tracker-card #sceneTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  background: var(--bg-card);
 }
 
 /* ── Message scene filter bar ── */
