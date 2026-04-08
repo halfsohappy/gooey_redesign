@@ -148,7 +148,7 @@ async fn check_and_offer_update(app: AppHandle, show_if_current: bool) {
                     "annieData {version} is available.\n\n{notes}\n\nInstall now and restart?"
                 ))
                 .title("Update Available")
-                .buttons(MessageDialogButtons::OkCancelWithLabels(
+                .buttons(MessageDialogButtons::OkCancelCustom(
                     "Install & Restart".to_string(),
                     "Later".to_string(),
                 ))
