@@ -848,33 +848,22 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 #sec-messages .card:not(.msg-tracker-card) {
   margin: 12px;
 }
-/* Sticky toolbar (title + col picker) — fixed height so offsets below are reliable */
-.msg-tracker-card .tbl-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 11;
-  background: var(--bg-card);
-  margin-bottom: 0;
-  height: 42px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border);
-}
-/* Sticky filter bar directly below toolbar (toolbar = 42px) */
+/* Sticky filter bar at very top (no toolbar above it) */
 .msg-tracker-card .msg-scene-filter {
   position: sticky;
-  top: 42px;
+  top: 0;
   z-index: 10;
   background: var(--bg-card);
 }
-/* Sticky column headers: 42px when filter hidden, 76px when filter visible (42+34) */
+/* Sticky column headers: top:0 when filter hidden, 34px when filter visible */
 .msg-tracker-card #msgTable thead th {
   position: sticky;
-  top: 42px;
+  top: 0;
   z-index: 9;
   background: var(--bg-card);
 }
 .msg-tracker-card #msgSceneFilter[style*="flex"] ~ #msgTable thead th {
-  top: 76px;
+  top: 34px;
 }
 
 /* ── Message scene filter bar ── */
