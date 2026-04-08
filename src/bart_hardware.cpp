@@ -11,8 +11,15 @@
 // ---------------------------------------------------------------------------
 
 Adafruit_BMP5xx bmp;
+SFE_MMC5983MA mmc;
 Preferences preferences;
 SlimeIMU slime;
+
+/// Baseline altitude captured at boot — centre point for baro normalisation.
+float baro_baseline_alt = 0.0f;
+
+/// Range in metres that maps to [0, 1] around the baseline altitude.
+static constexpr float BARO_RANGE_M = 5.0f;
 
 // Cache for latest IMU readings
 static Quat    cached_quat;
@@ -25,6 +32,8 @@ static Vector3 cached_gyro;
 
 void begin_pins(bool b13, bool b46, bool cen1, bool cen2) {
     pinMode(CS_IMU, OUTPUT);
+    pinMode(CS_MAG, OUTPUT);
+    digitalWrite(CS_MAG, HIGH);  // deselect mag
     pinMode(SEL13, OUTPUT);
     pinMode(SEL46, OUTPUT);
     pinMode(CC_EN1, OUTPUT);
@@ -49,26 +58,56 @@ void begin_baro(uint16_t BCS) {
     bmp.enablePressure(true);
     bmp.configureInterrupt(BMP5XX_INTERRUPT_LATCHED, BMP5XX_INTERRUPT_ACTIVE_HIGH, BMP5XX_INTERRUPT_PUSH_PULL, BMP5XX_INTERRUPT_DATA_READY, true);
     delay(5);
+
+    // Capture baseline altitude for relative normalisation.
+    baro_baseline_alt = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+    Serial.print(F("[BARO] Baseline altitude: "));
+    Serial.print(baro_baseline_alt, 1);
+    Serial.println(F(" m"));
 }
 
 // ---------------------------------------------------------------------------
-// IMU initialisation (LSM6DSV16XTR via SlimeIMU over SPI)
+// IMU initialisation (ISM330DHCX via SlimeIMU over SPI)
 // ---------------------------------------------------------------------------
 
 void begin_imu() {
     // SlimeIMU reads PIN_IMU_CS, PIN_SPI_SCK/MISO/MOSI from build_flags.
-    // It auto-detects the LSM6DSV on the SPI bus and runs VQF sensor fusion.
+    // It auto-detects the ISM330DHCX on the SPI bus and runs VQF sensor fusion.
     //
     // I2C SDA/SCL are passed for any secondary I2C sensor (unused here).
     if (!slime.begin(21, 22)) {
-        Serial.println(F("[IMU] SlimeIMU failed to initialise LSM6DSV16XTR over SPI!"));
+        Serial.println(F("[IMU] SlimeIMU failed to initialise ISM330DHCX over SPI!"));
         Serial.println(F("[IMU] Check SPI wiring (CS=42, SCK=36, MOSI=35, MISO=37).  Halting."));
         while (1) { delay(100); }
     }
 
-    Serial.print(F("[IMU] LSM6DSV16XTR initialised via SlimeIMU ("));
+    Serial.print(F("[IMU] ISM330DHCX initialised via SlimeIMU ("));
     Serial.print(slime.getSensorName(0));
     Serial.println(F(")."));
+}
+
+// ---------------------------------------------------------------------------
+// Magnetometer initialisation (MMC5983MA, separate SPI device)
+// ---------------------------------------------------------------------------
+
+void begin_mag() {
+    if (!mmc.begin(CS_MAG, SPI)) {
+        Serial.println(F("[MAG] MMC5983MA failed to initialise over SPI (CS=39)!"));
+        Serial.println(F("[MAG] Continuing without magnetometer."));
+        return;
+    }
+    // Soft reset to ensure clean state.
+    mmc.softReset();
+    delay(20);
+
+    // Enable automatic set/reset for offset cancellation.
+    mmc.enableAutomaticSetReset();
+
+    // Set continuous measurement mode — ~100 Hz bandwidth.
+    mmc.setContinuousModeFrequency(100);
+    mmc.enableContinuousMode();
+
+    Serial.println(F("[MAG] MMC5983MA initialised via SPI (CS=39)."));
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +142,36 @@ void imu_get_gyro(float &gx, float &gy, float &gz) {
     gx = cached_gyro.x;
     gy = cached_gyro.y;
     gz = cached_gyro.z;
+}
+
+// ---------------------------------------------------------------------------
+// Barometer — read and normalise to [0, 1]
+// ---------------------------------------------------------------------------
+//
+// Returns a value in [0, 1] representing relative altitude change from the
+// baseline captured at boot.  ±BARO_RANGE_M (±5 m) maps to the full range;
+// 0.5 = at baseline altitude.
+
+float read_baro_normalized() {
+    float alt = bmp.readAltitude(SEALEVELPRESSURE_HPA);
+    float delta = alt - baro_baseline_alt;
+    return constrain((delta + BARO_RANGE_M) / (2.0f * BARO_RANGE_M), 0.0f, 1.0f);
+}
+
+// ---------------------------------------------------------------------------
+// Magnetometer — read and normalise to [0, 1]
+// ---------------------------------------------------------------------------
+//
+// The MMC5983MA returns 18-bit unsigned values (0 – 131071).
+// Normalise by dividing by 131071.0 to produce [0, 1].
+
+void mag_get_xyz(float &mx, float &my, float &mz) {
+    uint32_t raw_x = 0, raw_y = 0, raw_z = 0;
+    mmc.getMeasurementXYZ(&raw_x, &raw_y, &raw_z);
+    static constexpr float MAG_FULL_SCALE = 131071.0f;
+    mx = (float)raw_x / MAG_FULL_SCALE;
+    my = (float)raw_y / MAG_FULL_SCALE;
+    mz = (float)raw_z / MAG_FULL_SCALE;
 }
 
 // ---------------------------------------------------------------------------

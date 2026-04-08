@@ -7,7 +7,7 @@
 //
 // Build with -DAB7_BUILD to target the ab7 board (BNO085 IMU via SlimeIMU,
 // SK6812 LED, two buttons).  Without this flag the build targets the Bart
-// board (BMP5xx, LSM6DSV16XTR via SlimeIMU).  Both boards support oris.
+// board (ISM330DHCX + MMC5983MA + BMP5xx via SlimeIMU).  Both boards support oris.
 // =============================================================================
 
 #ifndef _MAIN_H_
