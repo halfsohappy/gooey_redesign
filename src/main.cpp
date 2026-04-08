@@ -4,14 +4,14 @@
 //
 // BOOT SEQUENCE:
 //   1. Initialise serial, GPIO pins, sensors.
-//      - Bart: barometer (BMP5xx), IMU (LSM6DSV16XTR via SlimeIMU)
+//      - Bart: ISM330DHCX IMU + MMC5983MA magnetometer + BMP5xx barometer (SPI via SlimeIMU)
 //      - ab7:  BNO085 IMU (SPI via SlimeIMU), SK6812 status LED, two buttons;
 //              no physical barometer and BARO is forced to 1.0
 //   2. Check if the device has been provisioned (WiFi credentials stored).
 //      - Yes → connect to WiFi, start UDP listener.
 //      - No  → launch the captive-portal provisioner and wait.
-//   3. Create a FreeRTOS task that continuously reads sensors (or, for
-//      Bart development, fills data_streams[] with simulated sine waves).
+//   3. Create a FreeRTOS task that continuously reads sensors and fills
+//      data_streams[] with normalised values.
 //   4. Enter the main loop, which polls for incoming OSC messages and
 //      dispatches them through osc_handle_message().
 //
@@ -106,7 +106,8 @@ void setup() {
     Serial.println(F("[BOOT] Initialising barometer (BMP5xx)..."));
     begin_baro(CS_BAR);
 
-    Serial.println(F("[BOOT] Initialising IMU (LSM6DSV16XTR) via SlimeIMU (SPI)..."));
+    Serial.println(F("[BOOT] Initialising IMU (ISM330DHCX) via SlimeIMU (SPI)..."));
+    Serial.println(F("[BOOT] SlimeIMU will auto-detect MMC5983MA magnetometer via sensor hub."));
     begin_imu();
 #endif
 
@@ -448,7 +449,8 @@ void setup() {
 
     Serial.println(F("[BOOT] Sensor task started (BNO085 real data)."));
 #else
-    // Bart: real IMU data via SlimeIMU (LSM6DSV16XTR + VQF fusion).
+    // Bart: real IMU data via SlimeIMU (ISM330DHCX + VQF fusion),
+    //       barometer (BMP5xx), and magnetometer (MMC5983MA).
     xTaskCreate([](void*) {
         OriTracker& ot = ori_tracker();
         bool first_data = true;
@@ -684,8 +686,7 @@ void setup() {
                 }
 
                 // ── Barometer — read from BMP5xx ──────────────────────
-                // TODO: integrate barometer reading here if needed.
-                data_streams[BARO] = 0.5f;
+                data_streams[BARO] = read_baro_normalized();
             } else {
                 no_data_count++;
                 if (no_data_count == 500) {
@@ -711,7 +712,7 @@ void setup() {
         }
     }, "sensor_task", 16384, nullptr, 1, nullptr);
 
-    Serial.println(F("[BOOT] Sensor task started (LSM6DSV16XTR real data via SlimeIMU)."));
+    Serial.println(F("[BOOT] Sensor task started (ISM330DHCX + MMC5983MA + BMP5xx via SlimeIMU)."));
 #endif // AB7_BUILD
 
     Serial.println();
