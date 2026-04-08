@@ -370,6 +370,13 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         }
         if (parsed.exist.low)  { m->bounds[0] = parsed.bounds[0];     m->exist.low  = true; }
         if (parsed.exist.high) { m->bounds[1] = parsed.bounds[1];     m->exist.high = true; }
+        // Apply gate config from direct to the message (not the scene).
+        if (parsed.gate_mode != GATE_NONE) {
+            m->gate_source = parsed.gate_source;
+            m->gate_mode   = parsed.gate_mode;
+            m->gate_lo     = parsed.gate_lo;
+            m->gate_hi     = parsed.gate_hi;
+        }
         m->enabled = true;
 
         // Create or update the scene.
@@ -1745,6 +1752,8 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                         gmval.trim();
                         if (gmval == "only") p->gate_mode = GATE_ONLY;
                         else if (gmval == "not") p->gate_mode = GATE_NOT;
+                        else if (gmval == "rising") { p->gate_mode = GATE_RISING; p->_gate_prev_val = NAN; }
+                        else if (gmval == "falling") { p->gate_mode = GATE_FALLING; p->_gate_prev_val = NAN; }
                         else p->gate_mode = GATE_NONE;
                     }
                     int gli = cfg_lower.indexOf("gate_lo:");

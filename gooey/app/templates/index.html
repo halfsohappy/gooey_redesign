@@ -491,6 +491,8 @@
                     <option value="">—</option>
                     <option value="only">ONLY</option>
                     <option value="not">NOT</option>
+                    <option value="rising">RISING</option>
+                    <option value="falling">FALLING</option>
                   </select>
                 </div>
               </div>
@@ -735,6 +737,9 @@
             </div>
             <div class="cb-row">
               <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate" style="transform: scale(1.25);" >  Show Gate Controls for messages</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Allow message scaled values to be used as gate sources (msg:name syntax)"><input type="checkbox" id="chkMsgGateSources" style="transform: scale(1.25);">  Allow message values as gate sources</label>
             </div>
             <div class="cb-row">
                 <label class="cb-label cb-label-lg" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions" style="transform: scale(1.25);">  Show Bulk Actions in message and scene trackers</label>

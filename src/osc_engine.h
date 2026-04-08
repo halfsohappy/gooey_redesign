@@ -223,9 +223,17 @@ static inline bool eval_gate_active(const String& gate_source, float gate_lo, fl
     if (gate_source.startsWith("ori:")) {
         return ori_tracker().is_active(gate_source.substring(4));
     }
-    int gi = data_stream_index_from_name(gate_source);
-    if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
-    float gv = data_streams[gi];
+    float gv;
+    if (gate_source.startsWith("msg:")) {
+        // Use a message's last-sent (scaled) value as the gate input.
+        OscMessage* gm = osc_registry().find_msg(gate_source.substring(4));
+        if (!gm || !gm->_has_last_sent) return false;
+        gv = gm->_last_sent_val;
+    } else {
+        int gi = data_stream_index_from_name(gate_source);
+        if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
+        gv = data_streams[gi];
+    }
     bool has_lo = !isnan(gate_lo), has_hi = !isnan(gate_hi);
     if (has_lo && has_hi) return (gv >= gate_lo && gv <= gate_hi);
     if (has_lo)           return (gv >= gate_lo);
@@ -268,6 +276,55 @@ void scene_send_task(void* param) {
             bool sg_active = eval_gate_active(scene->gate_source, scene->gate_lo, scene->gate_hi);
             if (scene->gate_mode == GATE_ONLY && !sg_active) continue;
             if (scene->gate_mode == GATE_NOT  &&  sg_active) continue;
+        }
+
+        // Rising / Falling edge detection at scene level.
+        // gate_lo = trigger threshold, gate_hi = minimum slew (delta).
+        // Rising:  fire once when value crosses from below trigger to above trigger,
+        //          provided |delta| > slew.
+        // Falling: fire once when value crosses from above trigger to below trigger,
+        //          provided |delta| > slew.
+        if (scene->gate_mode == GATE_RISING || scene->gate_mode == GATE_FALLING) {
+            // Read current gate source value.
+            float cur_val;
+            if (scene->gate_source.startsWith("msg:")) {
+                OscMessage* gm = reg.find_msg(scene->gate_source.substring(4));
+                if (!gm || !gm->_has_last_sent) continue;
+                cur_val = gm->_last_sent_val;
+            } else {
+                int gi = data_stream_index_from_name(scene->gate_source);
+                if (gi < 0 || gi >= NUM_DATA_STREAMS) continue;
+                cur_val = data_streams[gi];
+            }
+
+            float trigger = isnan(scene->gate_lo) ? 0.5f : scene->gate_lo;
+            float slew    = isnan(scene->gate_hi) ? 0.0f : scene->gate_hi;
+
+            bool cur_above = (cur_val >= trigger);
+
+            // On first sample, just record state; don't fire.
+            if (isnan(scene->_gate_prev_val)) {
+                scene->_gate_prev_val  = cur_val;
+                scene->_gate_was_above = cur_above;
+                continue;
+            }
+
+            float delta = fabsf(cur_val - scene->_gate_prev_val);
+            bool was_above = scene->_gate_was_above;
+
+            // Update state for next iteration.
+            scene->_gate_prev_val  = cur_val;
+            scene->_gate_was_above = cur_above;
+
+            bool fire = false;
+            if (scene->gate_mode == GATE_RISING  && !was_above && cur_above && delta >= slew) {
+                fire = true;
+            }
+            if (scene->gate_mode == GATE_FALLING && was_above && !cur_above && delta >= slew) {
+                fire = true;
+            }
+            if (!fire) continue;
+            // Edge detected — fall through to send all messages once.
         }
 
         reg.lock();

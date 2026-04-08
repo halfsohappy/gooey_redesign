@@ -130,11 +130,15 @@ public:
     bool           enabled        = false; // starts disabled; call start()
 
     // Scene-level gate (AND-stacks with per-message gates).
-    // Supports GATE_ONLY and GATE_NOT only (no TOGGLE at scene level).
+    // Supports GATE_ONLY, GATE_NOT, GATE_RISING, and GATE_FALLING.
     String         gate_source;
     uint8_t        gate_mode = GATE_NONE;
-    float          gate_lo   = NAN;
-    float          gate_hi   = NAN;
+    float          gate_lo   = NAN;       // trigger (rising/falling) or lower bound
+    float          gate_hi   = NAN;       // slew minimum (rising/falling) or upper bound
+
+    // Edge-detection state for GATE_RISING / GATE_FALLING (ephemeral, not saved).
+    float          _gate_prev_val  = NAN;  // previous gate source sample
+    bool           _gate_was_above = false; // was previous value above trigger?
 
     // FreeRTOS task handle (nullptr when the task is not running).
     TaskHandle_t   task_handle    = nullptr;
