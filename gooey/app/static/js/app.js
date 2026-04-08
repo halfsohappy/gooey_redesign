@@ -1001,6 +1001,7 @@
       tr.className = "msg-data-row";
       tr.id = "mr-" + name;
       tr.dataset.msgName = name;
+      tr.dataset.msgScenes = scenes.join("\t");
       tr.innerHTML =
         '<td><span class="msg-name">' + esc(name) + '</span></td>' +
         '<td><div class="msg-scene-tags">' + sceneTags + '</div></td>' +
@@ -1050,6 +1051,80 @@
 
       tbody.appendChild(tr);
       tbody.appendChild(expTr);
+    });
+    renderMsgSceneFilter();
+  }
+
+  /* ── Message scene filter ── */
+  var _msgSceneFilter = new Set();
+
+  function renderMsgSceneFilter() {
+    var filterBar = $("#msgSceneFilter");
+    if (!filterBar) return;
+    var dev = getActiveDev();
+    var sceneNames = dev ? Object.keys(dev.scenes) : [];
+
+    // Remove old scene chips (keep label + All button)
+    Array.from(filterBar.querySelectorAll(".msg-filter-chip:not(.msg-filter-all)")).forEach(function (c) { c.remove(); });
+
+    if (sceneNames.length === 0) {
+      filterBar.style.display = "none";
+      _msgSceneFilter.clear();
+      return;
+    }
+    filterBar.style.display = "flex";
+
+    sceneNames.forEach(function (sname) {
+      var chip = document.createElement("button");
+      chip.className = "msg-filter-chip" + (_msgSceneFilter.has(sname) ? " active" : "");
+      chip.dataset.filter = sname;
+      chip.textContent = sname;
+      chip.addEventListener("click", function () {
+        if (_msgSceneFilter.has(sname)) {
+          _msgSceneFilter.delete(sname);
+        } else {
+          _msgSceneFilter.add(sname);
+        }
+        applyMsgSceneFilter();
+      });
+      filterBar.appendChild(chip);
+    });
+
+    // All button clears filter
+    var allBtn = filterBar.querySelector(".msg-filter-all");
+    if (allBtn) {
+      allBtn.onclick = function () {
+        _msgSceneFilter.clear();
+        applyMsgSceneFilter();
+      };
+    }
+
+    applyMsgSceneFilter();
+  }
+
+  function applyMsgSceneFilter() {
+    var filterBar = $("#msgSceneFilter");
+    var allBtn = filterBar ? filterBar.querySelector(".msg-filter-all") : null;
+    var isAll = _msgSceneFilter.size === 0;
+
+    // Update chip active states
+    if (filterBar) {
+      filterBar.querySelectorAll(".msg-filter-chip").forEach(function (c) {
+        if (c.classList.contains("msg-filter-all")) {
+          c.classList.toggle("active", isAll);
+        } else {
+          c.classList.toggle("active", _msgSceneFilter.has(c.dataset.filter));
+        }
+      });
+    }
+
+    // Show/hide rows
+    document.querySelectorAll(".msg-data-row, .msg-exp-row").forEach(function (row) {
+      var dataRow = row.classList.contains("msg-data-row") ? row : document.getElementById("mr-" + row.id.replace("me-", ""));
+      if (!dataRow) return;
+      var rowScenes = (dataRow.dataset.msgScenes || "").split("\t").filter(Boolean);
+      var visible = isAll || rowScenes.some(function (s) { return _msgSceneFilter.has(s); });
+      row.style.display = visible ? "" : "none";
     });
   }
 
@@ -1509,6 +1584,15 @@
   /** Returns true if s contains OSC pattern metacharacters. */
   function hasPattern(s) { return /[*?\[{]/.test(s); }
 
+  /** Add/remove .bulk-match class on table rows based on OSC pattern. */
+  function highlightBulkMatches(pattern, rowSelector, nameAttr) {
+    document.querySelectorAll(rowSelector).forEach(function (row) {
+      var name = row.dataset[nameAttr];
+      if (!name) return;
+      row.classList.toggle("bulk-match", !!(pattern && oscPatternMatch(pattern, name)));
+    });
+  }
+
   /** Highlight the input when it contains a pattern. */
   function updatePatternHint(inputEl, hintEl, registry, applyBtn) {
     var val = inputEl.value.trim();
@@ -1572,51 +1656,128 @@
 
   /* ── Message bulk action ── */
   (function () {
-    var inp  = $("#msgBulkPattern");
-    var sel  = $("#msgBulkAction");
-    var btn  = $("#btnMsgBulk");
-    var hint = $("#msgBulkHint");
+    var inp    = $("#msgBulkPattern");
+    var sel    = $("#msgBulkAction");
+    var setVal = $("#msgBulkSetVal");
+    var btn    = $("#btnMsgBulk");
+    var hint   = $("#msgBulkHint");
     if (!inp || !btn) return;
+
+    var MSG_SET = {
+      "set-ip":    { key: "ip",    ph: "e.g. 192.168.1.50" },
+      "set-port":  { key: "port",  ph: "e.g. 9000" },
+      "set-adr":   { key: "adr",   ph: "e.g. /sensor/x" },
+      "set-scene": { key: "scene", ph: "scene name" }
+    };
+
+    sel.addEventListener("change", function () {
+      var info = MSG_SET[sel.value];
+      if (info) { setVal.style.display = "inline-block"; setVal.placeholder = info.ph; setVal.value = ""; }
+      else { setVal.style.display = "none"; setVal.value = ""; }
+    });
 
     inp.addEventListener("input", function () {
       var dev = getActiveDev();
       updatePatternHint(inp, hint, dev ? dev.messages : null, btn);
+      highlightBulkMatches(inp.value.trim(), ".msg-data-row", "msgName");
     });
 
     btn.addEventListener("click", function () {
       var pattern = inp.value.trim();
       if (!pattern) { toast("Enter a pattern", "warn"); return; }
-      var act = sel.value;
-      if (act === "delete" && !confirm("Delete all messages matching '" + pattern + "'?")) return;
-      var template = "/annieData/{device}/msg/{name}/" + act;
-      sendCmd(addr(template, pattern), null).then(function (res) {
-        if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
-      });
+      var act  = sel.value;
+      var info = MSG_SET[act];
+
+      if (info) {
+        var val = setVal.value.trim();
+        if (!val) { toast("Enter a value to set", "warn"); return; }
+        if (info.key === "ip") val = expandIp(val);
+        var dev = getActiveDev();
+        if (!dev) return;
+        var matches = Object.keys(dev.messages).filter(function (n) { return oscPatternMatch(pattern, n); });
+        if (!matches.length) { toast("No matches for pattern", "warn"); return; }
+        var promises = matches.map(function (name) {
+          return sendCmd(addr("/annieData/{device}/msg/{name}", name), info.key + ":" + val);
+        });
+        Promise.all(promises).then(function () {
+          toast("Set " + info.key + " on " + matches.length + " message(s)", "success");
+          matches.forEach(function (name) { if (dev.messages[name]) dev.messages[name][info.key] = val; });
+          renderMsgTable();
+        });
+      } else {
+        if (act === "delete" && !confirm("Delete all messages matching '" + pattern + "'?")) return;
+        var template = "/annieData/{device}/msg/{name}/" + act;
+        sendCmd(addr(template, pattern), null).then(function (res) {
+          if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
+        });
+      }
     });
   }());
 
   /* ── Scene bulk action ── */
   (function () {
-    var inp  = $("#sceneBulkPattern");
-    var sel  = $("#sceneBulkAction");
-    var btn  = $("#btnSceneBulk");
-    var hint = $("#sceneBulkHint");
+    var inp    = $("#sceneBulkPattern");
+    var sel    = $("#sceneBulkAction");
+    var setVal = $("#sceneBulkSetVal");
+    var btn    = $("#btnSceneBulk");
+    var hint   = $("#sceneBulkHint");
     if (!inp || !btn) return;
+
+    var SCENE_SET = {
+      "set-ip":     { key: "ip",     ph: "e.g. 192.168.1.50" },
+      "set-port":   { key: "port",   ph: "e.g. 9000" },
+      "set-adr":    { key: "adr",    ph: "e.g. /scene/addr" },
+      "set-period": { key: "period", ph: "e.g. 50" }
+    };
+
+    sel.addEventListener("change", function () {
+      var info = SCENE_SET[sel.value];
+      if (info) { setVal.style.display = "inline-block"; setVal.placeholder = info.ph; setVal.value = ""; }
+      else { setVal.style.display = "none"; setVal.value = ""; }
+    });
 
     inp.addEventListener("input", function () {
       var dev = getActiveDev();
       updatePatternHint(inp, hint, dev ? dev.scenes : null, btn);
+      highlightBulkMatches(inp.value.trim(), ".scene-data-row", "sceneName");
     });
 
     btn.addEventListener("click", function () {
       var pattern = inp.value.trim();
       if (!pattern) { toast("Enter a pattern", "warn"); return; }
-      var act = sel.value;
-      if (act === "delete" && !confirm("Delete all scenes matching '" + pattern + "'?")) return;
-      var template = "/annieData/{device}/scene/{name}/" + act;
-      sendCmd(addr(template, pattern), null).then(function (res) {
-        if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
-      });
+      var act  = sel.value;
+      var info = SCENE_SET[act];
+
+      if (info) {
+        var val = setVal.value.trim();
+        if (!val) { toast("Enter a value to set", "warn"); return; }
+        if (info.key === "ip") val = expandIp(val);
+        var dev = getActiveDev();
+        if (!dev) return;
+        var matches = Object.keys(dev.scenes).filter(function (n) { return oscPatternMatch(pattern, n); });
+        if (!matches.length) { toast("No matches for pattern", "warn"); return; }
+        var promises;
+        if (act === "set-period") {
+          promises = matches.map(function (name) {
+            return sendCmd(addr("/annieData/{device}/scene/{name}/period", name), '"' + val + '"');
+          });
+        } else {
+          promises = matches.map(function (name) {
+            return sendCmd(addr("/annieData/{device}/scene/{name}", name), info.key + ":" + val);
+          });
+        }
+        Promise.all(promises).then(function () {
+          toast("Set " + info.key + " on " + matches.length + " scene(s)", "success");
+          matches.forEach(function (name) { if (dev.scenes[name]) dev.scenes[name][info.key] = val; });
+          renderSceneTable();
+        });
+      } else {
+        if (act === "delete" && !confirm("Delete all scenes matching '" + pattern + "'?")) return;
+        var template = "/annieData/{device}/scene/{name}/" + act;
+        sendCmd(addr(template, pattern), null).then(function (res) {
+          if (res.status === "ok") toast("Bulk " + act + ": " + pattern, "success");
+        });
+      }
     });
   }());
 
@@ -2291,19 +2452,19 @@
   function applySceneConfig(thenStart) {
     var name = ($("#sceneName").value || "").trim();
     if (!name) { toast("Scene name required", "error"); return; }
-    var period = ($("#scenePeriod").value || "").trim();
-    var mode = ($("#sceneAdrMode").value || "").trim();
-    var ip = ($("#sceneIP").value || "").trim();
-    var port = ($("#scenePort").value || "").trim();
+    var period   = ($("#scenePeriod").value || "").trim();
+    var mode     = ($("#sceneAdrMode").value || "").trim();
+    var ip       = ($("#sceneIP").value || "").trim();
+    var port     = ($("#scenePort").value || "").trim();
     var sceneAdr = ($("#sceneAdr").value || "").trim();
-    var low = ($("#sceneLow").value || "").trim();
-    var high = ($("#sceneHigh").value || "").trim();
+    var low      = ($("#sceneLow").value || "").trim();
+    var high     = ($("#sceneHigh").value || "").trim();
 
     var ovParts = [];
-    if ($("#ovIP").checked) ovParts.push("ip");
+    if ($("#ovIP").checked)   ovParts.push("ip");
     if ($("#ovPort").checked) ovParts.push("port");
-    if ($("#ovAdr").checked) ovParts.push("adr");
-    if ($("#ovLow").checked) ovParts.push("low");
+    if ($("#ovAdr").checked)  ovParts.push("adr");
+    if ($("#ovLow").checked)  ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
 
     function cfgPairS(key, val) {
@@ -2311,23 +2472,21 @@
       return key + ":" + val;
     }
     var cfgParts = [];
-    if (ip) cfgParts.push(cfgPairS("ip", ip));
-    if (port) cfgParts.push(cfgPairS("port", port));
-    if (sceneAdr) cfgParts.push(cfgPairS("adr", sceneAdr));
-    if (low) cfgParts.push(cfgPairS("low", low));
-    if (high) cfgParts.push(cfgPairS("high", high));
+    if (ip)       cfgParts.push(cfgPairS("ip",  ip));
+    if (port)     cfgParts.push(cfgPairS("port", port));
+    if (sceneAdr) cfgParts.push(cfgPairS("adr",  sceneAdr));
+    if (low)      cfgParts.push(cfgPairS("low",  low));
+    if (high)     cfgParts.push(cfgPairS("high", high));
+    if (period)   cfgParts.push("period:" + period);
+    if (mode)     cfgParts.push("adrMode:" + mode);
+    cfgParts.push("override:" + (ovParts.length ? ovParts.join("+") : "none"));
+
     var cfg = cfgParts.join(", ");
+    var startStop = thenStart
+      ? addr("/annieData/{device}/scene/{name}/start", name)
+      : addr("/annieData/{device}/scene/{name}/stop",  name);
 
-    var promises = [];
-    promises.push(sendCmd(addr("/annieData/{device}/scene/{name}", name), cfg || null));
-    if (period) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/period", name), '"' + period + '"'));
-    if (mode) promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/adrMode", name), mode));
-    promises.push(sendCmd(addr("/annieData/{device}/scene/{name}/override", name), ovParts.length ? ovParts.join(", ") : "none"));
-
-    Promise.all(promises).then(function () {
-      var startStop = thenStart
-        ? addr("/annieData/{device}/scene/{name}/start", name)
-        : addr("/annieData/{device}/scene/{name}/stop",  name);
+    sendCmd(addr("/annieData/{device}/scene/{name}", name), cfg).then(function () {
       sendCmd(startStop, null).then(function () {
         toast("Scene " + (thenStart ? "started" : "applied") + ": " + name, "success");
         var dev = getActiveDev();

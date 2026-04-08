@@ -830,6 +830,91 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 /* name */
 .msg-name { font-weight: 500; font-size: 15px; }
 
+/* ── Flat (card-less) message tracker ── */
+/* Remove section-content padding so tracker is flush against tabs */
+.section-content:has(#sec-messages.active) {
+  padding: 0;
+}
+/* Strip the card box from the tracker */
+.msg-tracker-card {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* Restore card spacing for create/edit and other cards below */
+#sec-messages .card:not(.msg-tracker-card) {
+  margin: 12px;
+}
+/* Sticky toolbar (title + col picker) */
+.msg-tracker-card .tbl-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: var(--header-bg);
+  margin-bottom: 0;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+/* Sticky filter bar directly below toolbar */
+.msg-tracker-card .msg-scene-filter {
+  position: sticky;
+  top: 37px;
+  z-index: 10;
+  background: var(--header-bg);
+}
+/* Sticky column headers below filter bar (or toolbar if filter hidden) */
+.msg-tracker-card #msgTable thead th {
+  position: sticky;
+  top: 37px;
+  z-index: 9;
+  background: var(--header-bg);
+}
+.msg-tracker-card .msg-scene-filter ~ #msgTable thead th,
+.msg-tracker-card #msgSceneFilter[style*="flex"] ~ #msgTable thead th {
+  top: 75px;
+}
+
+/* ── Message scene filter bar ── */
+.msg-scene-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 12px 6px;
+  border-bottom: 1px solid var(--border);
+}
+.msg-filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-light);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.msg-filter-chip {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-light);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.msg-filter-chip:hover { border-color: var(--border-focus); color: var(--text-medium); }
+.msg-filter-chip.active {
+  background: var(--accent-dim);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
 /* scene tags */
 .msg-scene-tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .msg-stag {
@@ -2961,6 +3046,7 @@ html.dark .script-ref-content code {
 .bulk-select {
   flex: 0 0 auto;
   width: auto;
+  max-width: 130px;
   padding: 0 0.4rem;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -2972,6 +3058,26 @@ html.dark .script-ref-content code {
   font-size: 0.75rem;
   color: var(--text-light);
   white-space: nowrap;
+}
+.bulk-set-input {
+  display: none;
+  flex: 0 0 150px;
+  height: 30px !important;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-focus);
+  border-radius: 4px;
+  font-family: 'Martian Mono', monospace;
+  font-size: 0.8rem;
+  background: var(--bg-input);
+  color: var(--text-dark);
+}
+.bulk-set-input:focus { border-color: var(--accent); outline: none; }
+/* Row highlighting when bulk pattern matches */
+.msg-data-row.bulk-match,
+.scene-data-row.bulk-match {
+  background: var(--accent-dim) !important;
+  box-shadow: inset 3px 0 0 var(--border-focus);
 }
 /* Bulk row: all elements same height */
 .bulk-action-row .bulk-input,

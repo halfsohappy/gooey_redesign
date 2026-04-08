@@ -1675,20 +1675,65 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 if (csv.exist.low)  { p->bounds[0] = csv.bounds[0];     p->exist.low  = true; }
                 if (csv.exist.high) { p->bounds[1] = csv.bounds[1];     p->exist.high = true; }
 
-                // Extract period from config string (from_config_str doesn't handle it).
+                // Extract period / adrMode / override from config string.
                 {
                     String cfg_lower = String(arg);
                     cfg_lower.toLowerCase();
+
+                    // period:
                     int pi = cfg_lower.indexOf("period:");
                     if (pi < 0) pi = cfg_lower.indexOf("period-");
                     if (pi >= 0) {
                         int vstart = pi + 7;
                         int vend = cfg_lower.indexOf(',', vstart);
-                        String pval = (vend < 0) ? String(arg).substring(vstart)
-                                                 : String(arg).substring(vstart, vend);
+                        String pval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                 : cfg_lower.substring(vstart, vend);
                         pval.trim();
                         int pms = pval.toInt();
                         if (pms > 0) p->send_period_ms = clamp_scene_period_ms(pms);
+                    }
+
+                    // adrMode:
+                    int ai = cfg_lower.indexOf("adrmode:");
+                    if (ai >= 0) {
+                        int vstart = ai + 8;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String mval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                 : cfg_lower.substring(vstart, vend);
+                        mval.trim();
+                        p->address_mode = address_mode_from_string(mval);
+                    }
+
+                    // override:  field names separated by + (e.g. "ip+port+adr")
+                    int oi = cfg_lower.indexOf("override:");
+                    if (oi >= 0) {
+                        int vstart = oi + 9;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String oval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                 : cfg_lower.substring(vstart, vend);
+                        oval.trim();
+                        if (oval == "all") {
+                            p->overrides.ip = p->overrides.port = p->overrides.adr =
+                            p->overrides.low = p->overrides.high = true;
+                        } else if (oval == "none" || oval == "clear") {
+                            p->overrides.ip = p->overrides.port = p->overrides.adr =
+                            p->overrides.low = p->overrides.high = false;
+                        } else {
+                            p->overrides = OverrideFlags{};
+                            int idx = 0;
+                            while (idx <= (int)oval.length()) {
+                                int sep = oval.indexOf('+', idx);
+                                if (sep < 0) sep = oval.length();
+                                String f = oval.substring(idx, sep);
+                                f.trim();
+                                if      (f == "ip")                          p->overrides.ip   = true;
+                                else if (f == "port")                        p->overrides.port = true;
+                                else if (f == "adr" || f == "addr")          p->overrides.adr  = true;
+                                else if (f == "low"  || f == "lo" || f == "min") p->overrides.low  = true;
+                                else if (f == "high" || f == "hi" || f == "max") p->overrides.high = true;
+                                idx = sep + 1;
+                            }
+                        }
                     }
                 }
             }

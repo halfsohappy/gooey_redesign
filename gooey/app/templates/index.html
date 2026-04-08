@@ -154,7 +154,7 @@
             <button id="btnOnboardTour" class="btn btn-primary welcome-tour-btn">Take a tour!</button>
           </div>
 
-          <div class="card">
+          <div class="card msg-tracker-card">
             <div class="tbl-toolbar">
               <span class="tbl-toolbar-label">Message Tracker</span>
               <div class="col-picker-wrap" style="position:relative">
@@ -167,7 +167,10 @@
                 </div>
               </div>
             </div>
-            <p class="hint-text">Click the device tab → Query to populate from device, or add manually below. Select a row to edit.</p>
+            <div id="msgSceneFilter" class="msg-scene-filter" style="display:none">
+              <span class="msg-filter-label">Scene:</span>
+              <button class="msg-filter-chip msg-filter-all active" data-filter="all">All</button>
+            </div>
               <table id="msgTable">
                 <colgroup>
                   <col class="msg-col-name">
@@ -193,14 +196,35 @@
               </table>
             <!-- Bulk action row for pattern matching -->
             <div class="bulk-action-row" id="msgBulkRow">
-              <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
+              <label class="bulk-label">Bulk Action
+                <span class="tooltip-wrap">
+                  <span class="help-icon">?</span>
+                  <span class="tooltip-body tooltip-body-wide">
+                    Match multiple messages by name using OSC wildcards:<br>
+                    <strong>*</strong> — any sequence of characters (e.g. <em>accel*</em>)<br>
+                    <strong>?</strong> — any single character (e.g. <em>gyro?</em>)<br>
+                    <strong>[abc]</strong> — any one character in the set (e.g. <em>ch[ABC]</em>)<br>
+                    <strong>[a-z]</strong> — any one character in the range (e.g. <em>ch[0-9]</em>)<br>
+                    <strong>{foo,bar}</strong> — either name (e.g. <em>{accelX,gyroY}</em>)
+                  </span>
+                </span>
+              </label>
               <input type="text" id="msgBulkPattern" class="bulk-input" placeholder="Pattern, e.g. accel* or {accelX,gyroY}">
               <select id="msgBulkAction" class="bulk-select">
-                <option value="enable">Enable</option>
-                <option value="disable">Disable</option>
-                <option value="info">Info</option>
-                <option value="delete">Delete</option>
+                <optgroup label="Actions">
+                  <option value="enable">Enable</option>
+                  <option value="disable">Disable</option>
+                  <option value="info">Resync</option>
+                  <option value="delete">Delete</option>
+                </optgroup>
+                <optgroup label="Set Field">
+                  <option value="set-ip">Set IP</option>
+                  <option value="set-port">Set Port</option>
+                  <option value="set-adr">Set Address</option>
+                  <option value="set-scene">Set Scene</option>
+                </optgroup>
               </select>
+              <input type="text" class="bulk-set-input" id="msgBulkSetVal" placeholder="value">
               <button class="btn btn-sm btn-primary" id="btnMsgBulk">Apply</button>
               <span class="bulk-hint" id="msgBulkHint"></span>
             </div>
@@ -410,14 +434,35 @@
               </table>
             <!-- Bulk action row for pattern matching -->
             <div class="bulk-action-row" id="sceneBulkRow">
-              <label class="bulk-label" title="OSC patterns: * ? [abc] [a-z] {foo,bar}">Bulk Action</label>
+              <label class="bulk-label">Bulk Action
+                <span class="tooltip-wrap">
+                  <span class="help-icon">?</span>
+                  <span class="tooltip-body tooltip-body-wide">
+                    Match multiple scenes by name using OSC wildcards:<br>
+                    <strong>*</strong> — any sequence of characters (e.g. <em>act*</em>)<br>
+                    <strong>?</strong> — any single character (e.g. <em>scene?</em>)<br>
+                    <strong>[abc]</strong> — any one character in the set (e.g. <em>sc[ABC]</em>)<br>
+                    <strong>[a-z]</strong> — any one character in the range (e.g. <em>sc[0-9]</em>)<br>
+                    <strong>{foo,bar}</strong> — either name (e.g. <em>{intro,outro}</em>)
+                  </span>
+                </span>
+              </label>
               <input type="text" id="sceneBulkPattern" class="bulk-input" placeholder="Pattern, e.g. sens* or {mix,fx}">
               <select id="sceneBulkAction" class="bulk-select">
-                <option value="start">Start</option>
-                <option value="stop">Stop</option>
-                <option value="info">Info</option>
-                <option value="delete">Delete</option>
+                <optgroup label="Actions">
+                  <option value="start">Start</option>
+                  <option value="stop">Stop</option>
+                  <option value="info">Resync</option>
+                  <option value="delete">Delete</option>
+                </optgroup>
+                <optgroup label="Set Field">
+                  <option value="set-ip">Set IP</option>
+                  <option value="set-port">Set Port</option>
+                  <option value="set-adr">Set Address</option>
+                  <option value="set-period">Set Period</option>
+                </optgroup>
               </select>
+              <input type="text" class="bulk-set-input" id="sceneBulkSetVal" placeholder="value">
               <button class="btn btn-sm btn-primary" id="btnSceneBulk">Apply</button>
               <span class="bulk-hint" id="sceneBulkHint"></span>
             </div>
