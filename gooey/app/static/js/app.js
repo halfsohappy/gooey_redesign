@@ -2721,16 +2721,11 @@
     });
   });
 
-  /* Euler Tare */
-  $("#btnTareSet").addEventListener("click", function () {
+  /* IMU Tare (device dropdown) */
+  $("#devDdImuTare").addEventListener("click", function () {
+    closeDevDropdown();
     sendCmd(addr("/annieData/{device}/tare"), null).then(function (res) {
-      if (res.status === "ok") toast("Tare set", "success");
-    });
-  });
-
-  $("#btnTareReset").addEventListener("click", function () {
-    sendCmd(addr("/annieData/{device}/tare/reset"), null).then(function (res) {
-      if (res.status === "ok") toast("Tare reset", "success");
+      if (res.status === "ok") toast("IMU tare set", "success");
     });
   });
 

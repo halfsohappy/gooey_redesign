@@ -119,6 +119,8 @@
     <button class="dev-dropdown-item" id="devDdVerbose">◉ Verbose Mode</button>
     <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
     <div class="dev-dropdown-sep"></div>
+    <button class="dev-dropdown-item" id="devDdImuTare" title="Zero the Euler angle output to the device's current orientation">⊕ IMU Tare</button>
+    <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">× NVS Clear</button>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
   </div>
@@ -869,14 +871,6 @@
             <div class="active-list" id="activeBridges"></div>
           </div>
 
-          <div class="card" data-card-id="euler-tare">
-            <h2>Euler Tare</h2>
-            <p class="hint-text">Zero the Euler angle output relative to the device's current orientation.</p>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnTareSet" title="Capture current orientation as the Euler zero reference">Set Tare</button>
-              <button class="btn btn-stop" id="btnTareReset" title="Clear the tare and return to absolute world-frame Euler">Reset Tare</button>
-            </div>
-          </div>
 
 
           <div class="card qr-card" data-card-id="remote-qr">
