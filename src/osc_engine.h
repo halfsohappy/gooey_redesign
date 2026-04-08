@@ -285,18 +285,18 @@ void scene_send_task(void* param) {
         }
 
         // Rising / Falling edge detection at scene level.
-        // gate_lo = trigger threshold, gate_hi = minimum slew (delta).
+        // gate_lo = trigger threshold, gate_hi = minimum delta.
         // Rising:  fire once when value crosses from below trigger to above trigger,
-        //          provided |delta| > slew.
+        //          provided |dchange| > set delta.
         // Falling: fire once when value crosses from above trigger to below trigger,
-        //          provided |delta| > slew.
+        //          provided |dchange| > set delta.
         if (scene->gate_mode == GATE_RISING || scene->gate_mode == GATE_FALLING) {
             // Read current gate source value.
             float cur_val;
             if (!read_gate_value(scene->gate_source, cur_val)) continue;
 
             float trigger = isnan(scene->gate_lo) ? 0.5f : scene->gate_lo;
-            float slew    = isnan(scene->gate_hi) ? 0.0f : scene->gate_hi;
+            float delta    = isnan(scene->gate_hi) ? 0.0f : scene->gate_hi;
 
             bool cur_above = (cur_val >= trigger);
 
@@ -307,7 +307,7 @@ void scene_send_task(void* param) {
                 continue;
             }
 
-            float delta = fabsf(cur_val - scene->_gate_prev_val);
+            float dchange = fabsf(cur_val - scene->_gate_prev_val);
             bool was_above = scene->_gate_was_above;
 
             // Update state for next iteration.
@@ -315,10 +315,10 @@ void scene_send_task(void* param) {
             scene->_gate_was_above = cur_above;
 
             bool fire = false;
-            if (scene->gate_mode == GATE_RISING  && !was_above && cur_above && delta >= slew) {
+            if (scene->gate_mode == GATE_RISING  && !was_above && cur_above && dchange >= delta) {
                 fire = true;
             }
-            if (scene->gate_mode == GATE_FALLING && was_above && !cur_above && delta >= slew) {
+            if (scene->gate_mode == GATE_FALLING && was_above && !cur_above && dchange >= delta) {
                 fire = true;
             }
             if (!fire) continue;
