@@ -216,16 +216,32 @@ static inline float resolve_high(const OscMessage& m, const OscScene& p) {
 }
 
 // ---------------------------------------------------------------------------
-// Gate evaluation helper — shared by scene-level and message-level checks
+// Gate evaluation helpers — shared by scene-level and message-level checks
 // ---------------------------------------------------------------------------
+
+/// Read the current value of a gate source.  Returns false if the source
+/// cannot be resolved (unknown stream name, no value_ptr, etc.).
+static inline bool read_gate_value(const String& gate_source, float& out) {
+    if (gate_source.startsWith("msg:")) {
+        // Use the message's current data-stream reading mapped to its bounds.
+        OscMessage* gm = osc_registry().find_msg(gate_source.substring(4));
+        if (!gm || !gm->value_ptr) return false;
+        float raw = *(gm->value_ptr);                        // [0, 1]
+        out = gm->bounds[0] + raw * (gm->bounds[1] - gm->bounds[0]);
+        return true;
+    }
+    int gi = data_stream_index_from_name(gate_source);
+    if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
+    out = data_streams[gi];
+    return true;
+}
 
 static inline bool eval_gate_active(const String& gate_source, float gate_lo, float gate_hi) {
     if (gate_source.startsWith("ori:")) {
         return ori_tracker().is_active(gate_source.substring(4));
     }
-    int gi = data_stream_index_from_name(gate_source);
-    if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
-    float gv = data_streams[gi];
+    float gv;
+    if (!read_gate_value(gate_source, gv)) return false;
     bool has_lo = !isnan(gate_lo), has_hi = !isnan(gate_hi);
     if (has_lo && has_hi) return (gv >= gate_lo && gv <= gate_hi);
     if (has_lo)           return (gv >= gate_lo);
@@ -268,6 +284,47 @@ void scene_send_task(void* param) {
             bool sg_active = eval_gate_active(scene->gate_source, scene->gate_lo, scene->gate_hi);
             if (scene->gate_mode == GATE_ONLY && !sg_active) continue;
             if (scene->gate_mode == GATE_NOT  &&  sg_active) continue;
+        }
+
+        // Rising / Falling edge detection at scene level.
+        // gate_lo = trigger threshold, gate_hi = minimum delta.
+        // Rising:  fire once when value crosses from below trigger to above trigger,
+        //          provided |dchange| > set delta.
+        // Falling: fire once when value crosses from above trigger to below trigger,
+        //          provided |dchange| > set delta.
+        if (scene->gate_mode == GATE_RISING || scene->gate_mode == GATE_FALLING) {
+            // Read current gate source value.
+            float cur_val;
+            if (!read_gate_value(scene->gate_source, cur_val)) continue;
+
+            float trigger = isnan(scene->gate_lo) ? 0.5f : scene->gate_lo;
+            float delta    = isnan(scene->gate_hi) ? 0.0f : scene->gate_hi;
+
+            bool cur_above = (cur_val >= trigger);
+
+            // On first sample, just record state; don't fire.
+            if (isnan(scene->_gate_prev_val)) {
+                scene->_gate_prev_val  = cur_val;
+                scene->_gate_was_above = cur_above;
+                continue;
+            }
+
+            float dchange = fabsf(cur_val - scene->_gate_prev_val);
+            bool was_above = scene->_gate_was_above;
+
+            // Update state for next iteration.
+            scene->_gate_prev_val  = cur_val;
+            scene->_gate_was_above = cur_above;
+
+            bool fire = false;
+            if (scene->gate_mode == GATE_RISING  && !was_above && cur_above && dchange >= delta) {
+                fire = true;
+            }
+            if (scene->gate_mode == GATE_FALLING && was_above && !cur_above && dchange >= delta) {
+                fire = true;
+            }
+            if (!fire) continue;
+            // Edge detected — fall through to send all messages once.
         }
 
         reg.lock();

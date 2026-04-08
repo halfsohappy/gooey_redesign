@@ -135,17 +135,25 @@ public:
     //   GATE_ONLY (1): send only when gate is active
     //   GATE_NOT  (2): send only when gate is NOT active
     //   GATE_TOGGLE (3): always send; value = high when active, low when not
+    //   GATE_RISING  (4): scene-level — fire once on low→high transition
+    //   GATE_FALLING (5): scene-level — fire once on high→low transition
     //
     // gate_lo / gate_hi: thresholds for data-stream gates (NaN = unset).
-    //   Both set → active when value is in [lo, hi]
-    //   Only lo  → active when value >= lo  ("greater than")
-    //   Only hi  → active when value <= hi  ("less than")
-    //   Neither  → active when value >= 0.5
+    //   For ONLY/NOT/TOGGLE:
+    //     Both set → active when value is in [lo, hi]
+    //     Only lo  → active when value >= lo  ("greater than")
+    //     Only hi  → active when value <= hi  ("less than")
+    //     Neither  → active when value >= 0.5
+    //   For RISING/FALLING:
+    //     gate_lo → trigger threshold (value must cross this level)
+    //     gate_hi → delta minimum (delta between samples must exceed this)
 
-#define GATE_NONE   0
-#define GATE_ONLY   1
-#define GATE_NOT    2
-#define GATE_TOGGLE 3
+#define GATE_NONE    0
+#define GATE_ONLY    1
+#define GATE_NOT     2
+#define GATE_TOGGLE  3
+#define GATE_RISING  4
+#define GATE_FALLING 5
 
     String        gate_source;
     uint8_t       gate_mode = GATE_NONE;

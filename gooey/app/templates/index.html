@@ -489,8 +489,10 @@
                   <label for="sceneGateMode">Mode</label>
                   <select id="sceneGateMode">
                     <option value="">—</option>
-                    <option value="only">ONLY</option>
-                    <option value="not">NOT</option>
+                    <option value="only">Only</option>
+                    <option value="not">Not</option>
+                    <option value="rising">Rising</option>
+                    <option value="falling">Falling</option>
                   </select>
                 </div>
               </div>
@@ -617,6 +619,8 @@
                 <div class="oc-row"><span class="oc-name">Only</span><span class="oc-desc">Message sends only when the gate condition is active</span></div>
                 <div class="oc-row"><span class="oc-name">Not</span><span class="oc-desc">Message sends only when the gate condition is NOT active</span></div>
                 <div class="oc-row"><span class="oc-name">Toggle</span><span class="oc-desc">Sends the high value when active, low value when not</span></div>
+                <div class="oc-row"><span class="oc-name">Rising</span><span class="oc-desc">Scene gate — fires once when sensor crosses above the trigger threshold (non-ori only). "Trigger" = threshold, "Delta" = minimum delta.</span></div>
+                <div class="oc-row"><span class="oc-name">Falling</span><span class="oc-desc">Scene gate — fires once when sensor crosses below the trigger threshold (non-ori only). "Trigger" = threshold, "Delta" = minimum delta.</span></div>
               </div>
             </div>
           </div>
@@ -735,6 +739,9 @@
             </div>
             <div class="cb-row">
               <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate" style="transform: scale(1.25);" >  Show Gate Controls for messages</label>
+            </div>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="Allow message scaled values to be used as gate sources (msg:name syntax)"><input type="checkbox" id="chkMsgGateSources" style="transform: scale(1.25);">  Allow message values as gate sources</label>
             </div>
             <div class="cb-row">
                 <label class="cb-label cb-label-lg" title="Show bulk pattern-matching action rows at the bottom of the Message Tracker and Scene Tracker tables"><input type="checkbox" id="chkShowBulkActions" style="transform: scale(1.25);">  Show Bulk Actions in message and scene trackers</label>

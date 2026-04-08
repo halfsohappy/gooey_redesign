@@ -159,7 +159,11 @@ static inline String scene_to_save_string(const OscScene& p) {
         if (s.length()) s += ", ";
         s += "gate_src:" + p.gate_source;
         s += ", gate_mode:";
-        s += (p.gate_mode == GATE_ONLY) ? "only" : "not";
+        s += (p.gate_mode == GATE_ONLY) ? "only"
+           : (p.gate_mode == GATE_NOT)  ? "not"
+           : (p.gate_mode == GATE_RISING)  ? "rising"
+           : (p.gate_mode == GATE_FALLING) ? "falling"
+           : "unknown";
         if (!isnan(p.gate_lo)) { s += ", gate_lo:" + String(p.gate_lo, 4); }
         if (!isnan(p.gate_hi)) { s += ", gate_hi:" + String(p.gate_hi, 4); }
     }
@@ -228,6 +232,8 @@ static inline void scene_from_save_string(OscScene* p, const String& saved) {
             String lv = value; lv.toLowerCase();
             if (lv == "only") p->gate_mode = GATE_ONLY;
             else if (lv == "not") p->gate_mode = GATE_NOT;
+            else if (lv == "rising") { p->gate_mode = GATE_RISING; p->_gate_prev_val = NAN; }
+            else if (lv == "falling") { p->gate_mode = GATE_FALLING; p->_gate_prev_val = NAN; }
             else p->gate_mode = GATE_NONE;
         } else if (key == "gate_lo") {
             p->gate_lo = value.toFloat();
