@@ -290,6 +290,34 @@ void setup() {
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
                     data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
+
+                    // ── Swing-twist angular velocity (finite difference) ──────
+                    // Scale: ±360 deg/s maps to [0,1] with 0.5 = stationary.
+                    static float  _prev_twist_deg = NAN, _prev_tilt_deg = NAN, _prev_azi_deg = NAN;
+                    static unsigned long _prev_vel_ms = 0;
+                    unsigned long _now_vel = millis();
+                    if (!isnan(_prev_twist_deg) && _now_vel > _prev_vel_ms) {
+                        float dt = (_now_vel - _prev_vel_ms) * 0.001f;
+                        float dtwist = twist_deg - _prev_twist_deg;
+                        if (dtwist >  180.0f) dtwist -= 360.0f;
+                        if (dtwist < -180.0f) dtwist += 360.0f;
+                        float dazi = heading_deg - _prev_azi_deg;
+                        if (dazi >  180.0f) dazi -= 360.0f;
+                        if (dazi < -180.0f) dazi += 360.0f;
+                        float dtilt = tilt_deg - _prev_tilt_deg;
+                        const float VEL_SCALE = 360.0f;
+                        data_streams[TWIST_VEL] = constrain((dtwist / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                        data_streams[AZI_VEL]   = constrain((dazi   / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                        data_streams[TILT_VEL]  = constrain((dtilt  / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    } else {
+                        data_streams[TWIST_VEL] = 0.5f;
+                        data_streams[AZI_VEL]   = 0.5f;
+                        data_streams[TILT_VEL]  = 0.5f;
+                    }
+                    _prev_twist_deg = twist_deg;
+                    _prev_tilt_deg  = tilt_deg;
+                    _prev_azi_deg   = heading_deg;
+                    _prev_vel_ms    = _now_vel;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
@@ -528,6 +556,34 @@ void setup() {
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
                     data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
+
+                    // ── Swing-twist angular velocity (finite difference) ──────
+                    // Scale: ±360 deg/s maps to [0,1] with 0.5 = stationary.
+                    static float  _prev_twist_deg = NAN, _prev_tilt_deg = NAN, _prev_azi_deg = NAN;
+                    static unsigned long _prev_vel_ms = 0;
+                    unsigned long _now_vel = millis();
+                    if (!isnan(_prev_twist_deg) && _now_vel > _prev_vel_ms) {
+                        float dt = (_now_vel - _prev_vel_ms) * 0.001f;
+                        float dtwist = twist_deg - _prev_twist_deg;
+                        if (dtwist >  180.0f) dtwist -= 360.0f;
+                        if (dtwist < -180.0f) dtwist += 360.0f;
+                        float dazi = heading_deg - _prev_azi_deg;
+                        if (dazi >  180.0f) dazi -= 360.0f;
+                        if (dazi < -180.0f) dazi += 360.0f;
+                        float dtilt = tilt_deg - _prev_tilt_deg;
+                        const float VEL_SCALE = 360.0f;
+                        data_streams[TWIST_VEL] = constrain((dtwist / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                        data_streams[AZI_VEL]   = constrain((dazi   / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                        data_streams[TILT_VEL]  = constrain((dtilt  / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    } else {
+                        data_streams[TWIST_VEL] = 0.5f;
+                        data_streams[AZI_VEL]   = 0.5f;
+                        data_streams[TILT_VEL]  = 0.5f;
+                    }
+                    _prev_twist_deg = twist_deg;
+                    _prev_tilt_deg  = tilt_deg;
+                    _prev_azi_deg   = heading_deg;
+                    _prev_vel_ms    = _now_vel;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────

@@ -26,7 +26,7 @@
 // Stream count and index constants
 // ---------------------------------------------------------------------------
 
-#define NUM_DATA_STREAMS 29
+#define NUM_DATA_STREAMS 32
 
 #define ACCELX       0
 #define ACCELY       1
@@ -57,6 +57,9 @@
 #define LIMB_LAT    26  // swing-twist accel: lateral (perpendicular horizontal)
 #define LIMB_VERT   27  // swing-twist accel: vertical (up/down)
 #define TWITCH      28  // swing-twist accel: magnitude (overall limb movement)
+#define TWIST_VEL   29  // swing-twist angular velocity: wrist twist rate (deg/s, centered at 0.5)
+#define AZI_VEL     30  // swing-twist angular velocity: azimuth rate
+#define TILT_VEL    31  // swing-twist angular velocity: tilt rate
 
 // The global data array.  Elements 0–15 are updated continuously by the sensor
 // task.  Elements 16–17 (CONST_ZERO / CONST_ONE) are fixed at 0.0 / 1.0 and
@@ -64,6 +67,8 @@
 // Elements 18–21 (QUAT_I/J/K/R) hold the raw (untared) quaternion each cycle.
 // Elements 22–24 (TWIST/AZIMUTH/TILT) are swing-twist decomposition outputs.
 // Elements 25–28 (LIMB_FWD/LAT/VERT + TWITCH) are swing-twist frame accelerations.
+// Elements 29–31 (TWIST_VEL/AZI_VEL/TILT_VEL) are finite-difference angular velocities
+// of the swing-twist angles, scaled to [0,1] with ±360 deg/s → [0,1] (0.5 = stationary).
 // Declared volatile because the sensor task (writer) and scene send tasks
 // (readers) run concurrently without a mutex protecting individual element access.
 volatile float data_streams[NUM_DATA_STREAMS];
@@ -104,6 +109,9 @@ static inline String data_stream_name(int index) {
         case LIMB_LAT:     return "limbLat";
         case LIMB_VERT:    return "limbVert";
         case TWITCH:       return "twitch";
+        case TWIST_VEL:    return "twistVel";
+        case AZI_VEL:      return "aziVel";
+        case TILT_VEL:     return "tiltVel";
         default:           return "unknown";
     }
 }
@@ -143,6 +151,9 @@ static inline int data_stream_index_from_name(const String& value_name) {
     if (key == "limblat"  || key == "limb_lat"  || key == "armlat")  return LIMB_LAT;
     if (key == "limbvert" || key == "limb_vert" || key == "armvert") return LIMB_VERT;
     if (key == "twitch" || key == "armlength" || key == "armlen")    return TWITCH;
+    if (key == "twistvel" || key == "twist_vel" || key == "twistrate") return TWIST_VEL;
+    if (key == "azivel"   || key == "azi_vel"   || key == "azirate")   return AZI_VEL;
+    if (key == "tiltvel"  || key == "tilt_vel"  || key == "tiltrate")  return TILT_VEL;
     return -1;
 }
 
@@ -208,6 +219,11 @@ static inline void update_simulated_data() {
     data_streams[LIMB_LAT]   = sinf(2.0f * PI * 0.65f * t) * 0.5f + 0.5f;  // 0.65 Hz
     data_streams[LIMB_VERT]  = sinf(2.0f * PI * 0.85f * t) * 0.5f + 0.5f;  // 0.85 Hz
     data_streams[TWITCH]     = fabsf(sinf(2.0f * PI * 0.4f * t));           // 0.4 Hz
+
+    // Swing-twist angular velocity channels (cosine = derivative of sine * 2πf)
+    data_streams[TWIST_VEL] = cosf(2.0f * PI * 0.25f * t) * 0.5f + 0.5f;  // derivative of TWIST
+    data_streams[AZI_VEL]   = cosf(2.0f * PI * 0.15f * t) * 0.5f + 0.5f;  // derivative of AZIMUTH
+    data_streams[TILT_VEL]  = cosf(2.0f * PI * 0.2f  * t) * 0.5f + 0.5f;  // derivative of TILT
 }
 
 #endif // !AB7_BUILD

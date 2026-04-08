@@ -617,6 +617,7 @@ THEATER_GWD_PRESETS = {
         "baro",
         "roll", "pitch", "yaw",
         "twist", "azi", "tilt",
+        "twistVel", "aziVel", "tiltVel",
         "limbFwd", "limbLat", "limbVert", "twitch",
     ],
     "commands": {
@@ -947,6 +948,9 @@ THEATER_GWD_PRESETS = {
         "twist": "Twist — wrist rotation around the arm axis (swing-twist, no gimbal lock).",
         "azi": "Azimuth — horizontal pointing direction (swing-twist).",
         "tilt": "Tilt — vertical angle above/below horizon (swing-twist).",
+        "twistVel": "Twist rate — angular velocity of wrist twist (±360 deg/s → [0,1], 0.5=still).",
+        "aziVel": "Azimuth rate — angular velocity of horizontal direction (±360 deg/s → [0,1]).",
+        "tiltVel": "Tilt rate — angular velocity of vertical angle (±360 deg/s → [0,1]).",
         "limbFwd": "Acceleration along limb direction (swing-twist frame).",
         "limbLat": "Acceleration lateral to limb (swing-twist frame).",
         "limbVert": "Acceleration vertical (swing-twist frame).",

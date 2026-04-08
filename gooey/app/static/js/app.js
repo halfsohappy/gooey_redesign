@@ -1148,12 +1148,15 @@
         { value: "azi", label: "Azimuth (Swing-Twist)", hint: "Horizontal pointing direction" },
         { value: "tilt", label: "Tilt (Swing-Twist)", hint: "Vertical angle above/below horizon" }
       ]},
-    { id: "gyroscope", label: "Gyroscope", hint: "Rotational velocity around each axis",
+    { id: "gyroscope", label: "Gyroscope", hint: "Rotational velocity — raw sensor axes and swing-twist angle rates",
       sensors: [
         { value: "gyroX", label: "Raw X", hint: "Rolling" },
         { value: "gyroY", label: "Raw Y", hint: "Pitching" },
         { value: "gyroZ", label: "Raw Z", hint: "Spinning" },
-        { value: "gyroLength", label: "Magnitude", hint: "Overall rotation speed" }
+        { value: "gyroLength", label: "Magnitude", hint: "Overall rotation speed" },
+        { value: "twistVel", label: "Twist Rate", hint: "Angular velocity of wrist twist (±360 deg/s)" },
+        { value: "aziVel",   label: "Azimuth Rate", hint: "Angular velocity of horizontal direction (±360 deg/s)" },
+        { value: "tiltVel",  label: "Tilt Rate", hint: "Angular velocity of vertical angle (±360 deg/s)" }
       ]},
     { id: "barometer", label: "Barometer", hint: "Barometric pressure sensor",
       sensors: [
@@ -3231,7 +3234,7 @@ $("#btnSceneMove").addEventListener("click", function () {
       var kwCategories = [
         { title: "Sensors \u2014 Acceleration", keys: ["accelX","accelY","accelZ","accelLength","gaccelX","gaccelY","gaccelZ","gaccelLength","limbFwd","limbLat","limbVert","twitch"] },
         { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","azi","tilt","quatI","quatJ","quatK","quatR"] },
-        { title: "Sensors \u2014 Gyroscope", keys: ["gyroX","gyroY","gyroZ","gyroLength"] },
+        { title: "Sensors \u2014 Gyroscope", keys: ["gyroX","gyroY","gyroZ","gyroLength","twistVel","aziVel","tiltVel"] },
         { title: "Sensors \u2014 Barometer", keys: ["baro"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
         { title: "Message Commands", keys: ["msg","enable","disable","delete","info","save/msg","addMsg","removeMsg","clone","rename","move","direct"] },
