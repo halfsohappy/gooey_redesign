@@ -11,7 +11,6 @@
 // ---------------------------------------------------------------------------
 
 Adafruit_BMP5xx bmp;
-SFE_MMC5983MA mmc;
 Preferences preferences;
 SlimeIMU slime;
 
@@ -87,30 +86,6 @@ void begin_imu() {
 }
 
 // ---------------------------------------------------------------------------
-// Magnetometer initialisation (MMC5983MA, separate SPI device)
-// ---------------------------------------------------------------------------
-
-void begin_mag() {
-    if (!mmc.begin(CS_MAG, SPI)) {
-        Serial.println(F("[MAG] MMC5983MA failed to initialise over SPI (CS=39)!"));
-        Serial.println(F("[MAG] Continuing without magnetometer."));
-        return;
-    }
-    // Soft reset to ensure clean state.
-    mmc.softReset();
-    delay(20);
-
-    // Enable automatic set/reset for offset cancellation.
-    mmc.enableAutomaticSetReset();
-
-    // Set continuous measurement mode — ~100 Hz bandwidth.
-    mmc.setContinuousModeFrequency(100);
-    mmc.enableContinuousMode();
-
-    Serial.println(F("[MAG] MMC5983MA initialised via SPI (CS=39)."));
-}
-
-// ---------------------------------------------------------------------------
 // Data access helpers
 // ---------------------------------------------------------------------------
 
@@ -156,22 +131,6 @@ float read_baro_normalized() {
     float alt = bmp.readAltitude(SEALEVELPRESSURE_HPA);
     float delta = alt - baro_baseline_alt;
     return constrain((delta + BARO_RANGE_M) / (2.0f * BARO_RANGE_M), 0.0f, 1.0f);
-}
-
-// ---------------------------------------------------------------------------
-// Magnetometer — read and normalise to [0, 1]
-// ---------------------------------------------------------------------------
-//
-// The MMC5983MA returns 18-bit unsigned values (0 – 131071).
-// Normalise by dividing by 131071.0 to produce [0, 1].
-
-void mag_get_xyz(float &mx, float &my, float &mz) {
-    uint32_t raw_x = 0, raw_y = 0, raw_z = 0;
-    mmc.getMeasurementXYZ(&raw_x, &raw_y, &raw_z);
-    static constexpr float MAG_FULL_SCALE = 131071.0f;
-    mx = (float)raw_x / MAG_FULL_SCALE;
-    my = (float)raw_y / MAG_FULL_SCALE;
-    mz = (float)raw_z / MAG_FULL_SCALE;
 }
 
 // ---------------------------------------------------------------------------

@@ -106,10 +106,8 @@ void setup() {
     Serial.println(F("[BOOT] Initialising barometer (BMP5xx)..."));
     begin_baro(CS_BAR);
 
-    Serial.println(F("[BOOT] Initialising magnetometer (MMC5983MA) via SPI..."));
-    begin_mag();
-
     Serial.println(F("[BOOT] Initialising IMU (ISM330DHCX) via SlimeIMU (SPI)..."));
+    Serial.println(F("[BOOT] SlimeIMU will auto-detect MMC5983MA magnetometer via sensor hub."));
     begin_imu();
 #endif
 

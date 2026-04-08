@@ -4,18 +4,19 @@
 //
 // The Bart board carries an ESP32-S3 with:
 //   - ISM330DHCX IMU (6DoF accel+gyro) over SPI — VQF fusion via SlimeIMU
-//   - MMC5983MA magnetometer over SPI (separate CS)
+//   - MMC5983MA magnetometer via ISM330DHCX sensor hub — auto-detected by SlimeIMU
 //   - BMP5xx barometer over SPI
 //
 // IMU processing is handled by the SlimeIMU library (slime_swipe), which
-// provides VQF sensor fusion, automatic sensor detection, and calibration.
+// provides VQF sensor fusion, automatic sensor detection, calibration, and
+// automatic magnetometer detection (MMC5983MA via the ISM330DHCX sensor hub).
 //
 // SPI bus wiring (GPIO numbers):
 //   SCK  = 36
 //   SDI  = 35  (MOSI)
 //   SDO  = 37  (MISO)
 //   CS_IMU = 42
-//   CS_MAG = 39
+//   CS_MAG = 39  (directly wired; also reachable via ISM330DHCX sensor hub)
 //   CS_BAR = 48
 // =============================================================================
 
@@ -26,7 +27,6 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include "Adafruit_BMP5xx.h"
-#include <SparkFun_MMC5983MA_Arduino_Library.h>
 #include <SlimeIMU.h>
 #include <FastLED.h>
 #include <Preferences.h>
@@ -62,7 +62,6 @@ static constexpr int CC_PWM2 = 10;
 
 extern Preferences preferences;
 extern Adafruit_BMP5xx bmp;
-extern SFE_MMC5983MA mmc;
 extern SlimeIMU slime;
 
 /// Baseline altitude (metres) captured at boot for relative baro normalisation.
@@ -75,7 +74,6 @@ extern float baro_baseline_alt;
 void begin_pins(bool b13, bool b46, bool cen1, bool cen2);
 void begin_baro(uint16_t BCS);
 void begin_imu();
-void begin_mag();
 
 /// Poll the IMU; returns true if fresh data was read.
 bool imu_data_available();
@@ -96,9 +94,5 @@ void quat_to_euler(float qi, float qj, float qk, float qr,
 /// Read barometer and return altitude normalised to [0, 1].
 /// Uses baro_baseline_alt as the centre point; ±BARO_RANGE_M maps to [0, 1].
 float read_baro_normalized();
-
-/// Read magnetometer XYZ into the provided references.
-/// Values are normalised to [0, 1] (raw 18-bit unsigned / 131071.0).
-void mag_get_xyz(float &mx, float &my, float &mz);
 
 #endif
