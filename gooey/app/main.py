@@ -616,7 +616,7 @@ THEATER_GWD_PRESETS = {
         "gyroX", "gyroY", "gyroZ", "gyroLength",
         "baro",
         "roll", "pitch", "yaw",
-        "twist", "heading", "tilt",
+        "twist", "azi", "tilt",
         "limbFwd", "limbLat", "limbVert", "twitch",
     ],
     "commands": {
@@ -945,7 +945,7 @@ THEATER_GWD_PRESETS = {
         "pitch": "Pitch — tilt forward/back around the Y-axis.",
         "yaw": "Yaw — compass heading around the Z-axis.",
         "twist": "Twist — wrist rotation around the arm axis (swing-twist, no gimbal lock).",
-        "heading": "Heading — horizontal pointing direction (swing-twist).",
+        "azi": "Azimuth — horizontal pointing direction (swing-twist).",
         "tilt": "Tilt — vertical angle above/below horizon (swing-twist).",
         "limbFwd": "Acceleration along limb direction (swing-twist frame).",
         "limbLat": "Acceleration lateral to limb (swing-twist frame).",

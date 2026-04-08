@@ -51,7 +51,7 @@
 #define QUAT_K      20
 #define QUAT_R      21
 #define TWIST       22  // swing-twist: rotation around arm axis (wrist twist)
-#define HEADING     23  // swing-twist: horizontal pointing direction
+#define AZIMUTH     23  // swing-twist: horizontal pointing direction
 #define TILT        24  // swing-twist: vertical angle above/below horizon
 #define LIMB_FWD    25  // swing-twist accel: along limb axis (forward/back)
 #define LIMB_LAT    26  // swing-twist accel: lateral (perpendicular horizontal)
@@ -62,7 +62,7 @@
 // task.  Elements 16–17 (CONST_ZERO / CONST_ONE) are fixed at 0.0 / 1.0 and
 // never written by the sensor task — they exist so messages can send constants.
 // Elements 18–21 (QUAT_I/J/K/R) hold the raw (untared) quaternion each cycle.
-// Elements 22–24 (TWIST/HEADING/TILT) are swing-twist decomposition outputs.
+// Elements 22–24 (TWIST/AZIMUTH/TILT) are swing-twist decomposition outputs.
 // Elements 25–28 (LIMB_FWD/LAT/VERT + TWITCH) are swing-twist frame accelerations.
 // Declared volatile because the sensor task (writer) and scene send tasks
 // (readers) run concurrently without a mutex protecting individual element access.
@@ -98,7 +98,7 @@ static inline String data_stream_name(int index) {
         case QUAT_K:       return "quatK";
         case QUAT_R:       return "quatR";
         case TWIST:        return "twist";
-        case HEADING:      return "heading";
+        case AZIMUTH:      return "azi";
         case TILT:         return "tilt";
         case LIMB_FWD:     return "limbFwd";
         case LIMB_LAT:     return "limbLat";
@@ -137,7 +137,7 @@ static inline int data_stream_index_from_name(const String& value_name) {
     if (key == "quatk" || key == "quat_k" || key == "qk")             return QUAT_K;
     if (key == "quatr" || key == "quat_r" || key == "qr")             return QUAT_R;
     if (key == "twist")                                               return TWIST;
-    if (key == "heading" || key == "hdg")                             return HEADING;
+    if (key == "azi" || key == "azimuth")                             return AZIMUTH;
     if (key == "tilt")                                                return TILT;
     if (key == "limbfwd"  || key == "limb_fwd"  || key == "armfwd")    return LIMB_FWD;
     if (key == "limblat"  || key == "limb_lat"  || key == "armlat")  return LIMB_LAT;
@@ -200,7 +200,7 @@ static inline void update_simulated_data() {
 
     // Swing-twist channels
     data_streams[TWIST]   = sinf(2.0f * PI * 0.25f * t) * 0.5f + 0.5f;  // 0.25 Hz
-    data_streams[HEADING] = sinf(2.0f * PI * 0.15f * t) * 0.5f + 0.5f;  // 0.15 Hz
+    data_streams[AZIMUTH] = sinf(2.0f * PI * 0.15f * t) * 0.5f + 0.5f;  // 0.15 Hz
     data_streams[TILT]    = sinf(2.0f * PI * 0.2f  * t) * 0.5f + 0.5f;  // 0.2 Hz
 
     // Swing-twist acceleration channels

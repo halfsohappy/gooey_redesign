@@ -289,7 +289,7 @@ void setup() {
                     float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
-                    data_streams[HEADING] = (heading_deg + 180.0f) / 360.0f;
+                    data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────
@@ -527,7 +527,7 @@ void setup() {
                     float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
-                    data_streams[HEADING] = (heading_deg + 180.0f) / 360.0f;
+                    data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
                 }
 
                 // ── Linear acceleration (gravity-free, m/s²) ──────────

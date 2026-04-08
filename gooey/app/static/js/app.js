@@ -1145,7 +1145,7 @@
         { value: "pitch", label: "Pitch (Euler)", hint: "Tilt forward/back \u2014 subject to gimbal lock" },
         { value: "yaw", label: "Yaw (Euler)", hint: "Compass heading \u2014 subject to gimbal lock" },
         { value: "twist", label: "Twist (Swing-Twist)", hint: "Wrist rotation around limb axis" },
-        { value: "heading", label: "Heading (Swing-Twist)", hint: "Horizontal pointing direction" },
+        { value: "azi", label: "Azimuth (Swing-Twist)", hint: "Horizontal pointing direction" },
         { value: "tilt", label: "Tilt (Swing-Twist)", hint: "Vertical angle above/below horizon" }
       ]},
     { id: "gyroscope", label: "Gyroscope", hint: "Rotational velocity around each axis",
@@ -3230,7 +3230,7 @@ $("#btnSceneMove").addEventListener("click", function () {
 
       var kwCategories = [
         { title: "Sensors \u2014 Acceleration", keys: ["accelX","accelY","accelZ","accelLength","gaccelX","gaccelY","gaccelZ","gaccelLength","limbFwd","limbLat","limbVert","twitch"] },
-        { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","heading","tilt","quatI","quatJ","quatK","quatR"] },
+        { title: "Sensors \u2014 Orientation", keys: ["roll","pitch","yaw","twist","azi","tilt","quatI","quatJ","quatK","quatR"] },
         { title: "Sensors \u2014 Gyroscope", keys: ["gyroX","gyroY","gyroZ","gyroLength"] },
         { title: "Sensors \u2014 Barometer", keys: ["baro"] },
         { title: "Device Commands", keys: ["blackout","restore","save","load","nvs/clear","list","status/config","status/level"] },
