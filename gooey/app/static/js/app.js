@@ -2581,41 +2581,68 @@
   });
 
   /* ═══════════════════════════════════════════
-     DIRECT
+     SEND DIRECT (from message editor)
      ═══════════════════════════════════════════ */
 
-  function updateDirectPreview() {
-    var parts = [];
-    var v = $("#directValue").value; if (v) parts.push("value:" + v);
-    var ip = $("#directIP").value.trim(); if (ip) parts.push("ip:" + ip);
-    var port = $("#directPort").value; if (port) parts.push("port:" + port);
-    var a = $("#directAdr").value.trim(); if (a) parts.push("adr:" + a);
-    var lo = $("#directLow").value.trim(); if (lo) parts.push("low:" + lo);
-    var hi = $("#directHigh").value.trim(); if (hi) parts.push("high:" + hi);
-    var per = $("#directPeriod").value; if (per) parts.push("period:" + per);
-    $("#directPreview").value = parts.join(", ");
-  }
-
-  ["directCategory", "directValue", "directIP", "directPort", "directAdr", "directLow", "directHigh", "directPeriod"].forEach(function (id) {
-    var el = $("#" + id);
-    if (el) el.addEventListener("input", updateDirectPreview);
-  });
-  updateDirectPreview();
-
-  $("#btnDirectSend").addEventListener("click", function () {
-    var name = ($("#directName").value || "").trim() || "quickSend";
-    var cfg = ($("#directPreview").value || "").trim();
-    if (!cfg) { toast("At least one config field required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/direct/{name}", name), cfg).then(function (res) {
-      if (res.status === "ok") toast("Direct: " + name, "success");
-    });
-  });
-
-  $("#btnDirectCopy").addEventListener("click", function () {
-    var cfg = ($("#directPreview").value || "").trim();
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(cfg).then(function () { toast("Copied!", "success"); });
+  $("#btnMsgDirect").addEventListener("click", function () {
+    var name = ($("#msgName").value || "").trim();
+    if (!name) { toast("Message name required", "error"); return; }
+    function cfgPairD(key, val) {
+      if (val.charAt(0) === ">") return key + ">" + val.substring(1);
+      return key + ":" + val;
     }
+    var parts = [];
+    var v = $("#msgValue").value; if (v) parts.push(cfgPairD("value", v));
+    var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPairD("ip", ip));
+    var port = $("#msgPort").value; if (port) parts.push(cfgPairD("port", port));
+    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : "");
+    if (a) parts.push(cfgPairD("adr", a.toLowerCase() === "name" ? "/" + name : a));
+    var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPairD("low", lo));
+    var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPairD("high", hi));
+    parts.push("period:50");
+    var cfg = parts.join(", ");
+
+    var sceneName = ($("#msgScene").value || "").trim();
+    var autoStart = !($("#chkDirectAutoStart") && !$("#chkDirectAutoStart").checked);
+
+    sendCmd(addr("/annieData/{device}/direct/{name}", name), cfg).then(function (res) {
+      if (res.status !== "ok") return;
+      var dev = getActiveDev();
+      if (!dev) { toast("Direct: " + name, "success"); return; }
+
+      /* Update message tracker locally */
+      dev.messages[name] = parseConfigString(cfg);
+
+      /* Direct always creates a same-named scene and starts it.
+         Register it locally, then rename if user specified a scene name. */
+      var finalSceneName = (sceneName && sceneName !== name) ? sceneName : name;
+      dev.scenes[name] = Object.assign(dev.scenes[name] || {}, {
+        period: "50", running: autoStart
+      });
+
+      var finish = function () {
+        if (!autoStart) {
+          /* Stop the scene if auto-start is off */
+          sendCmd(addr("/annieData/{device}/scene/{name}/stop", name), null);
+          dev.scenes[finalSceneName] = Object.assign(dev.scenes[finalSceneName] || {}, { running: false });
+        }
+        renderMsgTable();
+        renderSceneTable();
+        refreshAllDropdowns();
+        toast("Direct: " + name + (finalSceneName !== name ? " → scene: " + finalSceneName : ""), "success");
+      };
+
+      if (finalSceneName !== name) {
+        /* Rename the auto-created scene to the user's scene name */
+        sendCmd(addr("/annieData/{device}/scene/rename"), name + ", " + finalSceneName).then(function () {
+          dev.scenes[finalSceneName] = Object.assign({}, dev.scenes[name], { running: autoStart });
+          delete dev.scenes[name];
+          finish();
+        });
+      } else {
+        finish();
+      }
+    });
   });
 
   /* ═══════════════════════════════════════════
@@ -3616,18 +3643,8 @@
     }
   }
 
-  /* Port validation */
-  ["statusPort", "msgPort", "scenePort", "directPort", "rawPort", "bridgeInPort", "bridgeOutPort", "replyPort"].forEach(function (fieldId) {
-    var el = $("#" + fieldId);
-    if (!el) return;
-    el.addEventListener("blur", function () {
-      var v = parseInt(el.value, 10);
-      validateField(el, v >= 1 && v <= 65535, "Port must be 1–65535");
-    });
-  });
-
-  /* IP validation */
-  ["statusIP", "msgIP", "sceneIP", "directIP", "rawHost", "bridgeOutHost", "deviceConfigIP"].forEach(function (fieldId) {
+  /* IP validation — expand shorthand and show format hint */
+  ["statusIP", "msgIP", "sceneIP", "rawHost", "bridgeOutHost", "deviceConfigIP"].forEach(function (fieldId) {
     var el = $("#" + fieldId);
     if (!el) return;
     el.addEventListener("blur", function () {
@@ -3635,19 +3652,7 @@
       if (!v) return; /* allow empty */
       /* Expand shorthand: bare last-octet number → prefix + number */
       var expanded = expandIp(v);
-      if (expanded !== v) { el.value = expanded; v = expanded; }
-      validateField(el, /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v), "Enter a valid IP address");
-    });
-  });
-
-  /* Name validation */
-  ["msgName", "sceneName"].forEach(function (fieldId) {
-    var el = $("#" + fieldId);
-    if (!el) return;
-    el.addEventListener("blur", function () {
-      var v = el.value.trim();
-      if (!v) validateField(el, false, "Name is required");
-      else validateField(el, true, "");
+      if (expanded !== v) { el.value = expanded; }
     });
   });
 
@@ -4073,6 +4078,19 @@
      PYTHON TAB
      ═══════════════════════════════════════════ */
   (function () {
+    /* ── Direct auto-start toggle ── */
+    (function () {
+      var DIRECT_START_KEY = "gooey_direct_autostart";
+      var chk = $("#chkDirectAutoStart");
+      var saved = null;
+      try { saved = localStorage.getItem(DIRECT_START_KEY); } catch (e) {}
+      /* Default is checked (true); only override if explicitly saved as "0" */
+      if (saved === "0" && chk) chk.checked = false;
+      if (chk) chk.addEventListener("change", function () {
+        try { localStorage.setItem(DIRECT_START_KEY, chk.checked ? "1" : "0"); } catch (e) {}
+      });
+    }());
+
     /* ── Bulk Actions toggle ── */
     (function () {
       var BULK_KEY = "gooey_bulk_actions";

@@ -302,6 +302,7 @@
             </div>
             <div class="btn-row">
               <button class="btn btn-primary" id="btnMsgApply" title="Send this message config to the device">Apply to Device</button>
+              <button class="btn btn-accent" id="btnMsgDirect" title="Create message + scene and start streaming immediately (50 ms period)">→ Send Direct</button>
               <button class="btn btn-secondary" id="btnMsgClear" title="Clear all form fields">Clear Form</button>
             </div>
           </div>
@@ -325,66 +326,6 @@
             </div>
           </div>
 
-          <div class="card" data-card-id="direct-command">
-            <h2>Direct Command</h2>
-            <p class="hint-text">One-step: creates a message + scene, links them, and starts streaming immediately. If a message or scene with the same name already exists, it will be replaced.</p>
-            <div class="form-row form-row-even">
-              <div class="form-group">
-                <label for="directName">Name</label>
-                <input type="text" id="directName" value="quickSend" placeholder="name">
-              </div>
-              <div class="form-group">
-                <label for="directCategory">Sensor</label>
-                <select id="directCategory">
-                  <option value="">— pick —</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="directValue">Data Stream</label>
-                <select id="directValue">
-                  <option value="">— pick sensor —</option>
-                </select>
-              </div>
-            </div>
-            <p id="directCategoryHint" class="sensor-hint"></p>
-            <p id="directValueHint" class="sensor-hint"></p>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="directIP">Target IP<span class="assume-ip-hint"></span></label>
-                <input type="text" id="directIP" value="192.168.1.50">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directPort">Port</label>
-                <input type="number" id="directPort" value="9000" min="1" max="65535">
-              </div>
-              <div class="form-group">
-                <label for="directAdr">Address</label>
-                <input type="text" id="directAdr" value="/sensor/x">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group fg-narrow">
-                <label for="directLow">Low</label>
-                <input type="text" id="directLow" placeholder="0">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directHigh">High</label>
-                <input type="text" id="directHigh" placeholder="1">
-              </div>
-              <div class="form-group fg-narrow">
-                <label for="directPeriod">Period (ms)</label>
-                <input type="number" id="directPeriod" value="50" min="1" title="Period in milliseconds">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>Config Preview</label>
-              <input type="text" id="directPreview" class="preview-input" readonly>
-            </div>
-            <div class="btn-row">
-              <button class="btn btn-accent" id="btnDirectSend" title="Creates message + scene, links, and starts streaming immediately">→ Send Direct</button>
-              <button class="btn btn-secondary" id="btnDirectCopy" title="Copy the config string to clipboard">↗ Copy Config</button>
-            </div>
-          </div>
         </section>
 
         <!-- ===== SCENES ===== -->
@@ -821,6 +762,9 @@
         <section class="section" id="sec-advanced">
           <div class="card" data-card-id="advanced-tools">
             <h2>Advanced Tools</h2>
+            <div class="cb-row">
+              <label class="cb-label cb-label-lg" title="After Send Direct, automatically start the scene immediately"><input type="checkbox" id="chkDirectAutoStart" style="transform: scale(1.25);" checked>  Auto-start scene after Send Direct</label>
+            </div>
             <div class="cb-row">
               <label class="cb-label cb-label-lg" title="Show gate controls for conditional message sending based on sensor values or orientation"><input type="checkbox" id="chkShowGate" style="transform: scale(1.25);" >  Show Gate Controls for messages</label>
             </div>
