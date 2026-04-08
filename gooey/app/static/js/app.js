@@ -947,7 +947,7 @@
       var s = gm + ":" + gs;
       var isEdge = (gm === "rising" || gm === "falling");
       if (m.gate_lo != null && m.gate_lo !== "") s += (isEdge ? " trigger:" : " \u2265") + m.gate_lo;
-      if (m.gate_hi != null && m.gate_hi !== "") s += (isEdge ? " slew:" : " \u2264") + m.gate_hi;
+      if (m.gate_hi != null && m.gate_hi !== "") s += (isEdge ? " delta:" : " \u2264") + m.gate_hi;
       return s;
     }
     if (m.ori_only || m.orionly) return "only:ori:" + (m.ori_only || m.orionly);
@@ -1344,7 +1344,7 @@
       if (!isScenePicker) return;
       var edge = isEdgeMode();
       if (loLabel) loLabel.textContent = edge ? "Trigger" : "Lower";
-      if (hiLabel) hiLabel.textContent = edge ? "Slew" : "Upper";
+      if (hiLabel) hiLabel.textContent = edge ? "Delta" : "Upper";
       if (loEl) loEl.placeholder = edge ? "threshold" : "\u2265";
       if (hiEl) hiEl.placeholder = edge ? "min \u0394" : "\u2264";
     }
@@ -1591,7 +1591,7 @@
         var gateIsEdge = (p.gate_mode === "rising" || p.gate_mode === "falling");
         var gateSuffix = "";
         if (p.gate_lo != null && p.gate_lo !== "") gateSuffix += (gateIsEdge ? " trigger:" : " \u2265") + esc(String(p.gate_lo));
-        if (p.gate_hi != null && p.gate_hi !== "") gateSuffix += (gateIsEdge ? " slew:" : " \u2264") + esc(String(p.gate_hi));
+        if (p.gate_hi != null && p.gate_hi !== "") gateSuffix += (gateIsEdge ? " delta:" : " \u2264") + esc(String(p.gate_hi));
         gateExpItem = '<span class="scene-exp-item"><span class="scene-exp-label">scene gate</span><span class="scene-exp-val">' + esc(p.gate_src) + ' ' + esc((p.gate_mode || "").toUpperCase()) + gateSuffix + '</span></span>';
       }
       expTr.innerHTML =
