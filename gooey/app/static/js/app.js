@@ -1466,7 +1466,10 @@
           '<button class="scene-btn scene-btn-go" data-act="start" title="Start scene">▶</button>' +
           '<button class="scene-btn scene-btn-stp" data-act="stop"  title="Stop scene">■</button>' +
         '</div></td>';
-      tr.addEventListener("click", function () { toggleSceneExp(name); });
+      tr.addEventListener("click", function (e) {
+        if (e.metaKey || e.ctrlKey) { populateSceneForm(name, p); return; }
+        toggleSceneExp(name);
+      });
       tr.querySelectorAll(".scene-btn").forEach(function (btn) {
         btn.addEventListener("click", function () { sceneAction(btn.dataset.act, name); });
       });
