@@ -878,22 +878,6 @@
         dev.oris[text].active = true;
       }
       renderOriTable();
-      toast("Active ori: " + text, "info");
-      return;
-    }
-
-    /* ── Parse ori color reply ──
-       "name: r,g,b" */
-    if (/\/ori\/color/i.test(listAddr)) {
-      var colorMatch = text.match(/^(\S+):\s*(\d+),(\d+),(\d+)/);
-      if (colorMatch && dev.oris[colorMatch[1]]) {
-        dev.oris[colorMatch[1]].color = [
-          parseInt(colorMatch[2], 10),
-          parseInt(colorMatch[3], 10),
-          parseInt(colorMatch[4], 10)
-        ];
-        renderOriTable();
-      }
       return;
     }
 
@@ -1184,8 +1168,9 @@
       ]},
     { id: "constants", label: "Constants", hint: "Fixed values for output bounds",
       sensors: [
-        { value: "high", label: "High", hint: "Always returns the high bound" },
-        { value: "low", label: "Low", hint: "Always returns the low bound" }
+        { value: "high",   label: "High",   hint: "Always returns the high bound" },
+        { value: "low",    label: "Low",    hint: "Always returns the low bound" },
+        { value: "string", label: "String", hint: "Send a fixed text string — stored on the device and sent as an OSC string argument" }
       ]}
   ];
 
@@ -1272,6 +1257,40 @@
 
   var msgPicker = initSensorPicker("msgCategory", "msgValue", "msgCategoryHint", "msgValueHint");
   var directPicker = initSensorPicker("directCategory", "directValue", "directCategoryHint", "directValueHint");
+
+  /* ── String mode: show/hide Low/High vs String input ── */
+  function updateStringMode() {
+    var isString = ($("#msgValue").value === "string");
+    var loEl     = $("#msgLow"), hiEl = $("#msgHigh");
+    var loFg     = loEl ? loEl.closest(".form-group") : null;
+    var hiFg     = hiEl ? hiEl.closest(".form-group") : null;
+    var strGrp   = $("#msgStringGroup");
+    if (loFg)  loFg.style.display  = isString ? "none" : "";
+    if (hiFg)  hiFg.style.display  = isString ? "none" : "";
+    if (strGrp) strGrp.style.display = isString ? "" : "none";
+  }
+  var _msgValueEl = $("#msgValue");
+  if (_msgValueEl) _msgValueEl.addEventListener("change", updateStringMode);
+  updateStringMode();
+
+  /* ── String registration (send string to device, get back str name) ── */
+  var _strRegisterCallback = null;
+  function registerString(strValue) {
+    return new Promise(function (resolve, reject) {
+      _strRegisterCallback = resolve;
+      var _timeout = setTimeout(function () {
+        if (_strRegisterCallback === resolve) {
+          _strRegisterCallback = null;
+          reject(new Error("String registration timeout"));
+        }
+      }, 4000);
+      sendCmd(addr("/annieData/{device}/msg/string"), strValue).catch(function () {
+        clearTimeout(_timeout);
+        if (_strRegisterCallback === resolve) { _strRegisterCallback = null; }
+        reject(new Error("Send failed"));
+      });
+    });
+  }
 
   /* ── Gate picker (flat source dropdown) ── */
   function initGatePicker(sourceId, oriId, modeId, loId, hiId, hintId, oriGroupId, loGroupId, hiGroupId) {
@@ -1370,9 +1389,26 @@
     "msgGateOriGroup", "msgGateLoGroup", "msgGateHiGroup"
   );
 
+  var sceneGatePicker = initGatePicker(
+    "sceneGateSource", "sceneGateOri", "sceneGateMode",
+    "sceneGateLo", "sceneGateHi", "sceneGateHint",
+    "sceneGateOriGroup", "sceneGateLoGroup", "sceneGateHiGroup"
+  );
+
   function populateMsgForm(name, m) {
     $("#msgName").value = name;
-    if (msgPicker) msgPicker.setValue(m.value || m.val || "");
+    var valStr = m.value || m.val || "";
+    // If value is a string pool reference (str1, str2, ...) show String category
+    if (/^str\d+$/i.test(valStr)) {
+      if (msgPicker) msgPicker.setValue("string");
+      var strInp = $("#msgStringVal");
+      if (strInp) strInp.value = m.string_val || valStr;
+    } else {
+      if (msgPicker) msgPicker.setValue(valStr);
+      var strInp2 = $("#msgStringVal");
+      if (strInp2) strInp2.value = "";
+    }
+    updateStringMode();
     $("#msgIP").value = m.ip || "";
     $("#msgPort").value = m.port || "9000";
     $("#msgAdr").value = m.adr || m.addr || m.address || "";
@@ -1478,6 +1514,10 @@
       var expTr = document.createElement("tr");
       expTr.className = "scene-exp-row " + expState;
       expTr.id = "se-" + name;
+      var gateExpItem = "";
+      if (p.gate_src && p.gate_mode) {
+        gateExpItem = '<span class="scene-exp-item"><span class="scene-exp-label">scene gate</span><span class="scene-exp-val">' + esc(p.gate_src) + ' ' + esc((p.gate_mode || "").toUpperCase()) + '</span></span>';
+      }
       expTr.innerHTML =
         '<td colspan="4"><div class="scene-exp-inner" id="sei-' + esc(name) + '">' +
           '<span class="scene-exp-item"><span class="scene-exp-label">overrides</span><span class="scene-exp-val">' + esc(overrides) + '</span></span>' +
@@ -1486,6 +1526,7 @@
           '<span class="scene-exp-item"><span class="scene-exp-label">ip</span><span class="scene-exp-val">' + ip + '</span></span>' +
           '<span class="scene-exp-item"><span class="scene-exp-label">port</span><span class="scene-exp-val">' + port + '</span></span>' +
           '<span class="scene-exp-item"><span class="scene-exp-label">period</span><span class="scene-exp-val">' + period + '</span></span>' +
+          gateExpItem +
           '<span class="scene-exp-item scene-exp-actions" onclick="event.stopPropagation()">' +
             '<button class="scene-exp-act"   data-act="edit"       title="Edit in form">EDIT</button>' +
             '<span class="scene-exp-sep">·</span>' +
@@ -1553,6 +1594,20 @@
     $("#ovAdr").checked = ov.indexOf("adr") !== -1;
     $("#ovLow").checked = ov.indexOf("low") !== -1;
     $("#ovHigh").checked = ov.indexOf("high") !== -1;
+    /* Scene gate */
+    if (sceneGatePicker) {
+      var gs = p.gate_src || p.gate_source || "";
+      var gm = p.gate_mode || "";
+      var gl = p.gate_lo != null ? p.gate_lo : "";
+      var gh = p.gate_hi != null ? p.gate_hi : "";
+      if (gs && gm) {
+        sceneGatePicker.setValue(gs, gm, gl, gh);
+        var sec = $("#sceneGateSection"); if (sec) sec.style.display = "";
+        var chk = $("#chkShowGate"); if (chk) chk.checked = true;
+      } else {
+        sceneGatePicker.clear();
+      }
+    }
     /* scroll to form — switch to scenes tab */
     $(".nav-btn[data-section='scenes']").click();
     $("#sceneName").focus();
@@ -1806,30 +1861,26 @@
      No local pending list — same pattern as messages and scenes.
   ─────────────────────────────────────────────────────────────── */
 
-  function _hexToRgb(hex) {
-    return {
-      r: parseInt(hex.substr(1, 2), 16),
-      g: parseInt(hex.substr(3, 2), 16),
-      b: parseInt(hex.substr(5, 2), 16)
-    };
-  }
 
   (function () {
-    var nameInput  = $("#regOriName");
-    var colorInput = $("#regOriColorPicker");
+    var nameInput  = $("#oriName");
     var btnReg     = $("#btnRegisterOri");
 
     function doRegister() {
       var name = (nameInput ? nameInput.value : "").trim();
       if (!name) { toast("Ori name required", "error"); return; }
       if (!getActiveDev()) { toast("Select a device first", "error"); return; }
-      var hex = colorInput ? colorInput.value : "#cc44ff";
-      var rgb = _hexToRgb(hex);
-      var colorStr = '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"';
-      sendCmd(addr("/annieData/{device}/ori/register/" + name), colorStr).then(function (res) {
+      sendCmd(addr("/annieData/{device}/ori/register/" + name), null).then(function (res) {
         if (res && res.status === "ok") {
           toast("Registered: " + name, "success");
-          if (nameInput) nameInput.value = "";
+          /* Immediately add to local state so tracker updates without waiting for query */
+          var dev = getActiveDev();
+          if (dev && !dev.oris[name]) {
+            dev.oris[name] = { samples: 0, active: false };
+            renderOriTable();
+            refreshAllDropdowns();
+          }
+          /* Query can correct/confirm the state if the device responds */
           sendCmd(addr("/annieData/{device}/ori/list"), null);
         } else {
           toast("Register failed: " + (res && res.message ? res.message : "unknown"), "error");
@@ -1848,85 +1899,49 @@
      Polls /ori/record/status every 500ms while active.
   ─────────────────────────────────────────────────────────────── */
 
-  var _recPollInterval = null;
-
-  function _stopRecordingPoll() {
-    if (_recPollInterval) { clearInterval(_recPollInterval); _recPollInterval = null; }
-  }
-
-  function _setRecordingUI(active, name) {
-    var startBtn   = $("#btnRecordStart");
-    var stopBtn    = $("#btnRecordStop");
-    var cancelBtn  = $("#btnRecordCancel");
-    var recStatus  = $("#recStatus");
-    var nameInput  = $("#recOriName");
-    if (active) {
-      if (startBtn)  startBtn.style.display = "none";
-      if (recStatus) recStatus.style.display = "";
-      if (nameInput) nameInput.disabled = true;
-    } else {
-      if (startBtn)  startBtn.style.display = "";
-      if (recStatus) recStatus.style.display = "none";
-      if (nameInput) nameInput.disabled = false;
-      var counter = $("#recCounter");
-      if (counter) counter.textContent = "0 samples";
-      _stopRecordingPoll();
-    }
-  }
-
   (function () {
-    var nameInput = $("#recOriName");
-    var startBtn  = $("#btnRecordStart");
-    var stopBtn   = $("#btnRecordStop");
-    var cancelBtn = $("#btnRecordCancel");
+    var nameInput = $("#oriName");
+    var recBtn    = $("#btnRecordStart");
+    var _recording = false;
 
-    if (startBtn) startBtn.addEventListener("click", function () {
-      var name = (nameInput ? nameInput.value : "").trim();
-      if (!name) { toast("Ori name required", "error"); return; }
+    function setRecording(active) {
+      _recording = active;
+      if (!recBtn) return;
+      if (active) {
+        recBtn.textContent = "■ Stop Recording";
+        recBtn.classList.remove("btn-primary");
+        recBtn.classList.add("btn-stop");
+        if (nameInput) nameInput.disabled = true;
+      } else {
+        recBtn.textContent = "▶ Start Recording";
+        recBtn.classList.remove("btn-stop");
+        recBtn.classList.add("btn-primary");
+        if (nameInput) nameInput.disabled = false;
+      }
+    }
+
+    if (recBtn) recBtn.addEventListener("click", function () {
       if (!getActiveDev()) { toast("Select a device first", "error"); return; }
-      sendCmd(addr("/annieData/{device}/ori/record/start/" + name), null).then(function (res) {
-        if (res && res.status === "ok") {
-          toast("Recording: " + name, "info");
-          _setRecordingUI(true, name);
-          /* Poll for sample count every 500ms */
-          _recPollInterval = setInterval(function () {
-            sendCmd(addr("/annieData/{device}/ori/record/status"), null).then(function (r) {
-              if (!r || r.status !== "ok") return;
-              /* Reply: "active:true,name:X,count:N,elapsed:M" */
-              var msg = r.message || "";
-              if (/active:false/.test(msg)) {
-                _setRecordingUI(false);
-                sendCmd(addr("/annieData/{device}/ori/list"), null);
-                return;
-              }
-              var cm = msg.match(/count:(\d+)/);
-              var counter = $("#recCounter");
-              if (cm && counter) counter.textContent = cm[1] + " samples";
-            });
-          }, 500);
-        } else {
-          toast("Start failed: " + (res && res.message ? res.message : ""), "error");
-        }
-      });
-    });
-
-    if (stopBtn) stopBtn.addEventListener("click", function () {
-      if (!getActiveDev()) return;
-      sendCmd(addr("/annieData/{device}/ori/record/stop"), null).then(function (res) {
-        _setRecordingUI(false);
-        if (res && res.status === "ok") {
-          toast("Saved: " + (res.message || ""), "success");
-        }
-        sendCmd(addr("/annieData/{device}/ori/list"), null);
-      });
-    });
-
-    if (cancelBtn) cancelBtn.addEventListener("click", function () {
-      if (!getActiveDev()) return;
-      sendCmd(addr("/annieData/{device}/ori/record/cancel"), null).then(function () {
-        _setRecordingUI(false);
-        toast("Recording cancelled", "info");
-      });
+      if (!_recording) {
+        var name = (nameInput ? nameInput.value : "").trim();
+        if (!name) { toast("Ori name required", "error"); return; }
+        sendCmd(addr("/annieData/{device}/ori/record/start/" + name), null).then(function (res) {
+          if (res && res.status === "ok") {
+            toast("Recording: " + name, "info");
+            setRecording(true);
+          } else {
+            toast("Start failed: " + (res && res.message ? res.message : ""), "error");
+          }
+        });
+      } else {
+        sendCmd(addr("/annieData/{device}/ori/record/stop"), null).then(function (res) {
+          setRecording(false);
+          if (res && res.status === "ok") {
+            toast("Saved: " + (res.message || ""), "success");
+          }
+          sendCmd(addr("/annieData/{device}/ori/list"), null);
+        });
+      }
     });
   }());
 
@@ -1943,74 +1958,36 @@
     var devOriNames = dev ? Object.keys(dev.oris) : [];
 
     if (devOriNames.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">◎</div><div class="empty-text">No orientations tracked yet.</div><div class="empty-sub">Register an ori above, then use Record Ori or Button A to capture.</div></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3"><div class="empty-state empty-state-inline">No orientations tracked yet — Query device or register one below.</div></td></tr>';
       return;
     }
 
     devOriNames.forEach(function (name) {
       var o = dev.oris[name];
       var isUnsampled = (o.samples === 0);
+      var isActive    = !!o.active;
 
-      /* Mode badge */
-      var modeBadge;
-      if (isUnsampled) {
-        modeBadge = '<span class="ori-badge ori-badge-registered">No samples</span>';
-      } else if (o.useAxis) {
-        modeBadge = '<span class="ori-badge ori-badge-axis" title="Axis-aware: wrist rotation ignored">Axis</span>';
+      /* Status pill */
+      var statusHtml;
+      if (isActive) {
+        statusHtml = '<span class="ori-pill ori-pill-active"><span class="ori-dot"></span>ACTIVE</span>';
+      } else if (isUnsampled) {
+        statusHtml = '<span class="ori-pill ori-pill-pending">PENDING</span>';
       } else {
-        modeBadge = '<span class="ori-badge ori-badge-fullq" title="Full quaternion matching">Full</span>';
+        statusHtml = '<span class="ori-pill ori-pill-idle">—</span>';
       }
-
-      var colorHtml = "—";
-      if (o.color) {
-        var rgb = "rgb(" + o.color[0] + "," + o.color[1] + "," + o.color[2] + ")";
-        colorHtml = '<span class="ori-color-dot" style="background:' + rgb + '" title="' + o.color.join(",") + '"></span>';
-      }
-      var activeHtml = o.active ? '<span class="ori-badge ori-badge-active">Active</span>' : "—";
-
-      var actionHtml =
-        '<button class="tbl-btn" data-act="info" title="Show details" aria-label="Info">i</button>' +
-        '<button class="tbl-btn tbl-btn-primary" data-act="rerecord" title="Start new recording session for this ori" aria-label="Re-record">▶</button>' +
-        '<button class="tbl-btn" data-act="select" title="Select for on-device button editing" aria-label="Select">◎</button>' +
-        '<button class="tbl-btn" data-act="reset" title="Clear samples (ready to re-record)" aria-label="Reset">↺</button>' +
-        '<button class="tbl-btn tbl-btn-danger" data-act="delete" title="Delete ori" aria-label="Delete">×</button>';
 
       var tr = document.createElement("tr");
-      if (isUnsampled) tr.className = "ori-row-pending";
+      tr.className = "ori-data-row" + (isActive ? " active" : "") + (isUnsampled ? " pending" : "");
       tr.dataset.oriName = name;
+      tr.style.cursor = "pointer";
       tr.innerHTML =
-        '<td class="cell-name" data-label="Name">' + esc(name) + '</td>' +
-        '<td class="cell-mono" data-label="Samples">' + (isUnsampled ? "—" : o.samples) + '</td>' +
-        '<td data-label="Mode">' + modeBadge + '</td>' +
-        '<td data-label="Color">' + colorHtml + '</td>' +
-        '<td data-label="Active">' + activeHtml + '</td>' +
-        '<td class="cell-actions" data-label="Actions">' + actionHtml + '</td>';
+        '<td class="ori-status-cell">' + statusHtml + '</td>' +
+        '<td class="ori-name-cell">' + esc(name) + '</td>';
 
-      tr.querySelector(".cell-name").addEventListener("click", function () {
-        var colorNameEl = $("#oriColorName");
-        if (colorNameEl) colorNameEl.value = name;
+      tr.addEventListener("click", function () {
         var oriNameEl = $("#oriName");
         if (oriNameEl) oriNameEl.value = name;
-        var recNameEl = $("#recOriName");
-        if (recNameEl) recNameEl.value = name;
-        if (o.color) {
-          var hex = "#" + ((1 << 24) + (o.color[0] << 16) + (o.color[1] << 8) + o.color[2]).toString(16).slice(1);
-          var picker = $("#oriColorPicker");
-          if (picker) picker.value = hex;
-        }
-      });
-      tr.querySelectorAll(".tbl-btn").forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          if (btn.dataset.act === "rerecord") {
-            /* Pre-fill the recording form and scroll to it */
-            var recNameEl = $("#recOriName");
-            if (recNameEl) recNameEl.value = name;
-            var recCard = document.querySelector('[data-card-id="ori-record"]');
-            if (recCard) recCard.scrollIntoView({ behavior: "smooth" });
-          } else {
-            oriAction(btn.dataset.act, name);
-          }
-        });
       });
       tbody.appendChild(tr);
     });
@@ -2018,9 +1995,6 @@
 
   function oriAction(act, name) {
     switch (act) {
-      case "info":
-        sendCmd(addr("/annieData/{device}/ori/info/" + name), null);
-        break;
       case "reset":
         sendCmd(addr("/annieData/{device}/ori/reset/" + name), null).then(function (res) {
           if (res && res.status === "ok") {
@@ -2032,11 +2006,6 @@
               renderOriTable();
             }
           }
-        });
-        break;
-      case "select":
-        sendCmd(addr("/annieData/{device}/ori/select/" + name), null).then(function (res) {
-          if (res.status === "ok") toast("Selected: " + name, "success");
         });
         break;
       case "delete":
@@ -2215,6 +2184,16 @@
 
   /* ── Realtime messages ── */
   socket.on("osc_message", function (entry) {
+    /* String registration reply: /reply{device}/str/registered */
+    if (entry.address && entry.address.indexOf("/str/registered") >= 0) {
+      var strName = (entry.args && entry.args[0]) ? String(entry.args[0]) : "";
+      if (_strRegisterCallback && strName) {
+        var cb = _strRegisterCallback;
+        _strRegisterCallback = null;
+        cb(strName);
+      }
+      return;
+    }
     msgCount++;
     rateCounter++;
     appendToFeed(entry);
@@ -2338,7 +2317,7 @@
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
-  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgGateSource", "msgGateOri", "msgGateMode", "msgGateLo", "msgGateHi"].forEach(function (id) {
+  ["msgCategory", "msgValue", "msgIP", "msgPort", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgStringVal", "msgGateSource", "msgGateOri", "msgGateMode", "msgGateLo", "msgGateHi"].forEach(function (id) {
     var el = $("#" + id);
     if (el) el.addEventListener("input", updateMsgPreview);
   });
@@ -2360,37 +2339,45 @@
       if (val.charAt(0) === ">") return key + ">" + val.substring(1);
       return key + ":" + val;
     }
-    var parts = [];
-    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push(cfgPair("adr", resolveName(a, false)));
-    var v = $("#msgValue").value; if (v) parts.push(cfgPair("value", v));
-    var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPair("ip", ip));
-    var port = $("#msgPort").value; if (port) parts.push(cfgPair("port", port));
-    var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPair("low", lo));
-    var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPair("high", hi));
-    var pa = $("#msgScene").value.trim(); if (pa) parts.push(cfgPair("scene", pa));
-    if (msgGatePicker) {
-      var gc = msgGatePicker.getConfig();
-      if (gc) {
-        var gSrc = gc.gate_src;
-        // Resolve "name" shorthand for ori gates
-        if (gSrc.indexOf("ori:") === 0) {
-          var oriPart = gSrc.substring(4);
-          gSrc = "ori:" + resolveName(oriPart, true);
-        }
-        parts.push(cfgPair("gate_src", gSrc));
-        parts.push(cfgPair("gate_mode", gc.gate_mode));
-        if (gc.gate_lo) parts.push(cfgPair("gate_lo", gc.gate_lo));
-        if (gc.gate_hi) parts.push(cfgPair("gate_hi", gc.gate_hi));
+    var isStringType = ($("#msgValue").value === "string");
+    var strValRaw    = isStringType ? ($("#msgStringVal").value || "").trim() : "";
+    if (isStringType && !strValRaw) { toast("String value required", "error"); return; }
+
+    function doMsgApply(resolvedStrName) {
+      var parts = [];
+      var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : ""); if (a) parts.push(cfgPair("adr", resolveName(a, false)));
+      var v = isStringType ? resolvedStrName : $("#msgValue").value; if (v) parts.push(cfgPair("value", v));
+      var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPair("ip", ip));
+      var port = $("#msgPort").value; if (port) parts.push(cfgPair("port", port));
+      if (!isStringType) {
+        var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPair("low", lo));
+        var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPair("high", hi));
       }
-    }
-    var cfg = parts.join(", ");
-    var address = addr("/annieData/{device}/msg/{name}", name);
-    sendCmd(address, cfg || null).then(function (res) {
-      if (res.status === "ok") {
-        toast("Applied: " + name, "success");
-        var dev = getActiveDev();
-        if (dev) {
-          dev.messages[name] = parseConfigString(cfg);
+      var pa = $("#msgScene").value.trim(); if (pa) parts.push(cfgPair("scene", pa));
+      if (msgGatePicker) {
+        var gc = msgGatePicker.getConfig();
+        if (gc) {
+          var gSrc = gc.gate_src;
+          if (gSrc.indexOf("ori:") === 0) {
+            var oriPart = gSrc.substring(4);
+            gSrc = "ori:" + resolveName(oriPart, true);
+          }
+          parts.push(cfgPair("gate_src", gSrc));
+          parts.push(cfgPair("gate_mode", gc.gate_mode));
+          if (gc.gate_lo) parts.push(cfgPair("gate_lo", gc.gate_lo));
+          if (gc.gate_hi) parts.push(cfgPair("gate_hi", gc.gate_hi));
+        }
+      }
+      var cfg = parts.join(", ");
+      var address = addr("/annieData/{device}/msg/{name}", name);
+      sendCmd(address, cfg || null).then(function (res) {
+        if (res.status === "ok") {
+          toast("Applied: " + name, "success");
+          var dev = getActiveDev();
+          if (dev) {
+            var parsed = parseConfigString(cfg);
+            if (isStringType) { parsed.string_val = strValRaw; }
+            dev.messages[name] = parsed;
           /* Auto-register ori names from gate */
           if (msgGatePicker) {
             var gc2 = msgGatePicker.getConfig();
@@ -2408,17 +2395,27 @@
         }
       }
     });
+    }  // end doMsgApply
+
+    // Register string on device first if needed, then apply
+    if (isStringType && !/^str\d+$/i.test(strValRaw)) {
+      registerString(strValRaw)
+        .then(function (strName) { doMsgApply(strName); })
+        .catch(function (e) { toast("String registration failed: " + e.message, "error"); });
+    } else {
+      doMsgApply(isStringType ? strValRaw : "");
+    }
   });
 
   /* Clear form */
   $("#btnMsgClear").addEventListener("click", function () {
-    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgScene"].forEach(function (id) {
-      $("#" + id).value = "";
+    ["msgName", "msgIP", "msgAdr", "msgLow", "msgHigh", "msgScene", "msgStringVal"].forEach(function (id) {
+      var el = $("#" + id); if (el) el.value = "";
     });
     $("#msgValue").value = "";
     if (msgPicker) msgPicker.clear();
     if (msgGatePicker) msgGatePicker.clear();
-    $("#msgPort").value = "9000";
+    updateStringMode();
     updateMsgPreview();
   });
 
@@ -2487,6 +2484,17 @@
     if (mode)     cfgParts.push("adrMode:" + mode);
     cfgParts.push("override:" + (ovParts.length ? ovParts.join("+") : "none"));
 
+    var sceneGateConfig = null;
+    if (sceneGatePicker) {
+      sceneGateConfig = sceneGatePicker.getConfig();
+      if (sceneGateConfig && sceneGateConfig.gate_src) {
+        cfgParts.push("gate_src:" + sceneGateConfig.gate_src);
+        if (sceneGateConfig.gate_mode) cfgParts.push("gate_mode:" + sceneGateConfig.gate_mode);
+        if (sceneGateConfig.gate_lo)   cfgParts.push("gate_lo:"   + sceneGateConfig.gate_lo);
+        if (sceneGateConfig.gate_hi)   cfgParts.push("gate_hi:"   + sceneGateConfig.gate_hi);
+      }
+    }
+
     var cfg = cfgParts.join(", ");
     var startStop = thenStart
       ? addr("/annieData/{device}/scene/{name}/start", name)
@@ -2500,7 +2508,11 @@
           dev.scenes[name] = Object.assign(dev.scenes[name] || {}, {
             ip: ip, port: port, adr: sceneAdr, low: low, high: high,
             period: period, adrMode: mode, override: ovParts.join(", "),
-            running: thenStart
+            running: thenStart,
+            gate_src:  sceneGateConfig ? (sceneGateConfig.gate_src  || "") : "",
+            gate_mode: sceneGateConfig ? (sceneGateConfig.gate_mode || "") : "",
+            gate_lo:   sceneGateConfig ? (sceneGateConfig.gate_lo   || "") : "",
+            gate_hi:   sceneGateConfig ? (sceneGateConfig.gate_hi   || "") : ""
           });
           renderSceneTable();
           refreshAllDropdowns();
@@ -2511,6 +2523,31 @@
 
   $("#btnSceneApplyActive").addEventListener("click",   function () { applySceneConfig(true);  });
   $("#btnSceneApplyStopped").addEventListener("click",  function () { applySceneConfig(false); });
+
+  /* Clear scene form */
+  $("#btnSceneClear").addEventListener("click", function () {
+    ["sceneName", "sceneIP", "sceneAdr", "sceneLow", "sceneHigh"].forEach(function (id) {
+      $("#" + id).value = "";
+    });
+    $("#scenePeriod").value = "50";
+    $("#sceneAdrMode").value = "fallback";
+    ["ovIP", "ovPort", "ovAdr", "ovLow", "ovHigh"].forEach(function (id) {
+      $("#" + id).checked = false;
+    });
+    if (sceneGatePicker) sceneGatePicker.clear();
+    updateScenePreview();
+  });
+
+  /* Scene ops tabs */
+  document.querySelectorAll(".scene-ops-tab-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      document.querySelectorAll(".scene-ops-tab-btn").forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".scene-ops-tab-pane").forEach(function (p) { p.classList.remove("active"); });
+      btn.classList.add("active");
+      var pane = document.getElementById("sceneOpsPane-" + btn.dataset.tab);
+      if (pane) pane.classList.add("active");
+    });
+  });
 
   /* Add/Remove/Solo/Move messages */
   $("#btnSceneAddMsg").addEventListener("click", function () {
@@ -2531,16 +2568,7 @@
     });
   });
 
-  $("#btnSceneSolo").addEventListener("click", function () {
-    var pname = ($("#sceneMsgScene").value || "").trim();
-    var mname = ($("#sceneMsgNames").value || "").trim();
-    if (!pname || !mname) { toast("Scene and message name required", "error"); return; }
-    sendCmd(addr("/annieData/{device}/scene/{name}/solo", pname), mname).then(function (res) {
-      if (res.status === "ok") toast("Solo: " + mname + " in " + pname, "success");
-    });
-  });
-
-  $("#btnSceneMove").addEventListener("click", function () {
+$("#btnSceneMove").addEventListener("click", function () {
     var mname = ($("#sceneMsgNames").value || "").trim();
     var pname = ($("#sceneMsgScene").value || "").trim();
     if (!pname || !mname) { toast("Message and scene name required", "error"); return; }
@@ -2597,21 +2625,28 @@
       if (val.charAt(0) === ">") return key + ">" + val.substring(1);
       return key + ":" + val;
     }
-    var parts = [];
-    var v = $("#msgValue").value; if (v) parts.push(cfgPairD("value", v));
-    var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPairD("ip", ip));
-    var port = $("#msgPort").value; if (port) parts.push(cfgPairD("port", port));
-    var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : "");
-    if (a) parts.push(cfgPairD("adr", a.toLowerCase() === "name" ? "/" + name : a));
-    var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPairD("low", lo));
-    var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPairD("high", hi));
-    parts.push("period:50");
-    var cfg = parts.join(", ");
+    var isDirStrType = ($("#msgValue").value === "string");
+    var dirStrRaw    = isDirStrType ? ($("#msgStringVal").value || "").trim() : "";
+    if (isDirStrType && !dirStrRaw) { toast("String value required", "error"); return; }
 
-    var sceneName = ($("#msgScene").value || "").trim();
-    var autoStart = !($("#chkDirectAutoStart") && !$("#chkDirectAutoStart").checked);
+    function doDirect(resolvedStrName) {
+      var parts = [];
+      var v = isDirStrType ? resolvedStrName : $("#msgValue").value; if (v) parts.push(cfgPairD("value", v));
+      var ip = $("#msgIP").value.trim(); if (ip) parts.push(cfgPairD("ip", ip));
+      var port = $("#msgPort").value; if (port) parts.push(cfgPairD("port", port));
+      var a = ($("#msgAdr") ? $("#msgAdr").value.trim() : "");
+      if (a) parts.push(cfgPairD("adr", a.toLowerCase() === "name" ? "/" + name : a));
+      if (!isDirStrType) {
+        var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPairD("low", lo));
+        var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPairD("high", hi));
+      }
+      parts.push("period:50");
+      var cfg = parts.join(", ");
 
-    sendCmd(addr("/annieData/{device}/direct/{name}", name), cfg).then(function (res) {
+      var sceneName = ($("#msgScene").value || "").trim();
+      var autoStart = !($("#chkDirectAutoStart") && !$("#chkDirectAutoStart").checked);
+
+      sendCmd(addr("/annieData/{device}/direct/{name}", name), cfg).then(function (res) {
       if (res.status !== "ok") return;
       var dev = getActiveDev();
       if (!dev) { toast("Direct: " + name, "success"); return; }
@@ -2649,6 +2684,15 @@
         finish();
       }
     });
+    }  // end doDirect
+
+    if (isDirStrType && !/^str\d+$/i.test(dirStrRaw)) {
+      registerString(dirStrRaw)
+        .then(function (strName) { doDirect(strName); })
+        .catch(function (e) { toast("String registration failed: " + e.message, "error"); });
+    } else {
+      doDirect(isDirStrType ? dirStrRaw : "");
+    }
   });
 
   /* ═══════════════════════════════════════════
@@ -2754,12 +2798,13 @@
      MULTI-VIEW PANEL STATE MANAGEMENT
      ═══════════════════════════════════════════ */
 
-  var _activeViews = {}; // { feed: true, serial: true, reference: true, notifications: true }
+  var _activeViews = {}; // { feed: true, serial: true, notifications: true, reference: true }
+  var _viewOrder = ["feed", "serial", "notifications", "reference"];
   var _viewElements = {
     feed:          "viewFeed",
     serial:        "viewSerial",
-    reference:     "viewReference",
-    notifications: "viewNotifications"
+    notifications: "viewNotifications",
+    reference:     "viewReference"
   };
   var _viewToggleButtons = {
     feed:          "btnFeedToggle",
@@ -2767,12 +2812,31 @@
     reference:     "btnRefToggle",
     notifications: "btnNotifToggle"
   };
+  var VSIZE_KEY = "gooey_panel_vsizes";
+  var _viewFlexSizes = { feed: 1, serial: 1, notifications: 1, reference: 1 };
+  try {
+    var _savedVSizes = JSON.parse(localStorage.getItem(VSIZE_KEY) || "{}");
+    Object.keys(_savedVSizes).forEach(function (k) {
+      if (_viewFlexSizes.hasOwnProperty(k) && _savedVSizes[k] > 0) {
+        _viewFlexSizes[k] = _savedVSizes[k];
+      }
+    });
+  } catch (e) {}
+
+  function updateVResizeHandles() {
+    for (var i = 0; i < _viewOrder.length - 1; i++) {
+      var a = _viewOrder[i], b = _viewOrder[i + 1];
+      var handle = document.getElementById("vresize-" + a + "-" + b);
+      if (!handle) continue;
+      var bothActive = !!_activeViews[a] && !!_activeViews[b];
+      handle.style.display = bothActive ? "block" : "none";
+    }
+  }
 
   function updatePanelLayout() {
     var panel = $("#panelRight");
-    var keys = Object.keys(_viewElements);
     var activeCount = 0;
-    keys.forEach(function (k) { if (_activeViews[k]) activeCount++; });
+    _viewOrder.forEach(function (k) { if (_activeViews[k]) activeCount++; });
 
     if (activeCount === 0) {
       panel.classList.add("panel-hidden");
@@ -2780,18 +2844,31 @@
       panel.classList.remove("panel-hidden");
     }
 
-    var heightPct = activeCount > 0 ? (100 / activeCount) + "%" : "0";
-    keys.forEach(function (k) {
+    /* When a newly-activated view has no prior size, give it the average of active peers */
+    _viewOrder.forEach(function (k) {
+      if (_activeViews[k] && _viewFlexSizes[k] === 1) {
+        var sum = 0, cnt = 0;
+        _viewOrder.forEach(function (j) { if (_activeViews[j] && j !== k) { sum += _viewFlexSizes[j]; cnt++; } });
+        if (cnt > 0) _viewFlexSizes[k] = sum / cnt;
+      }
+    });
+
+    _viewOrder.forEach(function (k) {
       var el = $("#" + _viewElements[k]);
       if (!el) return;
       if (_activeViews[k]) {
         el.style.display = "flex";
-        el.style.height = heightPct;
+        el.style.flex = _viewFlexSizes[k] + " 1 0";
+        el.style.minHeight = "80px";
+        el.style.height = "";
       } else {
         el.style.display = "none";
-        el.style.height = "";
+        el.style.flex = "";
+        el.style.minHeight = "";
       }
     });
+
+    updateVResizeHandles();
 
     /* Update toggle button active states */
     Object.keys(_viewToggleButtons).forEach(function (k) {
@@ -2815,6 +2892,45 @@
     }
     updatePanelLayout();
   }
+
+  /* ── Vertical panel resize ── */
+  (function () {
+    var MIN_H = 80;
+    document.querySelectorAll(".panel-vresize-handle").forEach(function (handle) {
+      handle.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+        var above = handle.dataset.above;
+        var below = handle.dataset.below;
+        var elA = $("#" + _viewElements[above]);
+        var elB = $("#" + _viewElements[below]);
+        if (!elA || !elB) return;
+        var startY = e.clientY;
+        var startHA = elA.offsetHeight;
+        var startHB = elB.offsetHeight;
+        var totalH = startHA + startHB;
+        var totalFlex = _viewFlexSizes[above] + _viewFlexSizes[below];
+
+        function onMove(ev) {
+          var delta = ev.clientY - startY;
+          var newHA = Math.max(MIN_H, Math.min(totalH - MIN_H, startHA + delta));
+          var frac = newHA / totalH;
+          _viewFlexSizes[above] = frac * totalFlex;
+          _viewFlexSizes[below] = (1 - frac) * totalFlex;
+          elA.style.flex = _viewFlexSizes[above] + " 1 0";
+          elB.style.flex = _viewFlexSizes[below] + " 1 0";
+        }
+
+        function onUp() {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+          try { localStorage.setItem(VSIZE_KEY, JSON.stringify(_viewFlexSizes)); } catch (e2) {}
+        }
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+      });
+    });
+  }());
 
   /* Feed toggle button */
   $("#btnFeedToggle").addEventListener("click", function () { toggleView("feed"); });
@@ -3327,7 +3443,27 @@
     btnOriDelete: function () {
       var name = ($("#oriName").value || "").trim();
       if (!name) { toast("Ori name required", "error"); return; }
-      sendCmd(addr("/annieData/{device}/ori/delete"), name);
+      sendCmd(addr("/annieData/{device}/ori/delete"), name).then(function (res) {
+        if (res && res.status === "ok") {
+          var dev = getActiveDev();
+          if (dev) { delete dev.oris[name]; renderOriTable(); refreshAllDropdowns(); }
+        }
+      });
+    },
+    btnOriClear2: function () {
+      var name = ($("#oriName").value || "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/reset/" + name), null).then(function (res) {
+        if (res && res.status === "ok") {
+          toast("Samples cleared: " + name, "success");
+          var dev = getActiveDev();
+          if (dev && dev.oris[name]) {
+            dev.oris[name].samples = 0;
+            dev.oris[name].useAxis = false;
+            renderOriTable();
+          }
+        }
+      });
     },
     btnOriClear: function () {
       showConfirm("Clear All Orientations", "Clear all saved orientations from the device?", function () {
@@ -3350,33 +3486,49 @@
       if (!val) { toast("Tolerance value required", "error"); return; }
       sendCmd(addr("/annieData/{device}/ori/tolerance"), '"' + val + '"');
     },
+    btnOriGeneral: function () {
+      var name = ($("#oriGeneralName") ? $("#oriGeneralName").value : "").trim();
+      if (!name) { toast("Ori name required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/general/" + name), null).then(function (res) {
+        if (res && res.status === "ok") toast("General ori: " + name, "success");
+      });
+    },
+    btnOriRemoveGeneral: function () {
+      sendCmd(addr("/annieData/{device}/ori/general/none"), null).then(function (res) {
+        if (res && res.status === "ok") {
+          toast("General ori cleared", "success");
+          var el = $("#oriGeneralName");
+          if (el) el.value = "";
+        }
+      });
+    },
     btnOriStrict: function () {
       var checked = $("#oriStrict").checked;
       sendCmd(addr("/annieData/{device}/ori/strict"), checked ? "on" : "off");
     },
-    btnOriColor: function () {
-      var name = ($("#oriColorName").value || "").trim();
-      if (!name) { toast("Ori name required", "error"); return; }
-      var hex = ($("#oriColorPicker") ? $("#oriColorPicker").value : "#ffffff");
-      var rgb = _hexToRgb(hex);
-      sendCmd(addr("/annieData/{device}/ori/color/" + name), '"' + rgb.r + "," + rgb.g + "," + rgb.b + '"').then(function (res) {
-        if (res.status === "ok") {
-          toast("Color set: " + name, "success");
-          var dev = getActiveDev();
-          if (dev && dev.oris[name]) {
-            dev.oris[name].color = [rgb.r, rgb.g, rgb.b];
-            renderOriTable();
+    btnOriNearest: function () {
+      var el = $("#oriStrict");
+      if (el) el.checked = false;
+      sendCmd(addr("/annieData/{device}/ori/strict"), "off");
+    },
+    btnOriWatch: function () {
+      var btn = $("#btnOriWatch");
+      var watching = btn && btn.classList.contains("watching");
+      var next = watching ? "off" : "on";
+      sendCmd(addr("/annieData/{device}/ori/watch"), next).then(function (res) {
+        if (res && res.status === "ok") {
+          if (btn) {
+            if (next === "on") {
+              btn.classList.add("watching");
+              btn.textContent = "Unwatch";
+            } else {
+              btn.classList.remove("watching");
+              btn.textContent = "Watch";
+            }
           }
         }
       });
     },
-    btnOriSelect: function () {
-      var name = ($("#oriColorName").value || "").trim();
-      if (!name) { toast("Ori name required", "error"); return; }
-      sendCmd(addr("/annieData/{device}/ori/select/" + name), null).then(function (res) {
-        if (res.status === "ok") toast("Selected for buttons: " + name, "success");
-      });
-    }
   };
 
   Object.keys(oriButtons).forEach(function (id) {

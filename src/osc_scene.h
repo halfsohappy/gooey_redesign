@@ -129,6 +129,13 @@ public:
     unsigned int   send_period_ms = 50;   // milliseconds between send bursts
     bool           enabled        = false; // starts disabled; call start()
 
+    // Scene-level gate (AND-stacks with per-message gates).
+    // Supports GATE_ONLY and GATE_NOT only (no TOGGLE at scene level).
+    String         gate_source;
+    uint8_t        gate_mode = GATE_NONE;
+    float          gate_lo   = NAN;
+    float          gate_hi   = NAN;
+
     // FreeRTOS task handle (nullptr when the task is not running).
     TaskHandle_t   task_handle    = nullptr;
 

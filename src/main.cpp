@@ -370,6 +370,27 @@ void setup() {
 
                 // ── Update orientation tracker ────────────────────────
                 ot.update(qi, qj, qk, qr, gyro_len);
+
+                // ── Ori-watch: push active-ori changes to status config ──
+                if (ot.ori_watch_enabled) {
+                    static String _watch_prev;
+                    static unsigned long _watch_ms = 0;
+                    String cur = ot.active_ori_name;
+                    unsigned long now_w = millis();
+                    if (cur != _watch_prev && now_w - _watch_ms >= 100) {
+                        _watch_ms   = now_w;
+                        _watch_prev = cur;
+                        StatusReporter& sr = status_reporter();
+                        if (sr.dest_port > 0) {
+                            String watch_adr = "/reply" + device_adr + "/ori/active";
+                            String payload   = cur.length() > 0 ? cur : "(none)";
+                            xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
+                            osc.setDestination(sr.dest_ip, sr.dest_port);
+                            osc.sendString(watch_adr.c_str(), payload.c_str());
+                            xSemaphoreGive(osc_send_mutex());
+                        }
+                    }
+                }
             } else {
                 no_data_count++;
                 // Warn once after ~5 seconds of no data (500 × 10ms).
@@ -585,6 +606,27 @@ void setup() {
                 // ── Update orientation tracker ────────────────────────
                 ot.update(qi, qj, qk, qr, gyro_len);
 
+                // ── Ori-watch: push active-ori changes to status config ──
+                if (ot.ori_watch_enabled) {
+                    static String _watch_prev;
+                    static unsigned long _watch_ms = 0;
+                    String cur = ot.active_ori_name;
+                    unsigned long now_w = millis();
+                    if (cur != _watch_prev && now_w - _watch_ms >= 100) {
+                        _watch_ms   = now_w;
+                        _watch_prev = cur;
+                        StatusReporter& sr = status_reporter();
+                        if (sr.dest_port > 0) {
+                            String watch_adr = "/reply" + device_adr + "/ori/active";
+                            String payload   = cur.length() > 0 ? cur : "(none)";
+                            xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
+                            osc.setDestination(sr.dest_ip, sr.dest_port);
+                            osc.sendString(watch_adr.c_str(), payload.c_str());
+                            xSemaphoreGive(osc_send_mutex());
+                        }
+                    }
+                }
+
                 // ── Barometer — read from BMP5xx ──────────────────────
                 // TODO: integrate barometer reading here if needed.
                 data_streams[BARO] = 0.5f;
@@ -727,13 +769,11 @@ void loop() {
                                          + "' (" + String(n) + " samples)");
                     int idx = ot.find(rec_name);
                     if (idx >= 0) {
-                        // Green flash → ori color.
+                        // Green flash.
                         leds[0] = CRGB(0, 80, 0);
                         FastLED.show();
                         delay(150);
-                        leds[0] = CRGB(ot.oris[idx].color_r / 4,
-                                       ot.oris[idx].color_g / 4,
-                                       ot.oris[idx].color_b / 4);
+                        leds[0] = CRGB(0, 0, 0);
                         FastLED.show();
                     }
                 }
@@ -748,13 +788,11 @@ void loop() {
                                        + " to '" + sel->name + "'");
                         status_reporter().info("ori", "Saved sample to '"
                                              + sel->name + "' (" + String(sc) + ")");
-                        // White flash then ori color.
+                        // White flash.
                         leds[0] = CRGB(100, 100, 100);
                         FastLED.show();
                         delay(120);
-                        leds[0] = CRGB(ot.oris[idx].color_r / 4,
-                                       ot.oris[idx].color_g / 4,
-                                       ot.oris[idx].color_b / 4);
+                        leds[0] = CRGB(0, 0, 0);
                         FastLED.show();
                     }
                 } else {
@@ -782,17 +820,14 @@ void loop() {
                 Serial.println("[BTN_B] Selected PENDING ori: '" + o.name
                     + "' (pre-registered, not yet sampled) — press A to capture");
                 // Double-blink: signals "needs sampling".
-                CRGB col(o.color_r / 4, o.color_g / 4, o.color_b / 4);
-                leds[0] = col;  FastLED.show(); delay(100);
-                leds[0] = CRGB(0, 0, 0); FastLED.show(); delay(80);
-                leds[0] = col;  FastLED.show();
+                leds[0] = CRGB(40, 40, 40); FastLED.show(); delay(100);
+                leds[0] = CRGB(0, 0, 0);    FastLED.show(); delay(80);
+                leds[0] = CRGB(40, 40, 40); FastLED.show();
             } else {
                 Serial.println("[BTN_B] Selected ori: '" + o.name
-                    + "' (" + String(o.sample_count) + " samples)"
-                    + " color=(" + String(o.color_r) + ","
-                    + String(o.color_g) + "," + String(o.color_b) + ")");
-                // Steady dimmed color.
-                leds[0] = CRGB(o.color_r / 4, o.color_g / 4, o.color_b / 4);
+                    + "' (" + String(o.sample_count) + " samples)");
+                // Steady dim white.
+                leds[0] = CRGB(40, 40, 40);
                 FastLED.show();
             }
         } else {

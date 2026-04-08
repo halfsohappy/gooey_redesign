@@ -115,6 +115,7 @@
 
 #include "osc_engine.h"
 #include "ori_tracker.h"
+#include "string_pool.h"
 
 // Forward-declare the device address (defined in main.h / main.cpp).
 extern String device_adr;
@@ -362,7 +363,11 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         if (parsed.exist.ip)   { m->ip = parsed.ip;                   m->exist.ip   = true; }
         if (parsed.exist.port) { m->port = parsed.port;               m->exist.port = true; }
         if (parsed.exist.adr)  { m->osc_address = parsed.osc_address; m->exist.adr  = true; }
-        if (parsed.exist.val)  { m->value_ptr = parsed.value_ptr;     m->exist.val  = true; }
+        if (parsed.exist.val)  {
+            m->value_ptr        = parsed.value_ptr;
+            m->string_value_ptr = parsed.string_value_ptr;
+            m->exist.val  = true;
+        }
         if (parsed.exist.low)  { m->bounds[0] = parsed.bounds[0];     m->exist.low  = true; }
         if (parsed.exist.high) { m->bounds[1] = parsed.bounds[1];     m->exist.high = true; }
         m->enabled = true;
@@ -670,8 +675,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
 
         OriTracker& ot = ori_tracker();
 
-        // /ori/register/{name}  — pre-register a named slot with color.
-        //   Payload: "r,g,b"  (optional; defaults to auto-palette color)
+        // /ori/register/{name}  — pre-register a named slot with no orientation data.
         //   Creates the slot on the device so it appears in the Button B
         //   cycle immediately.  Button A captures the orientation later.
         if (ori_rest.startsWith("/register")) {
@@ -691,52 +695,7 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                 return;
             }
 
-            // Parse optional "r,g,b" color from payload.
-            uint8_t cr = 255, cg = 255, cb = 255;
-            bool have_color = false;
-            if (typetags) {
-                // Find the string arg for RGB (may be first or second arg).
-                const char* tt = typetags;
-                const char* rgb_str = nullptr;
-                if (tt[0] == 's') {
-                    // If name came from address, this is the color string.
-                    // If name came from payload, there may be a second arg.
-                    if (ori_rest.length() > 10) {
-                        rgb_str = osc_msg.nextAsString();  // first arg = color
-                    } else {
-                        // name came from first string arg — peek second
-                        osc_msg.nextAsString();  // skip name
-                        if (tt[1] == 's') rgb_str = osc_msg.nextAsString();
-                    }
-                }
-                if (rgb_str) {
-                    String rs = String(rgb_str);
-                    int c1 = rs.indexOf(',');
-                    if (c1 > 0) {
-                        int c2 = rs.indexOf(',', c1 + 1);
-                        if (c2 > 0) {
-                            cr = (uint8_t)rs.substring(0, c1).toInt();
-                            cg = (uint8_t)rs.substring(c1 + 1, c2).toInt();
-                            cb = (uint8_t)rs.substring(c2 + 1).toInt();
-                            have_color = true;
-                        }
-                    }
-                }
-            }
-
-            int idx;
-            if (have_color) {
-                idx = ot.register_ori(ori_name, cr, cg, cb);
-            } else {
-                // Auto-assign palette color.
-                uint8_t ci = ot.next_color_index % ORI_PALETTE_SIZE;
-                idx = ot.register_ori(ori_name,
-                                      ORI_PALETTE[ci][0],
-                                      ORI_PALETTE[ci][1],
-                                      ORI_PALETTE[ci][2]);
-                if (idx >= 0) ot.next_color_index++;
-            }
-
+            int idx = ot.register_ori(ori_name);
             if (idx >= 0) {
                 status_reporter().info("ori", "Registered ori '" + ori_name + "' (slot " + String(idx) + ")");
                 osc_reply(sender_ip, sender_port, reply_adr + "/ori/register", "Registered: " + ori_name);
@@ -952,73 +911,44 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             return;
         }
 
-        // /ori/color/{name}  — set the LED color of an ori ("r,g,b" payload)
-        if (ori_rest.startsWith("/color")) {
+        // /ori/general/{name}  — set (or clear) the general fallback ori for strict matching
+        if (ori_rest.startsWith("/general")) {
             String ori_name;
-            if (ori_rest.length() > 6 && ori_rest.charAt(6) == '/') {
-                ori_name = ori_rest_orig.length() > 7 ? ori_rest_orig.substring(7) : String("");
+            if (ori_rest.length() > 8 && ori_rest.charAt(8) == '/') {
+                ori_name = ori_rest_orig.length() > 9 ? ori_rest_orig.substring(9) : String("");
                 ori_name.trim();
             }
             const char* typetags = osc_msg.getTypeTags();
             if (ori_name.length() == 0 && typetags && typetags[0] == 's') {
-                // Payload could be "name, r, g, b" or just "r,g,b" if name is in address.
                 ori_name = String(osc_msg.nextAsString());
                 ori_name.trim();
             }
-            if (ori_name.length() == 0) {
-                status_reporter().warning("ori", "color: no name given");
-                return;
-            }
-            // Parse RGB from payload string: "r,g,b" or "r g b"
-            String rgb_str;
-            if (typetags) {
-                const char* tt = osc_msg.getTypeTags();
-                // Check if there's another string arg (the name was first arg, rgb is second)
-                if (tt && strlen(tt) >= 2 && tt[1] == 's') {
-                    rgb_str = String(osc_msg.nextAsString());
-                } else {
-                    // Name might contain the color: check if ori_name looks like "r,g,b"
-                    // Actually, let's just use payload as the color string.
-                    rgb_str = ori_name;
-                    // Re-extract name from address
-                    if (ori_rest.length() > 7) {
-                        ori_name = ori_rest_orig.length() > 7 ? ori_rest_orig.substring(7) : String("");
-                        ori_name.trim();
-                    }
-                }
-            }
-            // If rgb_str is empty, try the single-string payload
-            if (rgb_str.length() == 0 && typetags && typetags[0] == 's') {
-                rgb_str = ori_name;  // fallback
-            }
-
-            // Parse the "r,g,b" string
-            uint8_t r = 255, g = 255, b = 255;  // default white
-            if (rgb_str.length() > 0) {
-                int c1 = rgb_str.indexOf(',');
-                if (c1 > 0) {
-                    int c2 = rgb_str.indexOf(',', c1 + 1);
-                    if (c2 > 0) {
-                        r = (uint8_t)rgb_str.substring(0, c1).toInt();
-                        g = (uint8_t)rgb_str.substring(c1 + 1, c2).toInt();
-                        b = (uint8_t)rgb_str.substring(c2 + 1).toInt();
-                    }
-                }
-            }
-            if (!ot.set_color(ori_name, r, g, b)) {
-                // Ori not found — auto-register it so /ori/color can be used
-                // as a shorthand for /ori/register + /ori/color in one step.
-                ot.register_ori(ori_name, r, g, b);
-                status_reporter().info("ori", "Auto-registered ori '" + ori_name + "' with color ("
-                    + String(r) + "," + String(g) + "," + String(b) + ")");
-            } else {
-                status_reporter().info("ori", "Set color of '" + ori_name + "' to ("
-                    + String(r) + "," + String(g) + "," + String(b) + ")");
-            }
-            osc_reply(sender_ip, sender_port, reply_adr + "/ori/color",
-                      ori_name + ": " + String(r) + "," + String(g) + "," + String(b));
+            if (ori_name == "none" || ori_name == "clear") ori_name = "";
+            ot.general_ori_name = ori_name;
+            String reply = ori_name.length() > 0 ? ("general: " + ori_name) : "general: (cleared)";
+            status_reporter().info("ori", reply);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/general", reply);
             return;
         }
+
+        // /ori/watch  — enable/disable push notifications on active-ori change
+        if (ori_rest == "/watch" || ori_rest.startsWith("/watch/")) {
+            const char* typetags = osc_msg.getTypeTags();
+            if (typetags && typetags[0] == 's') {
+                String val = String(osc_msg.nextAsString());
+                val.trim(); val.toLowerCase();
+                ot.ori_watch_enabled = (val == "on" || val == "true" || val == "1" || val == "yes");
+            } else if (typetags && typetags[0] == 'f') {
+                ot.ori_watch_enabled = (osc_msg.nextAsFloat() > 0.5f);
+            } else {
+                ot.ori_watch_enabled = !ot.ori_watch_enabled;
+            }
+            String state = ot.ori_watch_enabled ? "ON" : "OFF";
+            status_reporter().info("ori", "Ori-watch: " + state);
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/watch", "watch: " + state);
+            return;
+        }
+
 
         // /ori/select/{name}  — select an ori for button editing
         if (ori_rest.startsWith("/select")) {
@@ -1360,6 +1290,67 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     // Strip category prefix to get /{name}/{command}.
     if (is_msg)   address = address.substring(4);   // strip "/msg"
     if (is_scene) address = address.substring(6);    // strip "/scene"
+
+    // ── STRING POOL (/msg/string) ─────────────────────────────────────────
+    //    String payload  → register string, reply with assigned name (str1, ...)
+    //    Float/int N > 0 → reply with strN and its value
+    //    Float/int 0     → reply with list of all registered strings
+
+    if (is_msg && address == "/string") {
+        const char* typetags = osc_msg.getTypeTags();
+        bool is_string_arg = typetags && typetags[0] == ',' && typetags[1] == 's';
+        bool is_num_arg    = typetags && typetags[0] == ',' &&
+                             (typetags[1] == 'f' || typetags[1] == 'i');
+
+        if (is_string_arg) {
+            // Register the string and reply with its name.
+            const char* raw = osc_msg.nextAsString();
+            if (!raw || strlen(raw) == 0) {
+                status_reporter().warning("str", "Empty string payload");
+                return;
+            }
+            int idx = string_pool().register_string(String(raw));
+            if (idx < 0) {
+                status_reporter().warning("str", "String pool full (max " + String(MAX_STRINGS) + ")");
+                return;
+            }
+            String assigned = StringPool::name_for_index(idx);
+            // Send dedicated reply so gooey can capture the name.
+            StatusReporter& sr = status_reporter();
+            if (sr.dest_port > 0) {
+                String raddr = reply_adr + "/str/registered";
+                xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
+                osc.setDestination(sr.dest_ip, sr.dest_port);
+                osc.sendString(raddr.c_str(), assigned.c_str());
+                xSemaphoreGive(osc_send_mutex());
+            }
+            status_reporter().info("str", "Registered \"" + String(raw) + "\" as " + assigned);
+        } else if (is_num_arg) {
+            int n = (int)osc_msg.nextAsFloat();
+            if (n == 0) {
+                // List all strings.
+                if (string_pool().count == 0) {
+                    status_reporter().info("str", "(none)");
+                } else {
+                    String list;
+                    for (uint8_t i = 0; i < string_pool().count; i++) {
+                        if (list.length()) list += "\n";
+                        list += StringPool::name_for_index(i) + ": " + string_pool().values[i];
+                    }
+                    status_reporter().info("str", list);
+                }
+            } else if (n >= 1 && n <= (int)string_pool().count) {
+                int idx = n - 1;
+                status_reporter().info("str", StringPool::name_for_index(idx)
+                                       + ": " + string_pool().values[idx]);
+            } else {
+                status_reporter().warning("str", "No string at index " + String(n));
+            }
+        } else {
+            status_reporter().warning("str", "Payload must be a string or integer");
+        }
+        return;
+    }
 
     // ── CLONE (/msg/clone or /scene/clone) ────────────────────────────────
     //    Payload: single CSV string "sourceName, destName"
@@ -1734,6 +1725,45 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
                                 idx = sep + 1;
                             }
                         }
+                    }
+                    // gate_src / gate_mode / gate_lo / gate_hi
+                    int gsi = cfg_lower.indexOf("gate_src:");
+                    if (gsi >= 0) {
+                        int vstart = gsi + 9;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String gsval = (vend < 0) ? String(arg).substring(vstart)
+                                                  : String(arg).substring(vstart, vend);
+                        gsval.trim();
+                        p->gate_source = gsval;
+                    }
+                    int gmi = cfg_lower.indexOf("gate_mode:");
+                    if (gmi >= 0) {
+                        int vstart = gmi + 10;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String gmval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                  : cfg_lower.substring(vstart, vend);
+                        gmval.trim();
+                        if (gmval == "only") p->gate_mode = GATE_ONLY;
+                        else if (gmval == "not") p->gate_mode = GATE_NOT;
+                        else p->gate_mode = GATE_NONE;
+                    }
+                    int gli = cfg_lower.indexOf("gate_lo:");
+                    if (gli >= 0) {
+                        int vstart = gli + 8;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String glval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                  : cfg_lower.substring(vstart, vend);
+                        glval.trim();
+                        p->gate_lo = glval.toFloat();
+                    }
+                    int ghi = cfg_lower.indexOf("gate_hi:");
+                    if (ghi >= 0) {
+                        int vstart = ghi + 8;
+                        int vend = cfg_lower.indexOf(',', vstart);
+                        String ghval = (vend < 0) ? cfg_lower.substring(vstart)
+                                                  : cfg_lower.substring(vstart, vend);
+                        ghval.trim();
+                        p->gate_hi = ghval.toFloat();
                     }
                 }
             }

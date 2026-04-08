@@ -46,6 +46,7 @@
 #include <Preferences.h>
 #include "osc_registry.h"
 #include "ori_tracker.h"
+#include "string_pool.h"
 
 #define MAX_SHOWS 16
 
@@ -67,8 +68,18 @@ static inline String msg_to_save_string(const OscMessage& m) {
     if (m.exist.port) { if (s.length()) s += ", "; s += "port:" + String(m.port); }
     if (m.exist.adr)  { if (s.length()) s += ", "; s += "adr:" + m.osc_address; }
     if (m.exist.val) {
-        int idx = data_stream_index_from_ptr(m.value_ptr);
-        if (idx >= 0) { if (s.length()) s += ", "; s += "value:" + data_stream_name(idx); }
+        if (m.string_value_ptr) {
+            for (uint8_t _si = 0; _si < string_pool().count; _si++) {
+                if (&string_pool().values[_si] == m.string_value_ptr) {
+                    if (s.length()) s += ", ";
+                    s += "value:" + StringPool::name_for_index(_si);
+                    break;
+                }
+            }
+        } else {
+            int idx = data_stream_index_from_ptr(m.value_ptr);
+            if (idx >= 0) { if (s.length()) s += ", "; s += "value:" + data_stream_name(idx); }
+        }
     }
     if (m.exist.low)  { if (s.length()) s += ", "; s += "low:" + String(m.bounds[0], 4); }
     if (m.exist.high) { if (s.length()) s += ", "; s += "high:" + String(m.bounds[1], 4); }
@@ -143,6 +154,15 @@ static inline String scene_to_save_string(const OscScene& p) {
         }
         if (ml.length() > 0) { if (s.length()) s += ", "; s += "msgs:" + ml; }
     }
+    // Scene gate fields.
+    if (p.gate_mode != GATE_NONE) {
+        if (s.length()) s += ", ";
+        s += "gate_src:" + p.gate_source;
+        s += ", gate_mode:";
+        s += (p.gate_mode == GATE_ONLY) ? "only" : "not";
+        if (!isnan(p.gate_lo)) { s += ", gate_lo:" + String(p.gate_lo, 4); }
+        if (!isnan(p.gate_hi)) { s += ", gate_hi:" + String(p.gate_hi, 4); }
+    }
     return s;
 }
 
@@ -202,6 +222,17 @@ static inline void scene_from_save_string(OscScene* p, const String& saved) {
                     if (f == "high") p->overrides.high = true;
                 }
             }
+        } else if (key == "gate_src") {
+            p->gate_source = value;
+        } else if (key == "gate_mode") {
+            String lv = value; lv.toLowerCase();
+            if (lv == "only") p->gate_mode = GATE_ONLY;
+            else if (lv == "not") p->gate_mode = GATE_NOT;
+            else p->gate_mode = GATE_NONE;
+        } else if (key == "gate_lo") {
+            p->gate_lo = value.toFloat();
+        } else if (key == "gate_hi") {
+            p->gate_hi = value.toFloat();
         } else if (key == "msgs") {
             // Parse "name1+name2+name3" and add to scene.
             int s2 = 0;
@@ -233,9 +264,6 @@ static inline String ori_to_save_string(const SavedOri& o) {
     String s;
     s  = "name:" + o.name;
     s += ",sc:"  + String(o.sample_count);
-    s += ",r:"   + String(o.color_r);
-    s += ",g:"   + String(o.color_g);
-    s += ",b:"   + String(o.color_b);
     s += ",tol:" + String(o.tolerance, 2);
     s += ",axis:" + String(o.use_axis ? 1 : 0);
     if (o.use_axis) {
@@ -270,12 +298,9 @@ static inline void ori_from_save_string(OriTracker& ot, const String& s) {
     if (name.length() == 0) return;
 
     uint8_t sc = (uint8_t)extract("sc").toInt();
-    uint8_t r  = (uint8_t)extract("r").toInt();
-    uint8_t g  = (uint8_t)extract("g").toInt();
-    uint8_t b  = (uint8_t)extract("b").toInt();
 
     if (sc == 0) {
-        ot.register_ori(name, r, g, b);
+        ot.register_ori(name);
         return;
     }
 
@@ -290,9 +315,6 @@ static inline void ori_from_save_string(OriTracker& ot, const String& s) {
         float qr = extract("qr").toFloat();
         int idx = ot.save(name, qi, qj, qk, qr);
         if (idx >= 0) {
-            ot.oris[idx].color_r  = r;
-            ot.oris[idx].color_g  = g;
-            ot.oris[idx].color_b  = b;
             ot.oris[idx].use_axis = false;
             // sample_count already set to 1 by save()
         }
@@ -307,8 +329,8 @@ static inline void ori_from_save_string(OriTracker& ot, const String& s) {
     float ay = use_axis ? extract("ay").toFloat() : 0.0f;
     float az = use_axis ? extract("az").toFloat() : 0.0f;
 
-    // Register with color first so slot exists.
-    ot.register_ori(name, r, g, b);
+    // Register slot first so it exists.
+    ot.register_ori(name);
     int idx = ot.find(name);
     if (idx < 0) return;
 
@@ -395,6 +417,13 @@ static inline int _nvs_save_combined(const String& ns) {
     prefs.putFloat("o_tol", ot.ori_tolerance);
     prefs.putBool ("o_str", ot.strict_matching);
 
+    // String pool.
+    StringPool& sp = string_pool();
+    prefs.putUChar("st_count", sp.count);
+    for (uint8_t i = 0; i < sp.count; i++) {
+        prefs.putString(("st_" + String(i)).c_str(), sp.values[i]);
+    }
+
     prefs.end();
     return (int)(reg.scene_count + reg.msg_count + saved_oris);
 }
@@ -411,6 +440,17 @@ static inline int _nvs_load_combined(const String& ns) {
     uint16_t m_count = prefs.getUShort("m_count", 0);
 
     if (p_count == 0 && m_count == 0) { prefs.end(); return 0; }
+
+    // Load string pool first (messages reference str1/str2/... names).
+    {
+        StringPool& sp = string_pool();
+        sp.clear();
+        uint8_t st_count = prefs.getUChar("st_count", 0);
+        for (uint8_t i = 0; i < st_count && i < MAX_STRINGS; i++) {
+            sp.values[i] = prefs.getString(("st_" + String(i)).c_str(), "");
+        }
+        sp.count = st_count;
+    }
 
     // Stop running tasks.
     for (uint16_t i = 0; i < reg.scene_count; i++) {

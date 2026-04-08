@@ -888,6 +888,75 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
   background: var(--bg-card);
 }
 
+/* ── Flat ori tracker ── */
+.section-content:has(#sec-ori.active) { padding: 0; }
+.ori-tracker-card {
+  background: var(--bg-card) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin-bottom: 0 !important;
+}
+#sec-ori .card:not(.ori-tracker-card) { margin: 12px; }
+.ori-tracker-card .data-table { margin-top: 0; }
+.ori-tracker-card .data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  background: var(--bg-card);
+}
+
+/* ── Scene ops tabbed card ── */
+.scene-ops-card {
+  padding: 0 !important;
+  overflow: hidden;
+}
+.scene-ops-card > h2 {
+  padding: 12px 16px 8px !important;
+  margin-bottom: 0 !important;
+}
+.scene-ops-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+}
+.scene-ops-tab-btn {
+  flex: 1;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-light);
+  font-family: var(--font-title);
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.scene-ops-tab-btn:hover { color: var(--text-medium); background: none; }
+.scene-ops-tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 500;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.scene-ops-tab-pane {
+  display: none;
+  padding: 14px 16px;
+}
+.scene-ops-tab-pane.active { display: block; }
+
+
+/* ── Label with inline hint ── */
+.label-with-hint {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.label-with-hint label { margin-bottom: 0; }
+
 /* ── Message scene filter bar ── */
 .msg-scene-filter {
   display: flex;
@@ -1243,20 +1312,6 @@ th.gate-section, td.gate-section { display: table-cell; }
 .gate-row .gate-ori   { flex: 2 1 0; min-width: 0; }
 .gate-row .gate-mode  { flex: 2 1 0; min-width: 0; }
 
-/* Ori color swatches */
-.ori-color-swatch {
-  width: 36px; height: 36px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  display: inline-block;
-}
-.ori-color-dot {
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  display: inline-block;
-  vertical-align: middle;
-  border: 1px solid var(--border);
-}
 
 /* Ori type badges */
 .ori-badge {
@@ -1748,7 +1803,7 @@ input[type="color"] {
   overflow: hidden;
   border-bottom: 1px solid var(--border);
 }
-.panel-view:last-child { border-bottom: none; }
+#viewReference { border-bottom: none; }
 
 /* Subtle per-panel tints */
 #viewFeed         { background: var(--panel-feed-bg); }
@@ -1768,6 +1823,18 @@ input[type="color"] {
 }
 .panel-resize-handle:hover,
 .panel-resize-handle:active { background: var(--accent-dim); }
+
+/* Vertical resize handle between stacked panel views */
+.panel-vresize-handle {
+  height: 5px;
+  cursor: row-resize;
+  background: transparent;
+  flex-shrink: 0;
+  z-index: 10;
+  transition: background 0.15s;
+}
+.panel-vresize-handle:hover,
+.panel-vresize-handle:active { background: var(--accent-dim); }
 
 /* Notification history scrollable area */
 .notif-history {
@@ -2616,6 +2683,7 @@ input.field-error {
 
 /* ── 15. Ori explainer ── */
 .ori-explainer { margin-bottom: 12px; }
+
 .ori-explainer p { font-size: 13px; line-height: 1.6; margin: 0 0 8px; color: var(--text-light); }
 .ori-explainer p strong { color: var(--text-dark); }
 .ori-conditions-table { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -2760,8 +2828,40 @@ body.serial-open .app-layout { padding-bottom: 0; }
   border-radius: 3px;
   font-weight: 500;
 }
-.ori-row-pending td { opacity: 0.85; }
-.ori-row-pending .cell-name { color: var(--accent); font-style: italic; }
+/* Ori tracker footer (name input + buttons embedded in tracker card) */
+.ori-tracker-footer {
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ori-tracker-footer input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ori tracker row states */
+.ori-data-row.active { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.ori-data-row.pending td { opacity: 0.7; }
+.ori-name-cell { cursor: pointer; }
+.ori-name-cell:hover { color: var(--accent); }
+.ori-status-cell { white-space: nowrap; }
+
+/* Ori status pills — modelled on scene pills */
+.ori-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 11px;
+  font-weight: 600; letter-spacing: .07em; padding: 3px 9px;
+  border-radius: 99px; white-space: nowrap;
+}
+.ori-pill-active  { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(144,132,156,0.4); }
+.ori-pill-pending { background: var(--bg-alt); color: var(--text-light); border: 1px dashed var(--border); font-style: italic; letter-spacing: 0; }
+.ori-pill-idle    { color: var(--text-light); font-size: 13px; padding: 0 4px; }
+.ori-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: sceneBlink 1.8s ease-in-out infinite; }
+html.light .ori-pill-active { border-color: rgba(100,80,130,0.3); }
+
+/* Watch button active state */
+#btnOriWatch.watching { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); border-color: var(--accent); }
 .tbl-btn-primary {
   background: rgba(74,85,104,0.10);
   border-color: var(--btn-primary-bg);

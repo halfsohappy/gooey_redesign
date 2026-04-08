@@ -195,17 +195,27 @@ Select any row to reveal its action buttons. The **column picker** (gear icon) t
 1. Click **New Message** below the tracker
 2. Fill in the form:
    - **Name** — a short identifier (e.g., "dimmer1")
-   - **Value** — pick a sensor from the dropdown (e.g., accelX)
+   - **Value** — pick a sensor from the dropdown (e.g., accelX). The **Constants** category includes `low` (always 0), `high` (always 1), and **String** — a fixed text string stored on the device (see [String Messages](#string-messages) below)
    - **IP** — destination IP address
    - **Port** — destination UDP port
    - **Address** — OSC address path (e.g., /dmx/1)
-   - **Low / High** — output value range
+   - **Low / High** — output value range (hidden for String type)
    - **Scene** — optionally assign to an existing scene
    - **Gate** — gate source (orientation or data stream), gate mode (only/not/toggle), and optional thresholds
 3. Click **Create**
 
 ![Create message form with fields filled in](images/gooey_message_form.png)
 *Creating a new message mapping accelX to a lighting fader.*
+
+### String Messages
+
+The **String** option (under Constants in the Value dropdown) sends a fixed text string as an OSC string argument instead of a float value. This is useful for triggering cue labels, scene names, or text commands in show-control software.
+
+When you select String, the Low and High fields are replaced by a **String** text input. Enter any text (e.g., `"GO"`, `"scene_4"`, `"blackout"`).
+
+When you click **Apply** or **Send Direct**, annieData first registers the string text on the device (via `/msg/string`), receives back an assigned pool name (`str1`, `str2`, etc.), then stores the message using that reference. The device maintains a pool of up to 16 unique strings in flash memory — identical strings share the same slot. When the message fires, it sends an OSC message with a string argument instead of a float.
+
+If you later re-apply the same message with the same string value, the existing pool entry is reused (no duplicate is created).
 
 ### Actions
 
@@ -298,6 +308,26 @@ Similar to the message tracker, but for scenes:
 | **Prepend** | Scene address + message address (e.g., `/mixer` + `/fader1` → `/mixer/fader1`) |
 | **Append** | Message address + scene address |
 
+### Scene Gate
+
+Scenes support their own gate condition, independent of — and stacked on top of — any per-message gates.
+
+When a scene gate is configured, it is evaluated **before** any messages in the scene are sent. If the scene gate fails, the entire scene's send iteration is skipped (no messages fire, regardless of their individual gate settings). If the scene gate passes, each message's own gate is then evaluated normally.
+
+This gives you coarse gating at the scene level ("this whole scene only fires while the performer is upstage") and fine gating at the message level ("within that scene, this one message only fires when the arm is raised").
+
+**To configure a scene gate:**
+
+1. Open or create a scene
+2. A **Scene Gate** row appears in the form
+3. Choose a gate source: an orientation (`ori:name`) or any data stream
+4. Choose **ONLY** (fire when active) or **NOT** (fire when not active)
+5. Optionally set Lower / Upper thresholds for data-stream gates
+
+> Note: Scene gates support **ONLY** and **NOT** modes only — not TOGGLE. Toggle does not make semantic sense at the scene level.
+
+The scene gate summary appears in the scene tracker's expand row when set.
+
 ### setAll
 
 The **setAll** card applies a property change to every message in the scene at once. For example, setting all messages to output 0–255:
@@ -322,12 +352,11 @@ Messages can be configured to send only when a specific pose is detected, or to 
 
 Shows all saved orientations with:
 - **Name** — the ori identifier
-- **Color swatch** — the LED color assigned to this ori (auto-assigned from a palette)
 - **Sample count** — how many quaternion samples define the pose (max 8 after processing)
 - **Tolerance** — match tolerance in degrees
 
-![Ori tab showing saved orientations with color swatches](images/gooey_ori.png)
-*Three saved oris — "armUp" (green), "forward" (blue), "resting" (red).*
+![Ori tab showing saved orientations](images/gooey_ori.png)
+*Three saved oris — "armUp", "forward", "resting".*
 
 ### Recording a new ori
 
@@ -364,6 +393,13 @@ Each sensor tick, the device:
 | **Tolerance** | How close the device needs to be to match (degrees). Combined with the global tolerance. Higher = more forgiving. Default: 10. |
 | **Motion threshold** | Gyroscope magnitude gate (rad/s). When exceeded, matching freezes entirely — prevents false triggers during fast movement. Default: 1.5. |
 | **Strict mode** | When on, no ori is active if the best score is positive (nothing close enough). When off, the closest ori always wins regardless of distance. |
+| **General ori** | A fallback ori name used when strict mode is on and no other ori matches closely enough. Instead of "nothing active," the general ori is considered active. Useful for defining a neutral resting pose. Set via the **General Ori** input in the ori settings, or with `/ori/general/{name}`. Clear it by setting to `none`. |
+
+### Ori Watch
+
+**Ori Watch** sends a push notification to annieData whenever the active ori changes — no polling required. Enable it by toggling **Ori Watch** in the ori settings. When enabled, the device sends an OSC reply each time a different ori becomes active (or no ori becomes active in strict mode). annieData displays these transitions in the live feed.
+
+This is useful for logging orientation transitions or triggering external events on ori change without polling `/ori/active`.
 
 ### Assigning gate conditions to messages
 

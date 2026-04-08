@@ -14,6 +14,7 @@ No programming required. No GUI required.
 - [The 29 Sensor Values](#the-29-sensor-values)
 - [Config String Format](#config-string-format)
 - [Creating Messages](#creating-messages)
+- [String Messages](#string-messages)
 - [Creating Scenes](#creating-scenes)
 - [Direct Command (Fastest Way)](#direct-command-fastest-way)
 - [Scaling Output Values](#scaling-output-values)
@@ -135,7 +136,7 @@ Here are all the config keys:
 
 | Key | What It Sets | Example |
 |-----|-------------|---------|
-| `value` | Which sensor to read | `value:accelX` |
+| `value` | Which sensor to read (or a string pool ref) | `value:accelX` or `value:str1` |
 | `ip` | Destination IP address | `ip:192.168.1.50` |
 | `port` | Destination UDP port | `port:9000` |
 | `adr` | OSC address to send on | `adr:/sensor/x` |
@@ -146,8 +147,8 @@ Here are all the config keys:
 | `period` | Send interval in ms (scenes) | `period:50` |
 | `adrmode` | Address composition mode | `adrmode:prepend` |
 | `override` | Scene override flags | `override:ip+port` |
-| `gate_src` | Gate source: data stream or `ori:name` | `gate_src:twist` or `gate_src:ori:forward` |
-| `gate_mode` | Gate behavior: `only`, `not`, or `toggle` | `gate_mode:only` |
+| `gate_src` | Gate source: data stream or `ori:name` (messages and scenes) | `gate_src:twist` or `gate_src:ori:forward` |
+| `gate_mode` | Gate behavior: `only`, `not`, or `toggle` (messages); `only` or `not` (scenes) | `gate_mode:only` |
 | `gate_lo` | Gate lower threshold (optional) | `gate_lo:0.3` |
 | `gate_hi` | Gate upper threshold (optional) | `gate_hi:0.7` |
 | `ori_only` | *(backward compat)* Same as `gate_src:ori:X, gate_mode:only` | `ori_only:forward` |
@@ -222,6 +223,62 @@ This copies `dimmer1`'s IP address, so if you change dimmer1's IP, this message 
 
 ---
 
+## String Messages
+
+Instead of sending a float value, a message can send a fixed **text string** as an OSC string argument. This is useful for triggering cue labels, mode names, or any string-based command in show-control software.
+
+### Register a string
+
+The device maintains a pool of up to 16 unique strings in flash (`str1` through `str16`). Register a string value first:
+
+```
+Address: /annieData/bart/msg/string
+Payload: "GO"
+```
+
+The device assigns a pool slot and replies to your listener at:
+
+```
+/reply/bart/str/registered    →  "str1"
+```
+
+Use the returned name (`str1`, `str2`, etc.) as the `value` in a message config:
+
+```
+Address: /annieData/bart/msg/cuefire
+Payload: "value:str1, ip:192.168.1.20, port:53000, adr:/cue/name"
+```
+
+When this message fires, it sends the OSC message `/cue/name` with a string argument `"GO"`.
+
+Identical strings share the same pool slot — re-registering `"GO"` returns `str1` again with no duplicate created.
+
+### Query the string pool
+
+```
+Address: /annieData/bart/msg/string
+Payload: 0           ← list all registered strings (replies: "str1=GO, str2=SCENE_4, ...")
+Payload: 1           ← get str1's value
+Payload: 2           ← get str2's value
+```
+
+### Example
+
+```
+# Register the string
+/annieData/bart/msg/string  "scene_4"
+# → reply: str1
+
+# Create a message that sends "scene_4" as a string OSC arg
+/annieData/bart/msg/sceneTrigger  "value:str1, ip:192.168.1.20, port:53000, adr:/cue/scene"
+
+# Add to a scene and start
+/annieData/bart/scene/triggers/addMsg  "sceneTrigger"
+/annieData/bart/scene/triggers/start
+```
+
+---
+
 ## Creating Scenes
 
 A **scene** is a group of messages that send together at a shared rate.
@@ -281,6 +338,19 @@ Payload: "dimmer1"
 Address: /annieData/bart/scene/myScene/setAll
 Payload: "low:0, high:100"
 ```
+
+### Scene-level gate
+
+Scenes support their own gate that stacks with per-message gates. The scene gate is evaluated **first** — if it fails, no messages in the scene fire that iteration. If it passes, each message's own gate is evaluated normally.
+
+Configure a scene gate in the scene config string using the same `gate_src`, `gate_mode`, `gate_lo`, `gate_hi` keys. Only `only` and `not` are valid for scene gates (no `toggle`):
+
+```
+Address: /annieData/bart/scene/myScene
+Payload: "gate_src:ori:upstage, gate_mode:only"
+```
+
+Now the entire scene only fires when the `upstage` ori is active. Messages within the scene can still have their own gates for additional fine control.
 
 ---
 
@@ -684,6 +754,44 @@ Payload: 0.5
 /annieData/bart/ori/strict "off"
 ```
 
+### General Ori (fallback in strict mode)
+
+When strict mode is on, you can designate one ori as the **general fallback** — if no other ori matches closely enough, the general ori is considered active instead of "nothing."
+
+```
+/annieData/bart/ori/general/resting
+```
+
+Now if the device is between recorded poses, `resting` is treated as active. Clear it:
+
+```
+/annieData/bart/ori/general/none
+```
+
+You can also send the name as a string payload:
+```
+Address: /annieData/bart/ori/general
+Payload: "resting"
+```
+
+### Ori Watch (push notifications)
+
+Enable push notifications when the active ori changes:
+
+```
+/annieData/bart/ori/watch "on"
+/annieData/bart/ori/watch "off"
+/annieData/bart/ori/watch          ← toggle
+```
+
+When enabled, the device sends an OSC reply to your listener whenever the active ori changes (including transitions to "nothing active" in strict mode). The reply arrives at:
+
+```
+/reply/bart/ori/watch    →  "active: armRaised"
+```
+
+Useful for logging orientation transitions or triggering external events without polling `/ori/active`.
+
 ### Managing oris
 
 ```
@@ -712,6 +820,9 @@ All commands use the prefix `/annieData/{device}/`. Payload column shows the exp
 | `msg/{name}/enable` | — | Enable |
 | `msg/{name}/disable` | — | Disable |
 | `msg/{name}/info` | — | Query info |
+| `msg/string` | string | Register string → reply: `str1`/`str2`/… |
+| `msg/string` | `0` | List all pool entries |
+| `msg/string` | `N` | Get strN value |
 
 ### Scenes
 
@@ -814,6 +925,9 @@ All commands use the prefix `/annieData/{device}/`. Payload column shows the exp
 | `ori/threshold` | float | Motion gate |
 | `ori/tolerance` | degrees | Match tolerance |
 | `ori/strict` | `"on"` / `"off"` | Strict matching |
+| `ori/general/{name}` | — | Set general fallback ori |
+| `ori/general/none` | — | Clear general ori |
+| `ori/watch` | `"on"` / `"off"` / — | Push on ori change (toggle) |
 | `ori/record/start/{name}` | — | Start recording |
 | `ori/record/stop` | — | Stop recording |
 | `ori/record/cancel` | — | Cancel recording |

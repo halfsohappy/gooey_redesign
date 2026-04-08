@@ -107,8 +107,13 @@ public:
 
     // Pointer into data_streams[] for the live sensor value to send.
     // Declared volatile because data_streams[] is updated concurrently by
-    // the sensor task.
+    // the sensor task.  Null for string-type messages.
     volatile float*  value_ptr;
+
+    // Pointer into string_pool().values[] for string-type messages.
+    // When non-null, the message sends a string instead of a float.
+    // Null for normal float-sensor messages.
+    String*          string_value_ptr = nullptr;
 
     // Output bounds: the raw sensor value is linearly mapped from [0, 1]
     // to [bounds[0], bounds[1]] before sending.  If no bounds are set the

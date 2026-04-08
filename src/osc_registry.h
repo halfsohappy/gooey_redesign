@@ -30,6 +30,7 @@
 #include "osc_scene.h"
 #include "osc_pattern.h"
 #include "ori_tracker.h"
+#include "string_pool.h"
 
 class OscRegistry {
 public:
@@ -285,13 +286,14 @@ inline bool OscMessage::sendable() const {
 /// Returns false with *error filled in on parse failure.
 inline bool OscMessage::from_config_str(const String& config, String* error) {
     // Reset parseable fields.
-    exist      = ExistFlags{};
-    ip         = IPAddress(0, 0, 0, 0);
-    port       = 0;
-    osc_address = "";
+    exist              = ExistFlags{};
+    ip                 = IPAddress(0, 0, 0, 0);
+    port               = 0;
+    osc_address        = "";
     clear_scenes();
-    value_ptr  = nullptr;
-    bounds[0]  = 0.0f;
+    value_ptr          = nullptr;
+    string_value_ptr   = nullptr;
+    bounds[0]          = 0.0f;
     bounds[1]  = 1.0f;
     gate_source = "";
     gate_mode   = GATE_NONE;
@@ -455,13 +457,28 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
                 if (sp) add_scene(sp);
             }
         } else if (key == "value" || key == "val") {
-            int vi = data_stream_index_from_name(value);
-            if (vi < 0 || vi >= NUM_DATA_STREAMS) {
-                if (error) *error = "Unknown value: " + value;
-                return false;
+            // Check for string pool reference first (str1, str2, ...)
+            String lv = value; lv.trim(); lv.toLowerCase();
+            if (lv.startsWith("str") && lv.length() > 3 && isDigit(lv[3])) {
+                String* sp = string_pool().ptr_from_name(value);
+                if (sp) {
+                    string_value_ptr = sp;
+                    value_ptr = nullptr;
+                    exist.val = true;
+                } else {
+                    if (error) *error = "String not found: " + value;
+                    return false;
+                }
+            } else {
+                int vi = data_stream_index_from_name(value);
+                if (vi < 0 || vi >= NUM_DATA_STREAMS) {
+                    if (error) *error = "Unknown value: " + value;
+                    return false;
+                }
+                value_ptr = &data_streams[vi];
+                string_value_ptr = nullptr;
+                exist.val = true;
             }
-            value_ptr = &data_streams[vi];
-            exist.val = true;
         } else if (key == "low" || key == "min" || key == "lo") {
             bounds[0] = value.toFloat();
             exist.low = true;
@@ -527,8 +544,18 @@ inline String OscMessage::to_info_string(bool verbose) const {
     if (exist.port) { s += " port:" + String(port); }
     if (exist.adr)  { s += " adr:" + osc_address; }
     if (exist.val) {
-        int idx = data_stream_index_from_ptr(value_ptr);
-        s += " val:" + (idx >= 0 ? data_stream_name(idx) : String("custom"));
+        if (string_value_ptr) {
+            // Find pool index for display.
+            for (uint8_t _si = 0; _si < string_pool().count; _si++) {
+                if (&string_pool().values[_si] == string_value_ptr) {
+                    s += " val:" + StringPool::name_for_index(_si);
+                    break;
+                }
+            }
+        } else {
+            int idx = data_stream_index_from_ptr(value_ptr);
+            s += " val:" + (idx >= 0 ? data_stream_name(idx) : String("custom"));
+        }
     }
     if (exist.low)  { s += " low:" + String(bounds[0], 2); }
     if (exist.high) { s += " high:" + String(bounds[1], 2); }

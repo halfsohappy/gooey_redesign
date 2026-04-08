@@ -42,6 +42,7 @@
 #include "bart_hardware.h"
 #endif
 #include "ori_tracker.h"
+#include "string_pool.h"
 
 // ---------------------------------------------------------------------------
 // Global transport objects
@@ -215,6 +216,24 @@ static inline float resolve_high(const OscMessage& m, const OscScene& p) {
 }
 
 // ---------------------------------------------------------------------------
+// Gate evaluation helper — shared by scene-level and message-level checks
+// ---------------------------------------------------------------------------
+
+static inline bool eval_gate_active(const String& gate_source, float gate_lo, float gate_hi) {
+    if (gate_source.startsWith("ori:")) {
+        return ori_tracker().is_active(gate_source.substring(4));
+    }
+    int gi = data_stream_index_from_name(gate_source);
+    if (gi < 0 || gi >= NUM_DATA_STREAMS) return false;
+    float gv = data_streams[gi];
+    bool has_lo = !isnan(gate_lo), has_hi = !isnan(gate_hi);
+    if (has_lo && has_hi) return (gv >= gate_lo && gv <= gate_hi);
+    if (has_lo)           return (gv >= gate_lo);
+    if (has_hi)           return (gv <= gate_hi);
+    return (gv >= 0.5f);
+}
+
+// ---------------------------------------------------------------------------
 // Scene send task — the FreeRTOS function each scene runs
 // ---------------------------------------------------------------------------
 //
@@ -244,6 +263,13 @@ void scene_send_task(void* param) {
             }
         }
 
+        // Scene-level gate: if set, skip this entire send iteration when the gate fails.
+        if (scene->gate_mode == GATE_ONLY || scene->gate_mode == GATE_NOT) {
+            bool sg_active = eval_gate_active(scene->gate_source, scene->gate_lo, scene->gate_hi);
+            if (scene->gate_mode == GATE_ONLY && !sg_active) continue;
+            if (scene->gate_mode == GATE_NOT  &&  sg_active) continue;
+        }
+
         reg.lock();
 
         for (uint8_t i = 0; i < scene->msg_count; i++) {
@@ -257,26 +283,11 @@ void scene_send_task(void* param) {
             bool is_toggle = (msg.gate_mode == GATE_TOGGLE);
             bool gate_active = false;  // only meaningful when gate_mode != GATE_NONE
 
-            // Normal messages need a sensor value pointer; toggle overrides value.
-            if (!is_toggle && !msg.value_ptr) continue;
+            // Normal messages need a sensor value pointer or string pointer; toggle overrides value.
+            if (!is_toggle && !msg.value_ptr && !msg.string_value_ptr) continue;
 
             if (msg.gate_mode != GATE_NONE) {
-                if (msg.gate_source.startsWith("ori:")) {
-                    // Orientation gate
-                    gate_active = ori_tracker().is_active(msg.gate_source.substring(4));
-                } else {
-                    // Data-stream gate
-                    int gi = data_stream_index_from_name(msg.gate_source);
-                    if (gi >= 0 && gi < NUM_DATA_STREAMS) {
-                        float gv = data_streams[gi];
-                        bool has_lo = !isnan(msg.gate_lo);
-                        bool has_hi = !isnan(msg.gate_hi);
-                        if (has_lo && has_hi) gate_active = (gv >= msg.gate_lo && gv <= msg.gate_hi);
-                        else if (has_lo)      gate_active = (gv >= msg.gate_lo);
-                        else if (has_hi)      gate_active = (gv <= msg.gate_hi);
-                        else                  gate_active = (gv >= 0.5f);
-                    }
-                }
+                gate_active = eval_gate_active(msg.gate_source, msg.gate_lo, msg.gate_hi);
                 // Apply gate mode (toggle always sends — only value changes).
                 if (!is_toggle) {
                     if (msg.gate_mode == GATE_ONLY && !gate_active) continue;
@@ -291,6 +302,19 @@ void scene_send_task(void* param) {
 
             if (eff_ip == IPAddress(0, 0, 0, 0) || eff_port == 0 || eff_adr.length() == 0) {
                 continue;  // not enough info to send
+            }
+
+            // String message: send string value instead of float.
+            if (msg.string_value_ptr) {
+                xSemaphoreTake(osc_send_mutex(), portMAX_DELAY);
+                osc.setDestination(eff_ip, eff_port);
+                osc.sendString(eff_adr.c_str(), msg.string_value_ptr->c_str());
+                xSemaphoreGive(osc_send_mutex());
+                if (get_send_logging_enabled()) {
+                    Serial.println(String("[SEND] ") + eff_ip.toString() + ":" + eff_port
+                                   + " " + eff_adr + " = \"" + *msg.string_value_ptr + "\"");
+                }
+                continue;
             }
 
             // Read the value: toggle → binary from gate state, normal → sensor.

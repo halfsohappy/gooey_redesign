@@ -165,29 +165,8 @@ struct SavedOri {
     // Per-ori angular tolerance (degrees) around each cloud sample.
     float tolerance = 10.0f;
 
-    // LED color for on-device ori editing workflow.
-    uint8_t color_r = 0, color_g = 0, color_b = 0;
-
     bool is_sampled() const { return sample_count > 0; }
 };
-
-// Default color palette for auto-assigning ori colors.
-static const uint8_t ORI_PALETTE[][3] = {
-    {255,   0,   0},  // red
-    {  0, 255,   0},  // green
-    {  0,   0, 255},  // blue
-    {255, 255,   0},  // yellow
-    {255,   0, 255},  // magenta
-    {  0, 255, 255},  // cyan
-    {255, 128,   0},  // orange
-    {128,   0, 255},  // purple
-    {  0, 255, 128},  // spring green
-    {255,   0, 128},  // rose
-    {128, 255,   0},  // chartreuse
-    {  0, 128, 255},  // sky blue
-};
-static constexpr uint8_t ORI_PALETTE_SIZE =
-    sizeof(ORI_PALETTE) / sizeof(ORI_PALETTE[0]);
 
 // ---------------------------------------------------------------------------
 // RecordingSession — transient buffer for timed recording
@@ -251,15 +230,21 @@ public:
     /// When false (default), the closest ori always wins.
     bool strict_matching = false;
 
+    /// When strict_matching is on and no exact match is found, this ori (if set)
+    /// is used as the active ori instead of returning no match.
+    String general_ori_name;
+
     // --- Current state ------------------------------------------------------
 
     volatile int active_ori_index = -1;
     String       active_ori_name;
 
+    // --- Ori-watch: push active-ori changes to status config ----------------
+    bool         ori_watch_enabled = false;
+
     // --- On-device editing state --------------------------------------------
 
     int     selected_ori_index = -1;
-    uint8_t next_color_index   = 0;
 
     // --- Storage ------------------------------------------------------------
 
@@ -278,10 +263,7 @@ public:
         if (session.active) return false;
         // Auto-register the ori slot if it doesn't exist yet.
         if (find(name) < 0) {
-            uint8_t ci = next_color_index % ORI_PALETTE_SIZE;
-            register_ori(name,
-                ORI_PALETTE[ci][0], ORI_PALETTE[ci][1], ORI_PALETTE[ci][2]);
-            next_color_index++;
+            register_ori(name);
         }
         session.begin(name);
         return true;
@@ -338,11 +320,6 @@ public:
                 oris[i].qk[0] = qk; oris[i].qr[0] = qr;
                 oris[i].sample_count = 1;
                 oris[i].use_axis = false;
-                uint8_t ci = next_color_index % ORI_PALETTE_SIZE;
-                oris[i].color_r = ORI_PALETTE[ci][0];
-                oris[i].color_g = ORI_PALETTE[ci][1];
-                oris[i].color_b = ORI_PALETTE[ci][2];
-                next_color_index++;
                 if (i >= ori_count) ori_count = i + 1;
                 return i;
             }
@@ -350,24 +327,16 @@ public:
         return -1;  // full
     }
 
-    /// Pre-register a named slot with a color but no orientation data.
-    int register_ori(const String& name, uint8_t r, uint8_t g, uint8_t b) {
+    /// Pre-register a named slot with no orientation data.
+    int register_ori(const String& name) {
         int existing = find(name);
-        if (existing >= 0) {
-            oris[existing].color_r = r;
-            oris[existing].color_g = g;
-            oris[existing].color_b = b;
-            return existing;
-        }
+        if (existing >= 0) return existing;
         for (uint8_t i = 0; i < MAX_ORIS; i++) {
             if (!oris[i].used) {
                 oris[i].name         = name;
                 oris[i].used         = true;
                 oris[i].sample_count = 0;
                 oris[i].use_axis     = false;
-                oris[i].color_r      = r;
-                oris[i].color_g      = g;
-                oris[i].color_b      = b;
                 if (i >= ori_count) ori_count = i + 1;
                 return i;
             }
@@ -482,8 +451,6 @@ public:
 
         if (o.sample_count == 0) {
             s += " (unsampled)";
-            s += " color=(" + String(o.color_r) + ","
-                 + String(o.color_g) + "," + String(o.color_b) + ")";
             return s;
         }
 
@@ -504,8 +471,6 @@ public:
         }
         if (o.sample_count > 3) s += " ...";
 
-        s += " color=(" + String(o.color_r) + ","
-             + String(o.color_g) + "," + String(o.color_b) + ")";
         if (active_ori_index == idx) s += " (ACTIVE)";
         return s;
     }
@@ -516,14 +481,6 @@ public:
             && oris[active_ori_index].name.equalsIgnoreCase(name);
     }
 
-    bool set_color(const String& name, uint8_t r, uint8_t g, uint8_t b) {
-        int idx = find(name);
-        if (idx < 0) return false;
-        oris[idx].color_r = r;
-        oris[idx].color_g = g;
-        oris[idx].color_b = b;
-        return true;
-    }
 
     // === Main update — call every sensor cycle ==============================
 
@@ -571,7 +528,15 @@ public:
             }
         }
 
-        if (strict_matching && best_score > 0.0f) best_idx = -1;
+        if (strict_matching && best_score > 0.0f) {
+            // No exact match — use general ori if defined.
+            if (general_ori_name.length() > 0) {
+                int gi = find(general_ori_name);
+                best_idx = (gi >= 0) ? gi : -1;
+            } else {
+                best_idx = -1;
+            }
+        }
 
         active_ori_index = best_idx;
         active_ori_name  = (best_idx >= 0) ? oris[best_idx].name : "";
