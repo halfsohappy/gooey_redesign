@@ -3503,8 +3503,7 @@ $("#btnSceneMove").addEventListener("click", function () {
       });
     },
     btnOriStrict: function () {
-      var checked = $("#oriStrict").checked;
-      sendCmd(addr("/annieData/{device}/ori/strict"), checked ? "on" : "off");
+      sendCmd(addr("/annieData/{device}/ori/strict"), "on");
     },
     btnOriNearest: function () {
       var el = $("#oriStrict");
