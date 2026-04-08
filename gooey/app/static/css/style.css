@@ -30,11 +30,11 @@
 
   --success: #4CAF50;
   --success-dim: rgba(76, 175, 80, 0.1);
-  --warning: #E3BB7F;
-  --warning-text: #b8860b;
-  --warning-dim: rgba(227, 187, 127, 0.12);
-  --danger: #D64541;
-  --danger-dim: rgba(214, 69, 65, 0.1);
+  --warning: #c49030;
+  --warning-text: #a87820;
+  --warning-dim: rgba(168, 120, 32, 0.12);
+  --danger: #a85858;
+  --danger-dim: rgba(168, 88, 88, 0.12);
 
   --tag-send: #2A34D5;
   --tag-recv: #4CAF50;
@@ -105,11 +105,11 @@ html.dark {
 
   --success:      #4CAF50;
   --success-dim:  rgba(76, 175, 80, 0.15);
-  --warning:      #E3BB7F;
-  --warning-text: #d4a44a;
-  --warning-dim:  rgba(227, 187, 127, 0.15);
-  --danger:       #e05550;
-  --danger-dim:   rgba(224, 85, 80, 0.15);
+  --warning:      #d4a850;
+  --warning-text: #c49840;
+  --warning-dim:  rgba(196, 152, 64, 0.15);
+  --danger:       #b86868;
+  --danger-dim:   rgba(184, 104, 104, 0.15);
 
   --tag-send:   #5a64ff;
   --tag-recv:   #4CAF50;
@@ -491,14 +491,30 @@ select {
 .btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); box-shadow: 0 2px 6px rgba(74,85,104,0.3); }
 
 .btn-secondary {
-  background: var(--bg);
+  background: var(--bg-input);
   color: var(--text-medium);
   border-color: var(--border);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-dark);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* Mid-weight: outlined in the primary color — for targeted modifications
+   (single-setting sends, clone, rename, move) that aren't full form submits */
+.btn-mid {
+  background: var(--bg-input);
+  color: var(--btn-primary-bg);
+  border-color: var(--btn-primary-bg);
+  box-shadow: inset 0 0 0 1px var(--btn-primary-bg);
+}
+
+.btn-mid:hover:not(:disabled) {
+  background: var(--bg-hover);
+  box-shadow: inset 0 0 0 1px var(--btn-primary-bg);
 }
 
 .btn-accent { background: var(--success); color: var(--btn-primary-text); border-color: var(--success); }
@@ -508,9 +524,20 @@ select {
   background: transparent;
   color: var(--danger);
   border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
 }
 
-.btn-stop:hover:not(:disabled) { background: var(--danger); color: var(--btn-primary-text); }
+/* Tinted hover — distinct from btn-danger which is always solid filled */
+.btn-stop:hover:not(:disabled) { background: var(--danger-dim); color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+
+.btn-warn {
+  background: transparent;
+  color: var(--warning-text);
+  border-color: var(--warning-text);
+  box-shadow: inset 0 0 0 1px var(--warning-text);
+}
+
+.btn-warn:hover:not(:disabled) { background: var(--warning-dim); border-color: var(--warning); box-shadow: inset 0 0 0 1px var(--warning); }
 
 .btn-small { font-size: 9px; padding: 3px 8px; }
 
@@ -518,9 +545,10 @@ select {
   background: transparent;
   color: var(--text-light);
   border-color: var(--border);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
-.btn-ghost:hover:not(:disabled) { color: var(--text-medium); background: var(--bg-hover); }
+.btn-ghost:hover:not(:disabled) { color: var(--text-medium); background: var(--bg-hover); box-shadow: inset 0 0 0 1px var(--border); }
 
 .btn-listen {
   font-family: var(--font);
