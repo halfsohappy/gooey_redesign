@@ -279,8 +279,8 @@ inline bool OscMessage::sendable() const {
 ///   Direct keys:  name, ip, port, adr/addr/address, scene, value, low/min/lo,
 ///                 high/max/hi, enabled
 ///                 period — accepted but ignored (scene-level field, handled by caller)
-///   Reference keys (use '>' separator):  ip>refName, port>refName, etc.
-///   Special:  default>refName / all>refName  copies all set fields from a
+///   Reference keys (use '<' separator):  ip<refName, port<refName, etc.
+///   Special:  default<refName / all<refName  copies all set fields from a
 ///             registered scene or message as fallback values.
 ///
 /// Returns false with *error filled in on parse failure.
@@ -317,20 +317,20 @@ inline bool OscMessage::from_config_str(const String& config, String* error) {
 
         if (token.length() == 0) continue;
 
-        // Determine separator: ':' = direct value, '>' = registry reference.
+        // Determine separator: ':' = direct value, '<' = registry reference.
         int colon = token.indexOf(':');
-        int dash  = token.indexOf('>');
+        int angle = token.indexOf('<');
 
         bool is_ref = false;
         int  sep    = -1;
-        if (colon >= 0 && (dash < 0 || colon <= dash)) {
+        if (colon >= 0 && (angle < 0 || colon <= angle)) {
             sep    = colon;
             is_ref = false;
-        } else if (dash >= 0) {
-            sep    = dash;
+        } else if (angle >= 0) {
+            sep    = angle;
             is_ref = true;
         } else {
-            if (error) *error = "Missing ':' or '>' in token: " + token;
+            if (error) *error = "Missing ':' or '<' in token: " + token;
             return false;
         }
 
