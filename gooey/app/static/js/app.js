@@ -945,8 +945,9 @@
       var gs = m.gate_src || m.gate_source;
       var gm = m.gate_mode || "";
       var s = gm + ":" + gs;
-      if (m.gate_lo != null && m.gate_lo !== "") s += " \u2265" + m.gate_lo;
-      if (m.gate_hi != null && m.gate_hi !== "") s += " \u2264" + m.gate_hi;
+      var isEdge = (gm === "rising" || gm === "falling");
+      if (m.gate_lo != null && m.gate_lo !== "") s += (isEdge ? " trigger:" : " \u2265") + m.gate_lo;
+      if (m.gate_hi != null && m.gate_hi !== "") s += (isEdge ? " slew:" : " \u2264") + m.gate_hi;
       return s;
     }
     if (m.ori_only || m.orionly) return "only:ori:" + (m.ori_only || m.orionly);
@@ -1040,6 +1041,7 @@
       tbody.appendChild(expTr);
     });
     renderMsgSceneFilter();
+    if (window._refreshGateMsgSources) window._refreshGateMsgSources();
   }
 
   /* ── Message scene filter ── */
@@ -1293,12 +1295,19 @@
   }
 
   /* ── Gate picker (flat source dropdown) ── */
-  function initGatePicker(sourceId, oriId, modeId, loId, hiId, hintId, oriGroupId, loGroupId, hiGroupId) {
+  function initGatePicker(sourceId, oriId, modeId, loId, hiId, hintId, oriGroupId, loGroupId, hiGroupId, opts) {
     var srcEl = $("#" + sourceId), oriEl = $("#" + oriId);
     var modeEl = $("#" + modeId), loEl = $("#" + loId), hiEl = $("#" + hiId);
     var hintEl = $("#" + hintId);
     var oriGroup = $("#" + oriGroupId), loGroup = $("#" + loGroupId), hiGroup = $("#" + hiGroupId);
     if (!srcEl || !modeEl) return null;
+
+    opts = opts || {};
+    var isScenePicker = !!opts.scene;
+
+    // Labels that change depending on mode
+    var loLabel = loGroup ? loGroup.querySelector("label") : null;
+    var hiLabel = hiGroup ? hiGroup.querySelector("label") : null;
 
     // Populate flat source dropdown: none, Orientation, then all data streams grouped by category
     var noneOpt = document.createElement("option");
@@ -1319,9 +1328,31 @@
       srcEl.appendChild(grp);
     });
 
+    // Message-value gate sources (optgroup, populated dynamically)
+    var msgOptGroup = document.createElement("optgroup");
+    msgOptGroup.label = "Message Values";
+    msgOptGroup.className = "gate-msg-sources";
+    msgOptGroup.style.display = "none";
+    srcEl.appendChild(msgOptGroup);
+
+    function isEdgeMode() {
+      var m = modeEl.value;
+      return m === "rising" || m === "falling";
+    }
+
+    function updateLabels() {
+      if (!isScenePicker) return;
+      var edge = isEdgeMode();
+      if (loLabel) loLabel.textContent = edge ? "Trigger" : "Lower";
+      if (hiLabel) hiLabel.textContent = edge ? "Slew" : "Upper";
+      if (loEl) loEl.placeholder = edge ? "threshold" : "\u2265";
+      if (hiEl) hiEl.placeholder = edge ? "min \u0394" : "\u2264";
+    }
+
     function updateVisibility() {
       var v = srcEl.value;
-      if (v === "ori") {
+      var isOri = (v === "ori");
+      if (isOri) {
         oriGroup.style.display = "";
         loGroup.style.display = "none";
         hiGroup.style.display = "none";
@@ -1330,16 +1361,30 @@
         oriGroup.style.display = "none";
         loGroup.style.display = "";
         hiGroup.style.display = "";
-        if (hintEl) hintEl.textContent = SENSOR_HINTS[v] || "";
+        if (v.indexOf("msg:") === 0) {
+          if (hintEl) hintEl.textContent = "Gate using scaled output of message: " + v.substring(4);
+        } else {
+          if (hintEl) hintEl.textContent = SENSOR_HINTS[v] || "";
+        }
       } else {
         oriGroup.style.display = "none";
         loGroup.style.display = "none";
         hiGroup.style.display = "none";
         if (hintEl) hintEl.textContent = "";
       }
+      /* Rising/Falling are non-ori only — hide them when ori is selected */
+      if (isScenePicker) {
+        var risingOpt  = modeEl.querySelector('option[value="rising"]');
+        var fallingOpt = modeEl.querySelector('option[value="falling"]');
+        if (risingOpt)  risingOpt.disabled  = isOri;
+        if (fallingOpt) fallingOpt.disabled = isOri;
+        if (isOri && isEdgeMode()) modeEl.value = "";
+      }
+      updateLabels();
     }
 
     srcEl.addEventListener("change", updateVisibility);
+    modeEl.addEventListener("change", function () { updateLabels(); });
     updateVisibility();
 
     return {
@@ -1365,6 +1410,19 @@
         if (gateSrc.indexOf("ori:") === 0) {
           srcEl.value = "ori";
           oriEl.value = gateSrc.substring(4);
+        } else if (gateSrc.indexOf("msg:") === 0) {
+          // Ensure the msg option exists in the optgroup
+          var found = false;
+          for (var i = 0; i < msgOptGroup.children.length; i++) {
+            if (msgOptGroup.children[i].value === gateSrc) { found = true; break; }
+          }
+          if (!found) {
+            var opt = document.createElement("option");
+            opt.value = gateSrc; opt.textContent = gateSrc.substring(4);
+            msgOptGroup.appendChild(opt);
+            msgOptGroup.style.display = "";
+          }
+          srcEl.value = gateSrc;
         } else {
           srcEl.value = gateSrc;
         }
@@ -1379,6 +1437,19 @@
         loEl.value = "";
         hiEl.value = "";
         updateVisibility();
+      },
+      refreshMsgSources: function (msgNames) {
+        msgOptGroup.innerHTML = "";
+        if (msgNames && msgNames.length > 0) {
+          msgNames.forEach(function (n) {
+            var opt = document.createElement("option");
+            opt.value = "msg:" + n; opt.textContent = n;
+            msgOptGroup.appendChild(opt);
+          });
+          msgOptGroup.style.display = "";
+        } else {
+          msgOptGroup.style.display = "none";
+        }
       }
     };
   }
@@ -1392,7 +1463,8 @@
   var sceneGatePicker = initGatePicker(
     "sceneGateSource", "sceneGateOri", "sceneGateMode",
     "sceneGateLo", "sceneGateHi", "sceneGateHint",
-    "sceneGateOriGroup", "sceneGateLoGroup", "sceneGateHiGroup"
+    "sceneGateOriGroup", "sceneGateLoGroup", "sceneGateHiGroup",
+    { scene: true }
   );
 
   function populateMsgForm(name, m) {
@@ -1516,7 +1588,11 @@
       expTr.id = "se-" + name;
       var gateExpItem = "";
       if (p.gate_src && p.gate_mode) {
-        gateExpItem = '<span class="scene-exp-item"><span class="scene-exp-label">scene gate</span><span class="scene-exp-val">' + esc(p.gate_src) + ' ' + esc((p.gate_mode || "").toUpperCase()) + '</span></span>';
+        var gateIsEdge = (p.gate_mode === "rising" || p.gate_mode === "falling");
+        var gateSuffix = "";
+        if (p.gate_lo != null && p.gate_lo !== "") gateSuffix += (gateIsEdge ? " trigger:" : " \u2265") + esc(String(p.gate_lo));
+        if (p.gate_hi != null && p.gate_hi !== "") gateSuffix += (gateIsEdge ? " slew:" : " \u2264") + esc(String(p.gate_hi));
+        gateExpItem = '<span class="scene-exp-item"><span class="scene-exp-label">scene gate</span><span class="scene-exp-val">' + esc(p.gate_src) + ' ' + esc((p.gate_mode || "").toUpperCase()) + gateSuffix + '</span></span>';
       }
       expTr.innerHTML =
         '<td colspan="4"><div class="scene-exp-inner" id="sei-' + esc(name) + '">' +
@@ -2640,6 +2716,16 @@ $("#btnSceneMove").addEventListener("click", function () {
         var lo = $("#msgLow").value.trim(); if (lo) parts.push(cfgPairD("low", lo));
         var hi = $("#msgHigh").value.trim(); if (hi) parts.push(cfgPairD("high", hi));
       }
+      /* Gate config — applied to the message only (not the scene) */
+      if (msgGatePicker) {
+        var gc = msgGatePicker.getConfig();
+        if (gc) {
+          parts.push(cfgPairD("gate_src", gc.gate_src));
+          parts.push(cfgPairD("gate_mode", gc.gate_mode));
+          if (gc.gate_lo) parts.push(cfgPairD("gate_lo", gc.gate_lo));
+          if (gc.gate_hi) parts.push(cfgPairD("gate_hi", gc.gate_hi));
+        }
+      }
       parts.push("period:50");
       var cfg = parts.join(", ");
 
@@ -3346,6 +3432,15 @@ $("#btnSceneMove").addEventListener("click", function () {
     if ($("#ovLow").checked) ovParts.push("low");
     if ($("#ovHigh").checked) ovParts.push("high");
     if (ovParts.length > 0) parts.push("override:" + ovParts.join(", "));
+    if (sceneGatePicker) {
+      var gc = sceneGatePicker.getConfig();
+      if (gc) {
+        parts.push(previewPair("gate_src", gc.gate_src));
+        parts.push(previewPair("gate_mode", gc.gate_mode));
+        if (gc.gate_lo) parts.push(previewPair("gate_lo", gc.gate_lo));
+        if (gc.gate_hi) parts.push(previewPair("gate_hi", gc.gate_hi));
+      }
+    }
     if (cfgEl) cfgEl.textContent = parts.join(", ");
   }
 
@@ -3356,6 +3451,11 @@ $("#btnSceneMove").addEventListener("click", function () {
   });
   ["ovIP", "ovPort", "ovAdr", "ovLow", "ovHigh"].forEach(function (id) {
     var el = $("#" + id);
+    if (el) el.addEventListener("change", updateScenePreview);
+  });
+  ["sceneGateSource", "sceneGateOri", "sceneGateMode", "sceneGateLo", "sceneGateHi"].forEach(function (id) {
+    var el = $("#" + id);
+    if (el) el.addEventListener("input", updateScenePreview);
     if (el) el.addEventListener("change", updateScenePreview);
   });
   updateScenePreview();
@@ -4306,6 +4406,30 @@ $("#btnSceneMove").addEventListener("click", function () {
         setGateVisible(true);
       }
       if (chkGate) chkGate.addEventListener("change", function () { setGateVisible(chkGate.checked); });
+    }());
+
+    /* ── Message values as gate sources toggle ── */
+    (function () {
+      var MSG_GATE_KEY = "gooey_msg_gate_sources";
+      var chkMsg = $("#chkMsgGateSources");
+      function refreshGateMsgSources(on) {
+        var dev = getActiveDev();
+        var names = (on && dev) ? Object.keys(dev.messages) : [];
+        if (msgGatePicker) msgGatePicker.refreshMsgSources(names);
+        if (sceneGatePicker) sceneGatePicker.refreshMsgSources(names);
+        try { localStorage.setItem(MSG_GATE_KEY, on ? "1" : "0"); } catch (e) {}
+      }
+      var saved = null;
+      try { saved = localStorage.getItem(MSG_GATE_KEY); } catch (e) {}
+      if (saved === "1") {
+        if (chkMsg) chkMsg.checked = true;
+        refreshGateMsgSources(true);
+      }
+      if (chkMsg) chkMsg.addEventListener("change", function () { refreshGateMsgSources(chkMsg.checked); });
+      /* Re-populate msg sources whenever the device or messages change */
+      window._refreshGateMsgSources = function () {
+        if (chkMsg && chkMsg.checked) refreshGateMsgSources(true);
+      };
     }());
 
     /* ── Assume IP ── */
