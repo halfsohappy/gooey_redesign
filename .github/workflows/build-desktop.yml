@@ -117,6 +117,8 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "macOS" ] && [ -z "$APPLE_SIGNING_IDENTITY" ]; then
@@ -129,7 +131,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: annieData-macOS
-          path: gooey/src-tauri/target/release/bundle/dmg/*.dmg
+          path: |
+            gooey/src-tauri/target/release/bundle/dmg/*.dmg
+            gooey/src-tauri/target/release/bundle/macos/*.app.tar.gz
+            gooey/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
 
       - name: Upload Windows artifacts
         if: runner.os == 'Windows'
@@ -216,17 +221,48 @@ jobs:
       - name: Collect and rename release files
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('gooey/src-tauri/tauri.conf.json'))['version'])")
+          echo "APP_VERSION=${VERSION}" >> $GITHUB_ENV
           mkdir -p release_files
 
-          DMG=$(find _artifacts/annieData-macOS   -name "*.dmg"      | head -1)
-          EXE=$(find _artifacts/annieData-Windows -name "*.exe"      | head -1)
-          IMG=$(find _artifacts/annieData-Linux   -name "*.AppImage" | head -1)
-          DEB=$(find _artifacts/annieData-Linux   -name "*.deb"      | head -1)
+          DMG=$(find _artifacts/annieData-macOS   -name "*.dmg"         | head -1)
+          TAR=$(find _artifacts/annieData-macOS   -name "*.app.tar.gz"  | head -1)
+          SIG=$(find _artifacts/annieData-macOS   -name "*.app.tar.gz.sig" | head -1)
+          EXE=$(find _artifacts/annieData-Windows -name "*.exe"         | head -1)
+          IMG=$(find _artifacts/annieData-Linux   -name "*.AppImage"    | head -1)
+          DEB=$(find _artifacts/annieData-Linux   -name "*.deb"         | head -1)
 
           [ -n "$DMG" ] && cp "$DMG" "release_files/annieData_${VERSION}_macOS.dmg"
           [ -n "$EXE" ] && cp "$EXE" "release_files/annieData_${VERSION}_Windows.exe"
           [ -n "$IMG" ] && cp "$IMG" "release_files/annieData_${VERSION}_ubuntu.AppImage"
           [ -n "$DEB" ] && cp "$DEB" "release_files/annieData_${VERSION}_debian.deb"
+
+          # Updater bundle — must be uploaded under a stable filename so latest.json URL is correct.
+          REPO="${{ github.repository }}"
+          if [ -n "$TAR" ] && [ -n "$SIG" ]; then
+            TAR_NAME="annieData_${VERSION}_aarch64.app.tar.gz"
+            cp "$TAR" "release_files/${TAR_NAME}"
+
+            python3 - <<PYEOF
+          import json, datetime, os
+          sig  = open("${SIG}").read().strip()
+          ver  = "${VERSION}"
+          repo = "${REPO}"
+          tar  = "${TAR_NAME}"
+          url  = f"https://github.com/{repo}/releases/download/v{ver}/{tar}"
+          manifest = {
+              "version": ver,
+              "notes":   "See release page for details.",
+              "pub_date": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": {
+                  "darwin-aarch64": {"signature": sig, "url": url}
+              }
+          }
+          json.dump(manifest, open("release_files/latest.json", "w"), indent=2)
+          print("Generated latest.json →", url)
+          PYEOF
+          else
+            echo "::warning::No .app.tar.gz found — updater manifest not generated (TAURI_SIGNING_PRIVATE_KEY may not be set)"
+          fi
 
           ls -lh release_files/
 
