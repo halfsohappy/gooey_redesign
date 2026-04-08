@@ -1,6 +1,6 @@
 {
   "name": "gooey",
-  "version": "1.2.1",
+  "version": "1.2.11",
   "private": true,
   "scripts": {
     "tauri": "tauri",
