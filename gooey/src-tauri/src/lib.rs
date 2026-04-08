@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::menu::{AboutMetadata, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Manager};
-use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 use tauri_plugin_updater::UpdaterExt;
@@ -148,8 +148,10 @@ async fn check_and_offer_update(app: AppHandle, show_if_current: bool) {
                     "annieData {version} is available.\n\n{notes}\n\nInstall now and restart?"
                 ))
                 .title("Update Available")
-                .ok_button_label("Install & Restart")
-                .cancel_button_label("Later")
+                .buttons(MessageDialogButtons::OkCancelWithLabels(
+                    "Install & Restart".to_string(),
+                    "Later".to_string(),
+                ))
                 .show(move |answer| {
                     if !answer { return; }
                     let update = update.clone();
