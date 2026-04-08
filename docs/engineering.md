@@ -58,7 +58,7 @@ The device reads IMU, barometric, and quaternion data from onboard sensors, norm
 | `include/euler_utils.h` | Euler angle decomposition (ZYX, ZXY) |
 | `include/serial_commands.h` | Serial debug/command interface |
 | `include/ab7_hardware.h` | ab7 board drivers (BNO085, LEDs, buttons) |
-| `include/bart_hardware.h` | Bart board drivers (ISM330DHCX/LSM6DSV16X, BMP5xx, NeoPixel) |
+| `include/bart_hardware.h` | Bart board drivers (ISM330DHCX, MMC5983MA, BMP5xx) |
 | `include/micro_osc_udp.h` | MicroOSC UDP transport wrapper |
 | `include/main.h` | Include orchestrator |
 
@@ -93,7 +93,7 @@ The device reads IMU, barometric, and quaternion data from onboard sensors, norm
 
 | Environment | Board | Description |
 |-------------|-------|-------------|
-| `bart` | ESP32-S3 | Default — ISM330DHCX/LSM6DSV16X IMU, BMP5xx barometer, NeoPixel |
+| `bart` | ESP32-S3 | Default — ISM330DHCX IMU + MMC5983MA magnetometer + BMP5xx barometer |
 | `ab7` | ESP32-S3 | BNO085 IMU, SK6812 LED, two buttons, orientation system |
 | `ab7_test` | ESP32-S3 | Unit tests for ab7 |
 
@@ -120,7 +120,7 @@ The ab7 build defines `-DAB7_BUILD`. Use this to guard ab7-specific code:
 #ifdef AB7_BUILD
     // BNO085, orientation, buttons
 #else
-    // Bart: barometer, simulated data
+    // Bart: ISM330DHCX, MMC5983MA, BMP5xx, orientation
 #endif
 ```
 
@@ -133,7 +133,7 @@ The ab7 build defines `-DAB7_BUILD`. Use this to guard ab7-specific code:
 ### Bart-Specific Dependencies
 
 - `Adafruit BMP5xx Library` — barometer
-- `slime_swipe` — sensor fusion IMU (ISM330DHCX/LSM6DSV16X via SPI)
+- `slime_swipe` — sensor fusion (ISM330DHCX + MMC5983MA via SPI)
 
 ### ab7-Specific Dependencies
 
@@ -147,9 +147,9 @@ The ab7 build defines `-DAB7_BUILD`. Use this to guard ab7-specific code:
 
 | Component | Chip | Interface | Pin(s) |
 |-----------|------|-----------|--------|
-| IMU | ISM330DHCX / LSM6DSV16X | SPI | CS=42, SCK=36, MOSI=35, MISO=37 |
-| Magnetometer | MMC5983MA | SPI (shared) | — |
-| Barometer | BMP5xx | I2C | — |
+| IMU | ISM330DHCX | SPI | CS=42, SCK=36, MOSI=35, MISO=37 |
+| Magnetometer | MMC5983MA | ISM330DHCX sensor hub | Auto-detected by SlimeIMU |
+| Barometer | BMP5xx | SPI (shared) | CS=48 |
 | Status LED | NeoPixel | GPIO | WS2812 data pin |
 
 **Initialization:** `setup()` in `main.cpp` → `init_bart_hardware()` → SPI bus, sensor objects, calibration. The `sensor_task` FreeRTOS task reads IMU at ~100 Hz and calls `process_imu_data()` to fill `data_streams[]`.
