@@ -1854,12 +1854,20 @@ input[type="color"] {
 
 /* Vertical resize handle between stacked panel views */
 .panel-vresize-handle {
+  position: relative; /* required for z-index to win against sibling panels */
   height: 5px;
   cursor: row-resize;
   background: transparent;
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 20;
   transition: background 0.15s;
+}
+/* Extend the pointer target 4px into each adjacent panel without affecting layout */
+.panel-vresize-handle::before {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+  cursor: row-resize;
 }
 .panel-vresize-handle:hover,
 .panel-vresize-handle:active { background: var(--accent-dim); }
