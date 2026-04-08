@@ -828,7 +828,7 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
 .msg-exp-sep { color: #4a5568; font-size: 10px; opacity: .4; }
 
 /* name */
-.msg-name { font-weight: 500; font-size: 15px; }
+.msg-name { font-weight: 500; font-size: 15px; color: var(--accent); }
 
 /* ── Flat (card-less) message tracker ── */
 /* Remove section-content padding so tracker is flush against tabs */
@@ -894,7 +894,7 @@ tr.msg-exp-row td { padding: 0; border-bottom: 1px solid var(--border); }
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  padding: 6px 12px 6px;
+  padding: 6px 12px 6px 10px;
   border-bottom: 1px solid var(--border);
 }
 .msg-filter-label {
