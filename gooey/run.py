@@ -18,14 +18,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 examples:
-  python run.py                  # Start on default port 5000
+  python run.py                  # Start on default port 5050
   python run.py --port 8080      # Start on port 8080
   python run.py --no-browser     # Don't auto-open browser
 """,
     )
     parser.add_argument(
-        "--port", type=int, default=int(os.environ.get("PORT", 5000)),
-        help="Web server port (default: $PORT env var, or 5000)",
+        "--port", type=int, default=int(os.environ.get("PORT", 5050)),
+        help="Web server port (default: $PORT env var, or 5050)",
     )
     parser.add_argument(
         "--host", type=str, default="0.0.0.0",
