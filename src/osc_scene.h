@@ -134,7 +134,7 @@ public:
     String         gate_source;
     uint8_t        gate_mode = GATE_NONE;
     float          gate_lo   = NAN;       // trigger (rising/falling) or lower bound
-    float          gate_hi   = NAN;       // slew minimum (rising/falling) or upper bound
+    float          gate_hi   = NAN;       // delta minimum (rising/falling) or upper bound
 
     // Edge-detection state for GATE_RISING / GATE_FALLING (ephemeral, not saved).
     float          _gate_prev_val  = NAN;  // previous gate source sample

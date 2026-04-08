@@ -146,7 +146,7 @@ public:
     //     Neither  → active when value >= 0.5
     //   For RISING/FALLING:
     //     gate_lo → trigger threshold (value must cross this level)
-    //     gate_hi → slew minimum (delta between samples must exceed this)
+    //     gate_hi → delta minimum (delta between samples must exceed this)
 
 #define GATE_NONE    0
 #define GATE_ONLY    1

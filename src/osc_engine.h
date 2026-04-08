@@ -220,12 +220,14 @@ static inline float resolve_high(const OscMessage& m, const OscScene& p) {
 // ---------------------------------------------------------------------------
 
 /// Read the current value of a gate source.  Returns false if the source
-/// cannot be resolved (unknown stream name, msg not yet sent, etc.).
+/// cannot be resolved (unknown stream name, no value_ptr, etc.).
 static inline bool read_gate_value(const String& gate_source, float& out) {
     if (gate_source.startsWith("msg:")) {
+        // Use the message's current data-stream reading mapped to its bounds.
         OscMessage* gm = osc_registry().find_msg(gate_source.substring(4));
-        if (!gm || !gm->_has_last_sent) return false;
-        out = gm->_last_sent_val;
+        if (!gm || !gm->value_ptr) return false;
+        float raw = *(gm->value_ptr);                        // [0, 1]
+        out = gm->bounds[0] + raw * (gm->bounds[1] - gm->bounds[0]);
         return true;
     }
     int gi = data_stream_index_from_name(gate_source);
