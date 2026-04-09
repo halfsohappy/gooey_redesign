@@ -2868,6 +2868,54 @@ $("#btnSceneMove").addEventListener("click", function () {
     });
   });
 
+  /* IMU Tare Averaged */
+  $("#devDdImuTareAvg").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/avg"), "20").then(function (res) {
+      if (res.status === "ok") toast("Averaged tare started — hold still", "success");
+    });
+  });
+
+  /* Zero Swing-Twist (all axes) */
+  $("#devDdTareST").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/swingtwist"), null).then(function (res) {
+      if (res.status === "ok") toast("Swing-twist zeroed", "success");
+    });
+  });
+
+  /* Zero Wrist (Twist only) */
+  $("#devDdTareTwist").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/twist"), null).then(function (res) {
+      if (res.status === "ok") toast("Wrist (twist) zeroed", "success");
+    });
+  });
+
+  /* Zero Azimuth only */
+  $("#devDdTareAzi").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/azimuth"), null).then(function (res) {
+      if (res.status === "ok") toast("Azimuth zeroed", "success");
+    });
+  });
+
+  /* Zero Tilt only */
+  $("#devDdTareTilt").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/tilt"), null).then(function (res) {
+      if (res.status === "ok") toast("Tilt zeroed", "success");
+    });
+  });
+
+  /* Reset all swing-twist zeros */
+  $("#devDdTareSTReset").addEventListener("click", function () {
+    closeDevDropdown();
+    sendCmd(addr("/annieData/{device}/tare/swingtwist/reset"), null).then(function (res) {
+      if (res.status === "ok") toast("Swing-twist zeros cleared", "success");
+    });
+  });
+
   function refreshBridgeList() {
     fetch("/api/status").then(function (r) { return r.json(); }).then(function (data) {
       var container = $("#activeBridges");
@@ -3607,6 +3655,13 @@ $("#btnSceneMove").addEventListener("click", function () {
       if (!val) { toast("Threshold value required", "error"); return; }
       sendCmd(addr("/annieData/{device}/ori/threshold"), '"' + val + '"');
     },
+    btnOriHysteresis: function () {
+      var val = ($("#oriHysteresis").value || "").trim();
+      if (!val) { toast("Hysteresis value required", "error"); return; }
+      sendCmd(addr("/annieData/{device}/ori/hysteresis"), '"' + val + '"').then(function (res) {
+        if (res && res.status === "ok") toast("Hysteresis set to " + val + "°", "success");
+      });
+    },
     btnOriTolerance: function () {
       var val = ($("#oriTolerance").value || "").trim();
       if (!val) { toast("Tolerance value required", "error"); return; }
@@ -3665,6 +3720,56 @@ $("#btnSceneMove").addEventListener("click", function () {
     }
   });
 
+  /* ═══════════════════════════════════════════
+     IMU CALIBRATION CARD (Advanced section)
+     ═══════════════════════════════════════════ */
+
+  var btnImuScaleSet = $("#btnImuScaleSet");
+  if (btnImuScaleSet) {
+    btnImuScaleSet.addEventListener("click", function () {
+      var accel = ($("#imuAccelScale").value || "").trim();
+      var gyro  = ($("#imuGyroScale").value || "").trim();
+      if (accel) {
+        sendCmd(addr("/annieData/{device}/scale/accel"), accel).then(function (res) {
+          if (res && res.status === "ok") toast("Accel scale set to ±" + accel + " m/s²", "success");
+        });
+      }
+      if (gyro) {
+        sendCmd(addr("/annieData/{device}/scale/gyro"), gyro).then(function (res) {
+          if (res && res.status === "ok") toast("Gyro scale set to ±" + gyro + " rad/s", "success");
+        });
+      }
+    });
+  }
+
+  var btnImuScaleQuery = $("#btnImuScaleQuery");
+  if (btnImuScaleQuery) {
+    btnImuScaleQuery.addEventListener("click", function () {
+      sendCmd(addr("/annieData/{device}/scale/query"), null).then(function (res) {
+        if (res && res.reply) toast("Scales: " + res.reply, "info");
+      });
+    });
+  }
+
+  var btnImuEulerOrderSet = $("#btnImuEulerOrderSet");
+  if (btnImuEulerOrderSet) {
+    btnImuEulerOrderSet.addEventListener("click", function () {
+      var sel = $("#imuEulerOrder");
+      var val = sel ? sel.value : "auto";
+      sendCmd(addr("/annieData/{device}/tare/order"), val).then(function (res) {
+        if (res && res.status === "ok") toast("Euler order: " + val, "success");
+      });
+    });
+  }
+
+  var btnImuTareStatus = $("#btnImuTareStatus");
+  if (btnImuTareStatus) {
+    btnImuTareStatus.addEventListener("click", function () {
+      sendCmd(addr("/annieData/{device}/tare/status"), null).then(function (res) {
+        if (res && res.reply) toast(res.reply, "info");
+      });
+    });
+  }
 
   /* ═══════════════════════════════════════════
      SHOW MANAGEMENT

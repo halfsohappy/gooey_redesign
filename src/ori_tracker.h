@@ -234,6 +234,11 @@ public:
     /// is used as the active ori instead of returning no match.
     String general_ori_name;
 
+    /// Hysteresis margin (degrees).  A challenger ori must beat the current
+    /// active ori's score by at least this margin to trigger a switch.
+    /// Set to 0 to disable (original behaviour: always pick the best scorer).
+    float hysteresis_margin = 5.0f;
+
     // --- Current state ------------------------------------------------------
 
     volatile int active_ori_index = -1;
@@ -488,8 +493,13 @@ public:
         // Feed sample into an active recording session.
         if (session.active) session.push(qi, qj, qk, qr);
 
-        // Motion gate: freeze the active match during fast rotation.
-        if (gyro_mag > motion_threshold) return;
+        // Motion gate: clear active match during fast rotation so listeners
+        // see no-match rather than the stale pre-motion ori.
+        if (gyro_mag > motion_threshold) {
+            active_ori_index = -1;
+            active_ori_name  = "";
+            return;
+        }
 
         if (sampled_count() == 0) {
             active_ori_index = -1;
@@ -535,6 +545,31 @@ public:
                 best_idx = (gi >= 0) ? gi : -1;
             } else {
                 best_idx = -1;
+            }
+        }
+
+        // Apply hysteresis: only switch from the current ori if the challenger
+        // beats it by at least hysteresis_margin degrees.
+        if (hysteresis_margin > 0.0f && best_idx >= 0
+                && active_ori_index >= 0 && best_idx != active_ori_index) {
+            const SavedOri& cur = oris[active_ori_index];
+            if (cur.used && cur.sample_count > 0) {
+                float cur_tol = (cur.tolerance + ori_tolerance) * ((float)M_PI / 180.0f);
+                float cur_min = 1e9f;
+                for (uint8_t s = 0; s < cur.sample_count; s++) {
+                    float d = cur.use_axis
+                        ? axis_angle(qi, qj, qk, qr,
+                                     cur.qi[s], cur.qj[s], cur.qk[s], cur.qr[s],
+                                     cur.axis_x, cur.axis_y, cur.axis_z)
+                        : quat_angle_between(qi, qj, qk, qr,
+                                             cur.qi[s], cur.qj[s], cur.qk[s], cur.qr[s]);
+                    if (d < cur_min) cur_min = d;
+                }
+                float cur_score = cur_min - cur_tol;
+                float hyst_rad  = hysteresis_margin * ((float)M_PI / 180.0f);
+                if (best_score > cur_score - hyst_rad) {
+                    best_idx = active_ori_index;  // stay on current
+                }
             }
         }
 
@@ -589,17 +624,29 @@ private:
         }
 
         // --- Auto-axis detection ---
-        // Test ±X, ±Y, ±Z local axes.
-        static const float CANDIDATES[6][3] = {
-            { 1, 0, 0}, {-1, 0, 0},
-            { 0, 1, 0}, { 0,-1, 0},
-            { 0, 0, 1}, { 0, 0,-1}
+        // Test ±X, ±Y, ±Z plus 8 body-diagonal axes so diagonal device mounts
+        // (e.g. at 45°) can also be detected as having a stable rotation axis.
+        static const float INV_SQRT3 = 0.57735027f;
+        static const float CANDIDATES[14][3] = {
+            // Cardinal axes (6)
+            { 1,  0,  0}, {-1,  0,  0},
+            { 0,  1,  0}, { 0, -1,  0},
+            { 0,  0,  1}, { 0,  0, -1},
+            // Body-diagonal axes (8) — 1/√3 ≈ 0.5774
+            { INV_SQRT3,  INV_SQRT3,  INV_SQRT3},
+            { INV_SQRT3,  INV_SQRT3, -INV_SQRT3},
+            { INV_SQRT3, -INV_SQRT3,  INV_SQRT3},
+            { INV_SQRT3, -INV_SQRT3, -INV_SQRT3},
+            {-INV_SQRT3,  INV_SQRT3,  INV_SQRT3},
+            {-INV_SQRT3,  INV_SQRT3, -INV_SQRT3},
+            {-INV_SQRT3, -INV_SQRT3,  INV_SQRT3},
+            {-INV_SQRT3, -INV_SQRT3, -INV_SQRT3}
         };
 
         float best_var  = 1e9f;
         int   best_cand = -1;
 
-        for (int c = 0; c < 6; c++) {
+        for (int c = 0; c < 14; c++) {
             float ax = CANDIDATES[c][0];
             float ay = CANDIDATES[c][1];
             float az = CANDIDATES[c][2];
