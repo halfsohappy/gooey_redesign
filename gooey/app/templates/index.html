@@ -1190,6 +1190,31 @@
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   <script>
+    /* Disable autocorrect/autocapitalize on every input and textarea,
+       including elements added dynamically after page load. */
+    (function () {
+      var ATTRS = [
+        ["autocorrect",    "off"],
+        ["autocapitalize", "off"],
+        ["autocomplete",   "off"],
+        ["spellcheck",     "false"]
+      ];
+      function applyAttrs(el) {
+        ATTRS.forEach(function (pair) { el.setAttribute(pair[0], pair[1]); });
+      }
+      document.querySelectorAll("input, textarea").forEach(applyAttrs);
+      new MutationObserver(function (mutations) {
+        mutations.forEach(function (m) {
+          m.addedNodes.forEach(function (node) {
+            if (node.nodeType !== 1) return;
+            if (node.matches("input, textarea")) applyAttrs(node);
+            node.querySelectorAll("input, textarea").forEach(applyAttrs);
+          });
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+    }());
+  </script>
+  <script>
     (function () {
       var urlEl   = document.getElementById("remoteQRUrl");
       var copyBtn = document.getElementById("btnCopyRemoteUrl");
