@@ -2913,12 +2913,35 @@ $("#btnSceneMove").addEventListener("click", function () {
   } catch (e) {}
 
   function updateVResizeHandles() {
-    for (var i = 0; i < _viewOrder.length - 1; i++) {
-      var a = _viewOrder[i], b = _viewOrder[i + 1];
-      var handle = document.getElementById("vresize-" + a + "-" + b);
-      if (!handle) continue;
-      var bothActive = !!_activeViews[a] && !!_activeViews[b];
-      handle.style.display = bothActive ? "block" : "none";
+    /* Hide all handles first */
+    document.querySelectorAll(".panel-vresize-handle").forEach(function (h) {
+      h.style.display = "none";
+      h.dataset.activeAbove = "";
+      h.dataset.activeBelow = "";
+    });
+    /* Walk _viewOrder; whenever two consecutive active views are found, show
+       the physical handle that sits between them in the DOM (which may span
+       several inactive views) and record which views to actually resize. */
+    var prevActive = null;
+    for (var i = 0; i < _viewOrder.length; i++) {
+      var k = _viewOrder[i];
+      if (!_activeViews[k]) continue;
+      if (prevActive !== null) {
+        /* Physical handles exist only at adjacent DOM positions.
+           Scan inward from k to find the first existing handle above it. */
+        var handle = null;
+        var ki = i;
+        while (ki > 0 && !handle) {
+          handle = document.getElementById("vresize-" + _viewOrder[ki - 1] + "-" + _viewOrder[ki]);
+          ki--;
+        }
+        if (handle) {
+          handle.style.display = "block";
+          handle.dataset.activeAbove = prevActive;
+          handle.dataset.activeBelow = k;
+        }
+      }
+      prevActive = k;
     }
   }
 
@@ -2988,8 +3011,8 @@ $("#btnSceneMove").addEventListener("click", function () {
     document.querySelectorAll(".panel-vresize-handle").forEach(function (handle) {
       handle.addEventListener("mousedown", function (e) {
         e.preventDefault();
-        var above = handle.dataset.above;
-        var below = handle.dataset.below;
+        var above = handle.dataset.activeAbove || handle.dataset.above;
+        var below = handle.dataset.activeBelow || handle.dataset.below;
         var elA = $("#" + _viewElements[above]);
         var elB = $("#" + _viewElements[below]);
         if (!elA || !elB) return;
