@@ -126,6 +126,33 @@ jobs:
           fi
           npx tauri build
 
+      - name: Create updater bundle (macOS)
+        if: runner.os == 'macOS'
+        working-directory: gooey/src-tauri/target/release/bundle/macos
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: |
+          ls -lh
+          # If tauri build didn't auto-create the updater bundle, do it manually.
+          TAR=$(ls *.app.tar.gz 2>/dev/null | head -1)
+          if [ -z "$TAR" ]; then
+            APP=$(ls -d *.app | head -1)
+            echo "Creating ${APP}.tar.gz manually..."
+            tar -czf "${APP}.tar.gz" "$APP"
+            TAR="${APP}.tar.gz"
+          fi
+          # Sign if .sig is missing.
+          if [ ! -f "${TAR}.sig" ] && [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "Signing $TAR..."
+            cd /Users/runner/work/TheaterGWD/TheaterGWD/gooey
+            npx tauri signer sign \
+              --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
+              --password "" \
+              "src-tauri/target/release/bundle/macos/$TAR"
+          fi
+          ls -lh /Users/runner/work/TheaterGWD/TheaterGWD/gooey/src-tauri/target/release/bundle/macos/
+
       - name: Upload macOS artifacts
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
