@@ -21,6 +21,20 @@ app.config["SECRET_KEY"] = "theatergwd-control-center"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() == "true"
 
+def _read_version():
+    """Read version from pyproject.toml, falling back to a timestamp."""
+    try:
+        import importlib.resources, tomllib
+        here = os.path.dirname(os.path.dirname(__file__))
+        toml_path = os.path.join(here, "pyproject.toml")
+        with open(toml_path, "rb") as f:
+            return tomllib.load(f)["project"]["version"]
+    except Exception:
+        import time
+        return str(int(time.time()))
+
+APP_VERSION = _read_version()
+
 # Suppress benign Werkzeug AssertionError noise (browser dropped connections)
 class _DropWerkzeugAssertions(logging.Filter):
     def filter(self, record):
@@ -99,7 +113,7 @@ _remote_sessions = {}
 
 @app.route("/")
 def index():
-    return render_template("index.html", demo_mode=DEMO_MODE)
+    return render_template("index.html", demo_mode=DEMO_MODE, v=APP_VERSION)
 
 
 @app.route("/remote")
