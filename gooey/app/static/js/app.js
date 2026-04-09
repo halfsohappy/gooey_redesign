@@ -2862,17 +2862,15 @@ $("#btnSceneMove").addEventListener("click", function () {
 
   /* ── Calibrate & Zero Modal ── */
   (function () {
-    var modal    = $("#tareModal");
-    var fbImu    = $("#tareFeedbackImu");
-    var fbST     = $("#tareFeedbackST");
+    var modal     = $("#tareModal");
+    var fb        = $("#tareFeedbackImu");
     var advStatus = $("#tareAdvStatus");
 
     function openTareModal() {
       var d = devices[_dropdownDeviceId];
       if (!d) return;
-      $("#tareModalDevice").textContent = d.name + " · " + d.host + ":" + d.port;
-      setFeedback(fbImu, "", "");
-      setFeedback(fbST, "", "");
+      $("#tareModalDevice").textContent = d.name;
+      setFeedback("", "");
       advStatus.textContent = "";
       advStatus.classList.remove("visible");
       modal.classList.remove("hidden");
@@ -2880,44 +2878,40 @@ $("#btnSceneMove").addEventListener("click", function () {
 
     function closeTareModal() { modal.classList.add("hidden"); }
 
-    function setFeedback(el, msg, type) {
-      el.textContent = msg;
-      el.className = "tare-feedback" + (type ? " " + type : "");
+    function setFeedback(msg, type) {
+      fb.textContent = msg;
+      fb.className = "tare-feedback" + (type ? " " + type : "");
     }
 
-    /* Map data-tare-action values to OSC paths + feedback messages */
     var TARE_ACTIONS = {
-      "instant":           { path: "/tare",              args: null,  imuFb: true,  okMsg: "✓ Orientation zeroed" },
-      "avg":               { path: "/tare/avg",          args: "20",  imuFb: true,  working: "Averaging — hold completely still…", okMsg: "✓ Precise zero set" },
-      "swingtwist":        { path: "/tare/swingtwist",   args: null,  stFb: true,   okMsg: "✓ All arm positions zeroed" },
-      "twist":             { path: "/tare/twist",        args: null,  stFb: true,   okMsg: "✓ Wrist rotation zeroed" },
-      "azimuth":           { path: "/tare/azimuth",      args: null,  stFb: true,   okMsg: "✓ Pointing direction zeroed" },
-      "tilt":              { path: "/tare/tilt",         args: null,  stFb: true,   okMsg: "✓ Vertical tilt zeroed" },
-      "swingtwist/reset":  { path: "/tare/swingtwist/reset", args: null, stFb: true, okMsg: "✓ All arm zeros cleared" }
+      "avg":              { path: "/tare/avg",             args: "20", working: "Zeroing…", okMsg: "✓ Orientation zeroed" },
+      "swingtwist":       { path: "/tare/swingtwist",      args: null, okMsg: "✓ All arm axes zeroed" },
+      "twist":            { path: "/tare/twist",           args: null, okMsg: "✓ Wrist rotation zeroed" },
+      "azimuth":          { path: "/tare/azimuth",         args: null, okMsg: "✓ Pointing direction zeroed" },
+      "tilt":             { path: "/tare/tilt",            args: null, okMsg: "✓ Vertical tilt zeroed" },
+      "swingtwist/reset": { path: "/tare/swingtwist/reset",args: null, okMsg: "✓ Arm zeros cleared" }
     };
 
     modal.addEventListener("click", function (e) {
       var btn = e.target.closest("[data-tare-action]");
       if (!btn) return;
-      var action = btn.dataset.tareAction;
-      var cfg = TARE_ACTIONS[action];
+      var cfg = TARE_ACTIONS[btn.dataset.tareAction];
       if (!cfg || !_dropdownDeviceId) return;
 
-      var fb = cfg.imuFb ? fbImu : fbST;
-      if (cfg.working) setFeedback(fb, cfg.working, "working");
+      if (cfg.working) setFeedback(cfg.working, "working");
       btn.disabled = true;
 
       sendCmd("/annieData/" + _dropdownDeviceId + cfg.path, cfg.args || null).then(function (res) {
         btn.disabled = false;
         if (res && res.status === "ok") {
-          setFeedback(fb, cfg.okMsg, "ok");
-          setTimeout(function () { setFeedback(fb, "", ""); }, 3500);
+          setFeedback(cfg.okMsg, "ok");
+          setTimeout(function () { setFeedback("", ""); }, 3000);
         } else {
-          setFeedback(fb, "✕ Command failed — is the device connected?", "err");
+          setFeedback("Command failed — is the device connected?", "err");
         }
       }).catch(function () {
         btn.disabled = false;
-        setFeedback(fb, "✕ No response — check device connection", "err");
+        setFeedback("No response — check device connection", "err");
       });
     });
 
@@ -2948,10 +2942,9 @@ $("#btnSceneMove").addEventListener("click", function () {
 
     /* Close buttons */
     $("#devDdOpenTare").addEventListener("click", function () {
+      openTareModal();   /* read _dropdownDeviceId before closeDevDropdown clears it */
       closeDevDropdown();
-      openTareModal();
     });
-    $("#tareModalClose").addEventListener("click", closeTareModal);
     $("#tareModalDone").addEventListener("click", closeTareModal);
     modal.addEventListener("click", function (e) {
       if (e.target === modal) closeTareModal();
