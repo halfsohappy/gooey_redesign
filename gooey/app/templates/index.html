@@ -3,6 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Hard-reload once whenever the app version changes, to bust WebKit's disk cache. -->
+  <script>
+    (function() {
+      var v = '{{ v }}';
+      if (localStorage.getItem('_av') !== v) {
+        localStorage.setItem('_av', v);
+        location.reload(true);
+      }
+    })();
+  </script>
   <title>annieData — Control Center</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ v }}">

@@ -10,7 +10,7 @@ import threading
 import markdown as md_lib
 import serial
 import serial.tools.list_ports
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
 from flask_socketio import SocketIO, join_room, leave_room
 
 from .osc_handler import OSCEngine
@@ -113,7 +113,9 @@ _remote_sessions = {}
 
 @app.route("/")
 def index():
-    return render_template("index.html", demo_mode=DEMO_MODE, v=APP_VERSION)
+    resp = make_response(render_template("index.html", demo_mode=DEMO_MODE, v=APP_VERSION))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/remote")
