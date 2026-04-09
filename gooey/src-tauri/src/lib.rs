@@ -262,8 +262,15 @@ fn start_sidecar(app: AppHandle, child_holder: Arc<Mutex<Option<CommandChild>>>)
     }
 
     // Navigate main window to Flask and show it.
+    // Use a unique timestamp query param so WebKit never serves a cached page
+    // from a prior version — the URL is different every launch.
     if let Some(window) = app.get_webview_window("main") {
-        let _ = window.navigate(FLASK_URL.parse().expect("invalid Flask URL"));
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let url = format!("{}/?_r={}", FLASK_URL, ts);
+        let _ = window.navigate(url.parse().expect("invalid Flask URL"));
         std::thread::sleep(Duration::from_millis(300));
         let _ = window.show();
     }
