@@ -130,10 +130,57 @@ extern bool  tare_active;
 // Forward-declare the Euler decomposition selector (defined in main.cpp).
 // 0 = ZYX (default, singular on Y), 1 = ZXY (singular on X).
 extern int euler_order;
+// -1 = auto-select at tare time, 0 = force ZYX, 1 = force ZXY.
+extern int euler_order_override;
 
 // Swing-twist decomposition axes (defined in main.cpp).
 extern float twist_nx, twist_ny, twist_nz;
 extern float tare_up_x, tare_up_y, tare_up_z;
+
+// Averaged-tare accumulation state (defined in main.cpp).
+extern int   tare_avg_target, tare_avg_count;
+extern float tare_avg_qi, tare_avg_qj, tare_avg_qk, tare_avg_qr;
+
+// Runtime sensor scale factors (defined in main.cpp).
+extern float g_accel_scale, g_gyro_scale;
+
+// Swing-twist per-axis zero offsets and last-computed values (defined in main.cpp).
+extern float twist_offset_deg, azi_offset_deg, tilt_offset_deg;
+extern float last_twist_deg, last_azi_deg, last_tilt_deg;
+
+// ---------------------------------------------------------------------------
+// apply_tare_reference — compute euler_order and swing-twist axes from tare_q*
+// Called after tare_qi/qj/qk/qr are set (by /tare or averaged-tare finaliser).
+// ---------------------------------------------------------------------------
+static inline void apply_tare_reference() {
+    // Auto-select Euler decomposition to minimise gimbal-lock risk.
+    float vx = fabsf(2.0f*(tare_qi*tare_qk - tare_qr*tare_qj));  // |R[2][0]|
+    float vy = fabsf(2.0f*(tare_qj*tare_qk + tare_qr*tare_qi));  // |R[2][1]|
+    float vz = fabsf(1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj));  // |R[2][2]|
+    euler_order = (vy > vx && vy > vz) ? 1 : 0;
+    // Apply manual override if set.
+    if (euler_order_override >= 0) euler_order = euler_order_override;
+
+    // Swing-twist: up axis = device axis most aligned with world vertical.
+    float svx = 2.0f*(tare_qi*tare_qk - tare_qr*tare_qj);
+    float svy = 2.0f*(tare_qj*tare_qk + tare_qr*tare_qi);
+    float svz = 1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj);
+    if (vx >= vy && vx >= vz) {
+        tare_up_x = copysignf(1.0f, svx); tare_up_y = 0; tare_up_z = 0;
+    } else if (vy >= vx && vy >= vz) {
+        tare_up_x = 0; tare_up_y = copysignf(1.0f, svy); tare_up_z = 0;
+    } else {
+        tare_up_x = 0; tare_up_y = 0; tare_up_z = copysignf(1.0f, svz);
+    }
+    // Twist axis = device axis least aligned with vertical (most horizontal).
+    if (vx <= vy && vx <= vz) {
+        twist_nx = 1.0f; twist_ny = 0; twist_nz = 0;
+    } else if (vy <= vx && vy <= vz) {
+        twist_nx = 0; twist_ny = 1.0f; twist_nz = 0;
+    } else {
+        twist_nx = 0; twist_ny = 0; twist_nz = 1.0f;
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Command normaliser — accepts camelCase, snake_case, and lowercase
@@ -222,38 +269,8 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
     if (norm_adr == "/tare") {
         tare_qi = cur_qi; tare_qj = cur_qj; tare_qk = cur_qk; tare_qr = cur_qr;
         tare_active = true;
-
-        // Auto-select Euler decomposition to minimise gimbal-lock risk.
-        // vx/vy/vz = how vertical each device axis is at the tare pose.
-        // R[2][*] gives the world-Z (vertical) direction in device-frame coords.
-        float vx = fabsf(2.0f*(tare_qi*tare_qk - tare_qr*tare_qj));  // |R[2][0]|
-        float vy = fabsf(2.0f*(tare_qj*tare_qk + tare_qr*tare_qi));  // |R[2][1]|
-        float vz = fabsf(1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj));  // |R[2][2]|
-        // ZYX is singular when device-Y is vertical (vy ≈ 1).
-        // ZXY is singular when device-X is vertical (vx ≈ 1).
-        // Choose ZXY when Y is most vertical (avoid ZYX singularity), else ZYX.
-        euler_order = (vy > vx && vy > vz) ? 1 : 0;
-
-        // Swing-twist: up axis = device axis most aligned with world vertical.
-        float svx = 2.0f*(tare_qi*tare_qk - tare_qr*tare_qj);
-        float svy = 2.0f*(tare_qj*tare_qk + tare_qr*tare_qi);
-        float svz = 1.0f - 2.0f*(tare_qi*tare_qi + tare_qj*tare_qj);
-        if (vx >= vy && vx >= vz) {
-            tare_up_x = copysignf(1.0f, svx); tare_up_y = 0; tare_up_z = 0;
-        } else if (vy >= vx && vy >= vz) {
-            tare_up_x = 0; tare_up_y = copysignf(1.0f, svy); tare_up_z = 0;
-        } else {
-            tare_up_x = 0; tare_up_y = 0; tare_up_z = copysignf(1.0f, svz);
-        }
-        // Twist axis = device axis least aligned with vertical (most horizontal).
-        if (vx <= vy && vx <= vz) {
-            twist_nx = 1.0f; twist_ny = 0; twist_nz = 0;
-        } else if (vy <= vx && vy <= vz) {
-            twist_nx = 0; twist_ny = 1.0f; twist_nz = 0;
-        } else {
-            twist_nx = 0; twist_ny = 0; twist_nz = 1.0f;
-        }
-
+        tare_avg_target = 0;  // cancel any in-progress avg-tare
+        apply_tare_reference();
         const char* order_name = (euler_order == 1) ? "ZXY" : "ZYX";
         osc_reply(sender_ip, sender_port, reply_adr,
                   String("TARE SET (") + order_name + ")");
@@ -261,20 +278,120 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
         return;
     }
 
+    if (norm_adr == "/tare/avg") {
+        // Accumulate N frames and average before applying tare.
+        int n = (int)constrain((float)osc_msg.nextAsInt(), 1.0f, 200.0f);
+        tare_avg_target = n;
+        tare_avg_count  = 0;
+        tare_avg_qi = tare_avg_qj = tare_avg_qk = tare_avg_qr = 0.0f;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("TARE AVG START (") + n + " frames) — hold still");
+        status_reporter().info("tare", String("Averaged tare started — collecting ") + n + " frames");
+        return;
+    }
+
+    if (norm_adr == "/tare/order") {
+        String arg = osc_lower_copy(osc_trim_copy(String(osc_msg.nextAsString())));
+        if (arg == "zyx")      euler_order_override = 0;
+        else if (arg == "zxy") euler_order_override = 1;
+        else                   euler_order_override = -1;  // "auto"
+        String rep = (euler_order_override < 0)
+                     ? String("EULER ORDER=AUTO")
+                     : String("EULER ORDER=") + (euler_order_override == 1 ? "ZXY" : "ZYX") + " (pinned)";
+        osc_reply(sender_ip, sender_port, reply_adr, rep);
+        status_reporter().info("tare", rep);
+        return;
+    }
+
+    if (norm_adr == "/tare/twist") {
+        twist_offset_deg = last_twist_deg;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("TWIST ZERO=") + twist_offset_deg + "deg");
+        status_reporter().info("tare", String("Twist zeroed at ") + twist_offset_deg + "deg");
+        return;
+    }
+
+    if (norm_adr == "/tare/azimuth" || norm_adr == "/tare/azi") {
+        azi_offset_deg = last_azi_deg;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("AZI ZERO=") + azi_offset_deg + "deg");
+        status_reporter().info("tare", String("Azimuth zeroed at ") + azi_offset_deg + "deg");
+        return;
+    }
+
+    if (norm_adr == "/tare/tilt") {
+        tilt_offset_deg = last_tilt_deg;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("TILT ZERO=") + tilt_offset_deg + "deg");
+        status_reporter().info("tare", String("Tilt zeroed at ") + tilt_offset_deg + "deg");
+        return;
+    }
+
+    if (norm_adr == "/tare/swingtwist") {
+        twist_offset_deg = last_twist_deg;
+        azi_offset_deg   = last_azi_deg;
+        tilt_offset_deg  = last_tilt_deg;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("SWING-TWIST ZEROED (tw=") + twist_offset_deg
+                  + "deg az=" + azi_offset_deg + "deg tl=" + tilt_offset_deg + "deg)");
+        status_reporter().info("tare", "Swing-twist all axes zeroed");
+        return;
+    }
+
+    if (norm_adr == "/tare/swingtwist/reset") {
+        twist_offset_deg = azi_offset_deg = tilt_offset_deg = 0.0f;
+        osc_reply(sender_ip, sender_port, reply_adr, "SWING-TWIST OFFSETS CLEARED");
+        status_reporter().info("tare", "Swing-twist offsets cleared");
+        return;
+    }
+
     if (norm_adr == "/tare/reset") {
         tare_qi = 0.0f; tare_qj = 0.0f; tare_qk = 0.0f; tare_qr = 1.0f;
         tare_active = false;
+        tare_avg_target = 0;
         euler_order = 0;  // back to default ZYX
         twist_nx = 1.0f; twist_ny = 0.0f; twist_nz = 0.0f;
         tare_up_x = 0.0f; tare_up_y = 0.0f; tare_up_z = 1.0f;
+        twist_offset_deg = azi_offset_deg = tilt_offset_deg = 0.0f;
         osc_reply(sender_ip, sender_port, reply_adr, "TARE RESET");
         status_reporter().info("tare", "Tare cleared — decomposition: ZYX");
         return;
     }
 
     if (norm_adr == "/tare/status") {
+        const char* order_name = (euler_order == 1) ? "ZXY" : "ZYX";
+        String s = tare_active ? String("TARE ACTIVE (") + order_name + ")" : String("TARE INACTIVE");
+        s += String(" tw_off=") + twist_offset_deg + " az_off=" + azi_offset_deg + " tl_off=" + tilt_offset_deg;
+        osc_reply(sender_ip, sender_port, reply_adr, s);
+        return;
+    }
+
+    // ── SENSOR SCALE COMMANDS ──────────────────────────────────────────────
+    //    /scale/accel {value} — set ±value m/s² maps to [0,1]
+    //    /scale/gyro  {value} — set ±value rad/s maps to [0,1]
+    //    /scale/query         — report current scale factors
+
+    if (norm_adr == "/scale/accel") {
+        float v = osc_msg.nextAsFloat();
+        if (v > 0.1f) g_accel_scale = v;
         osc_reply(sender_ip, sender_port, reply_adr,
-                  tare_active ? "TARE ACTIVE" : "TARE INACTIVE");
+                  String("ACCEL_SCALE=") + g_accel_scale);
+        status_reporter().info("scale", String("Accel scale set to ±") + g_accel_scale + " m/s²");
+        return;
+    }
+
+    if (norm_adr == "/scale/gyro") {
+        float v = osc_msg.nextAsFloat();
+        if (v > 0.1f) g_gyro_scale = v;
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("GYRO_SCALE=") + g_gyro_scale);
+        status_reporter().info("scale", String("Gyro scale set to ±") + g_gyro_scale + " rad/s");
+        return;
+    }
+
+    if (norm_adr == "/scale/query") {
+        osc_reply(sender_ip, sender_port, reply_adr,
+                  String("accel=") + g_accel_scale + " gyro=" + g_gyro_scale);
         return;
     }
 
@@ -818,6 +935,17 @@ void osc_handle_message(MicroOscMessage& osc_msg) {
             status_reporter().info("ori", "Motion threshold: " + String(ot.motion_threshold, 2) + " rad/s");
             osc_reply(sender_ip, sender_port, reply_adr + "/ori/threshold",
                       "threshold: " + String(ot.motion_threshold, 2));
+            return;
+        }
+
+        // /ori/hysteresis  — set hysteresis margin (degrees); challenger must beat
+        //                    current match by this much to trigger a switch.
+        if (ori_rest == "/hysteresis" || ori_rest.startsWith("/hysteresis")) {
+            float v = osc_msg.nextAsFloat();
+            if (v >= 0.0f) ot.hysteresis_margin = v;
+            status_reporter().info("ori", "Hysteresis: " + String(ot.hysteresis_margin, 1) + "deg");
+            osc_reply(sender_ip, sender_port, reply_adr + "/ori/hysteresis",
+                      "hysteresis: " + String(ot.hysteresis_margin, 1) + "deg");
             return;
         }
 

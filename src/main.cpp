@@ -39,6 +39,30 @@ int euler_order = 0;
 float twist_nx = 1.0f, twist_ny = 0.0f, twist_nz = 0.0f;
 float tare_up_x = 0.0f, tare_up_y = 0.0f, tare_up_z = 1.0f;
 
+// Euler decomposition override — set by /tare/order command.
+// -1 = auto-select at tare time (default), 0 = force ZYX, 1 = force ZXY.
+int euler_order_override = -1;
+
+// Averaged-tare accumulation state.
+int   tare_avg_target = 0;   // 0 = not accumulating
+int   tare_avg_count  = 0;
+float tare_avg_qi = 0.0f, tare_avg_qj = 0.0f, tare_avg_qk = 0.0f, tare_avg_qr = 0.0f;
+
+// Runtime-configurable sensor scale factors.
+// ±g_accel_scale m/s² maps to [0,1]; ±g_gyro_scale rad/s maps to [0,1].
+float g_accel_scale = 4.0f;
+float g_gyro_scale  = 4.0f;
+
+// Swing-twist per-axis zero offsets (degrees) — zeroed by /tare/twist etc.
+float twist_offset_deg = 0.0f;
+float azi_offset_deg   = 0.0f;
+float tilt_offset_deg  = 0.0f;
+
+// Last-computed swing-twist values (before offset) — read by /tare/twist etc.
+float last_twist_deg = 0.0f;
+float last_azi_deg   = 0.0f;
+float last_tilt_deg  = 0.0f;
+
 #ifdef AB7_BUILD
 
 // SK6812 LED (one pixel)
@@ -212,6 +236,23 @@ void setup() {
                 cur_qk = qk;
                 cur_qr = qr;
 
+                // ── Averaged-tare accumulation ────────────────────────
+                if (tare_avg_target > 0) {
+                    tare_avg_qi += qi; tare_avg_qj += qj;
+                    tare_avg_qk += qk; tare_avg_qr += qr;
+                    if (++tare_avg_count >= tare_avg_target) {
+                        float len = sqrtf(tare_avg_qi*tare_avg_qi + tare_avg_qj*tare_avg_qj
+                                        + tare_avg_qk*tare_avg_qk + tare_avg_qr*tare_avg_qr);
+                        if (len > 1e-6f) {
+                            tare_qi = tare_avg_qi/len; tare_qj = tare_avg_qj/len;
+                            tare_qk = tare_avg_qk/len; tare_qr = tare_avg_qr/len;
+                        }
+                        tare_active = true;
+                        tare_avg_target = 0;
+                        apply_tare_reference();
+                    }
+                }
+
                 // Apply tare: compute orientation relative to reference pose.
                 // q_rel = q_tare_conj ⊗ q_current  (conjugate = inverse for unit quat)
                 float eq_i = qi, eq_j = qj, eq_k = qk, eq_r = qr;
@@ -251,14 +292,18 @@ void setup() {
                     float proj = qx*nx + qy*ny + qz*nz;
                     float qt_len = sqrtf(qw*qw + proj*proj);
 
-                    float twist_deg;
+                    float raw_twist_deg;
                     if (qt_len < 1e-6f) {
-                        twist_deg = 0.0f;  // degenerate: pure 180° swing
+                        raw_twist_deg = 0.0f;  // degenerate: pure 180° swing
                     } else {
-                        twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
+                        raw_twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
                                     * (180.0f / (float)M_PI);
                     }
-                    data_streams[TWIST] = (twist_deg + 180.0f) / 360.0f;
+                    last_twist_deg = raw_twist_deg;
+                    float adj_twist = raw_twist_deg - twist_offset_deg;
+                    if (adj_twist >  180.0f) adj_twist -= 360.0f;
+                    if (adj_twist < -180.0f) adj_twist += 360.0f;
+                    data_streams[TWIST] = (adj_twist + 180.0f) / 360.0f;
 
                     // Swing: rotate twist axis by the tare-relative quaternion
                     // to see where the arm now points in the reference frame.
@@ -267,9 +312,11 @@ void setup() {
 
                     // Tilt = elevation angle (dot with up axis)
                     float v_up = vx*tare_up_x + vy*tare_up_y + vz*tare_up_z;
-                    float tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
+                    float raw_tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
                                      * (180.0f / (float)M_PI);
-                    data_streams[TILT] = (tilt_deg + 90.0f) / 180.0f;
+                    last_tilt_deg = raw_tilt_deg;
+                    float adj_tilt = constrain(raw_tilt_deg - tilt_offset_deg, -90.0f, 90.0f);
+                    data_streams[TILT] = (adj_tilt + 90.0f) / 180.0f;
 
                     // Heading = azimuth in horizontal plane.
                     // Reference forward = twist axis projected horizontal at tare.
@@ -287,10 +334,14 @@ void setup() {
                     float hx = vx - v_up*tare_up_x;
                     float hy = vy - v_up*tare_up_y;
                     float hz = vz - v_up*tare_up_z;
-                    float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
+                    float raw_azi_deg = atan2f(hx*rx + hy*ry + hz*rz,
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
-                    data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
+                    last_azi_deg = raw_azi_deg;
+                    float adj_azi = raw_azi_deg - azi_offset_deg;
+                    if (adj_azi >  180.0f) adj_azi -= 360.0f;
+                    if (adj_azi < -180.0f) adj_azi += 360.0f;
+                    data_streams[AZIMUTH] = (adj_azi + 180.0f) / 360.0f;
 
                     // ── Swing-twist angular velocity (finite difference) ──────
                     // Scale: ±360 deg/s maps to [0,1] with 0.5 = stationary.
@@ -299,13 +350,13 @@ void setup() {
                     unsigned long _now_vel = millis();
                     if (!isnan(_prev_twist_deg) && _now_vel > _prev_vel_ms) {
                         float dt = (_now_vel - _prev_vel_ms) * 0.001f;
-                        float dtwist = twist_deg - _prev_twist_deg;
+                        float dtwist = raw_twist_deg - _prev_twist_deg;
                         if (dtwist >  180.0f) dtwist -= 360.0f;
                         if (dtwist < -180.0f) dtwist += 360.0f;
-                        float dazi = heading_deg - _prev_azi_deg;
+                        float dazi = raw_azi_deg - _prev_azi_deg;
                         if (dazi >  180.0f) dazi -= 360.0f;
                         if (dazi < -180.0f) dazi += 360.0f;
-                        float dtilt = tilt_deg - _prev_tilt_deg;
+                        float dtilt = raw_tilt_deg - _prev_tilt_deg;
                         const float VEL_SCALE = 360.0f;
                         data_streams[TWIST_VEL] = constrain((dtwist / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                         data_streams[AZI_VEL]   = constrain((dazi   / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
@@ -315,9 +366,9 @@ void setup() {
                         data_streams[AZI_VEL]   = 0.5f;
                         data_streams[TILT_VEL]  = 0.5f;
                     }
-                    _prev_twist_deg = twist_deg;
-                    _prev_tilt_deg  = tilt_deg;
-                    _prev_azi_deg   = heading_deg;
+                    _prev_twist_deg = raw_twist_deg;
+                    _prev_tilt_deg  = raw_tilt_deg;
+                    _prev_azi_deg   = raw_azi_deg;
                     _prev_vel_ms    = _now_vel;
                 }
 
@@ -325,12 +376,11 @@ void setup() {
                 float ax, ay, az;
                 imu_get_accel(ax, ay, az);
 
-                const float ACCEL_SCALE = 4.0f;
-                data_streams[ACCELX]      = constrain((ax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[ACCELY]      = constrain((ay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[ACCELZ]      = constrain((az / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELX]      = constrain((ax / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELY]      = constrain((ay / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELZ]      = constrain((az / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float accel_len = sqrtf(ax * ax + ay * ay + az * az);
-                data_streams[ACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+                data_streams[ACCELLENGTH] = constrain(accel_len / g_accel_scale, 0.0f, 1.0f);
 
                 // ── Global-frame (rotation-compensated) acceleration ───
                 // Rotate body-frame linear accel into global frame using
@@ -339,10 +389,10 @@ void setup() {
                 float gay = 2.0f*(qi*qj + qr*qk)*ax + (1.0f - 2.0f*(qi*qi + qk*qk))*ay + 2.0f*(qj*qk - qr*qi)*az;
                 float gaz = 2.0f*(qi*qk - qr*qj)*ax + 2.0f*(qj*qk + qr*qi)*ay + (1.0f - 2.0f*(qi*qi + qj*qj))*az;
 
-                data_streams[GACCELX]      = constrain((gax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELY]      = constrain((gay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+                data_streams[GACCELX]      = constrain((gax / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELY]      = constrain((gay / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELZ]      = constrain((gaz / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELLENGTH] = constrain(accel_len / g_accel_scale, 0.0f, 1.0f);
 
                 // ── Swing-twist frame acceleration ────────────────────
                 // Project global-frame accel onto arm coordinate frame:
@@ -368,11 +418,11 @@ void setup() {
                     float af = gax*afx + gay*afy + gaz*afz;
                     float ar = gax*arx + gay*ary + gaz*arz;
                     float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
-                    data_streams[LIMB_FWD]   = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[LIMB_LAT]   = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[LIMB_VERT]  = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_FWD]   = constrain((af / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_LAT]   = constrain((ar / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_VERT]  = constrain((av / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                     float limb_len = sqrtf(af*af + ar*ar + av*av);
-                    data_streams[TWITCH]     = constrain(limb_len / ACCEL_SCALE, 0.0f, 1.0f);
+                    data_streams[TWITCH]     = constrain(limb_len / g_accel_scale, 0.0f, 1.0f);
                 }
 
                 // ── Quaternion components (raw, untared) ───────────────
@@ -387,12 +437,11 @@ void setup() {
                 float gx, gy, gz;
                 imu_get_gyro(gx, gy, gz);
 
-                const float GYRO_SCALE = 4.0f;
-                data_streams[GYROX]       = constrain((gx / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GYROY]       = constrain((gy / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GYROZ]       = constrain((gz / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROX]       = constrain((gx / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROY]       = constrain((gy / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROZ]       = constrain((gz / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float gyro_len = sqrtf(gx * gx + gy * gy + gz * gz);
-                data_streams[GYROLENGTH]  = constrain(gyro_len / GYRO_SCALE, 0.0f, 1.0f);
+                data_streams[GYROLENGTH]  = constrain(gyro_len / g_gyro_scale, 0.0f, 1.0f);
 
                 // ── Barometer — not present on ab7; fixed high sentinel ─
                 data_streams[BARO] = 1.0f;
@@ -479,6 +528,23 @@ void setup() {
                 cur_qk = qk;
                 cur_qr = qr;
 
+                // ── Averaged-tare accumulation ────────────────────────
+                if (tare_avg_target > 0) {
+                    tare_avg_qi += qi; tare_avg_qj += qj;
+                    tare_avg_qk += qk; tare_avg_qr += qr;
+                    if (++tare_avg_count >= tare_avg_target) {
+                        float len = sqrtf(tare_avg_qi*tare_avg_qi + tare_avg_qj*tare_avg_qj
+                                        + tare_avg_qk*tare_avg_qk + tare_avg_qr*tare_avg_qr);
+                        if (len > 1e-6f) {
+                            tare_qi = tare_avg_qi/len; tare_qj = tare_avg_qj/len;
+                            tare_qk = tare_avg_qk/len; tare_qr = tare_avg_qr/len;
+                        }
+                        tare_active = true;
+                        tare_avg_target = 0;
+                        apply_tare_reference();
+                    }
+                }
+
                 // Apply tare: compute orientation relative to reference pose.
                 // q_rel = q_tare_conj ⊗ q_current  (conjugate = inverse for unit quat)
                 float eq_i = qi, eq_j = qj, eq_k = qk, eq_r = qr;
@@ -518,14 +584,18 @@ void setup() {
                     float proj = qx*nx + qy*ny + qz*nz;
                     float qt_len = sqrtf(qw*qw + proj*proj);
 
-                    float twist_deg;
+                    float raw_twist_deg;
                     if (qt_len < 1e-6f) {
-                        twist_deg = 0.0f;  // degenerate: pure 180° swing
+                        raw_twist_deg = 0.0f;  // degenerate: pure 180° swing
                     } else {
-                        twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
+                        raw_twist_deg = 2.0f * atan2f(proj / qt_len, qw / qt_len)
                                     * (180.0f / (float)M_PI);
                     }
-                    data_streams[TWIST] = (twist_deg + 180.0f) / 360.0f;
+                    last_twist_deg = raw_twist_deg;
+                    float adj_twist = raw_twist_deg - twist_offset_deg;
+                    if (adj_twist >  180.0f) adj_twist -= 360.0f;
+                    if (adj_twist < -180.0f) adj_twist += 360.0f;
+                    data_streams[TWIST] = (adj_twist + 180.0f) / 360.0f;
 
                     // Swing: rotate twist axis by the tare-relative quaternion
                     // to see where the arm now points in the reference frame.
@@ -534,9 +604,11 @@ void setup() {
 
                     // Tilt = elevation angle (dot with up axis)
                     float v_up = vx*tare_up_x + vy*tare_up_y + vz*tare_up_z;
-                    float tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
+                    float raw_tilt_deg = asinf(constrain(v_up, -1.0f, 1.0f))
                                      * (180.0f / (float)M_PI);
-                    data_streams[TILT] = (tilt_deg + 90.0f) / 180.0f;
+                    last_tilt_deg = raw_tilt_deg;
+                    float adj_tilt = constrain(raw_tilt_deg - tilt_offset_deg, -90.0f, 90.0f);
+                    data_streams[TILT] = (adj_tilt + 90.0f) / 180.0f;
 
                     // Heading = azimuth in horizontal plane.
                     // Reference forward = twist axis projected horizontal at tare.
@@ -554,10 +626,14 @@ void setup() {
                     float hx = vx - v_up*tare_up_x;
                     float hy = vy - v_up*tare_up_y;
                     float hz = vz - v_up*tare_up_z;
-                    float heading_deg = atan2f(hx*rx + hy*ry + hz*rz,
+                    float raw_azi_deg = atan2f(hx*rx + hy*ry + hz*rz,
                                                hx*fx + hy*fy + hz*fz)
                                         * (180.0f / (float)M_PI);
-                    data_streams[AZIMUTH] = (heading_deg + 180.0f) / 360.0f;
+                    last_azi_deg = raw_azi_deg;
+                    float adj_azi = raw_azi_deg - azi_offset_deg;
+                    if (adj_azi >  180.0f) adj_azi -= 360.0f;
+                    if (adj_azi < -180.0f) adj_azi += 360.0f;
+                    data_streams[AZIMUTH] = (adj_azi + 180.0f) / 360.0f;
 
                     // ── Swing-twist angular velocity (finite difference) ──────
                     // Scale: ±360 deg/s maps to [0,1] with 0.5 = stationary.
@@ -566,13 +642,13 @@ void setup() {
                     unsigned long _now_vel = millis();
                     if (!isnan(_prev_twist_deg) && _now_vel > _prev_vel_ms) {
                         float dt = (_now_vel - _prev_vel_ms) * 0.001f;
-                        float dtwist = twist_deg - _prev_twist_deg;
+                        float dtwist = raw_twist_deg - _prev_twist_deg;
                         if (dtwist >  180.0f) dtwist -= 360.0f;
                         if (dtwist < -180.0f) dtwist += 360.0f;
-                        float dazi = heading_deg - _prev_azi_deg;
+                        float dazi = raw_azi_deg - _prev_azi_deg;
                         if (dazi >  180.0f) dazi -= 360.0f;
                         if (dazi < -180.0f) dazi += 360.0f;
-                        float dtilt = tilt_deg - _prev_tilt_deg;
+                        float dtilt = raw_tilt_deg - _prev_tilt_deg;
                         const float VEL_SCALE = 360.0f;
                         data_streams[TWIST_VEL] = constrain((dtwist / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
                         data_streams[AZI_VEL]   = constrain((dazi   / dt / VEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
@@ -582,9 +658,9 @@ void setup() {
                         data_streams[AZI_VEL]   = 0.5f;
                         data_streams[TILT_VEL]  = 0.5f;
                     }
-                    _prev_twist_deg = twist_deg;
-                    _prev_tilt_deg  = tilt_deg;
-                    _prev_azi_deg   = heading_deg;
+                    _prev_twist_deg = raw_twist_deg;
+                    _prev_tilt_deg  = raw_tilt_deg;
+                    _prev_azi_deg   = raw_azi_deg;
                     _prev_vel_ms    = _now_vel;
                 }
 
@@ -592,12 +668,11 @@ void setup() {
                 float ax, ay, az;
                 imu_get_accel(ax, ay, az);
 
-                const float ACCEL_SCALE = 4.0f;
-                data_streams[ACCELX]      = constrain((ax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[ACCELY]      = constrain((ay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[ACCELZ]      = constrain((az / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELX]      = constrain((ax / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELY]      = constrain((ay / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[ACCELZ]      = constrain((az / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float accel_len = sqrtf(ax * ax + ay * ay + az * az);
-                data_streams[ACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+                data_streams[ACCELLENGTH] = constrain(accel_len / g_accel_scale, 0.0f, 1.0f);
 
                 // ── Global-frame (rotation-compensated) acceleration ───
                 // Rotate body-frame linear accel into global frame using
@@ -606,10 +681,10 @@ void setup() {
                 float gay = 2.0f*(qi*qj + qr*qk)*ax + (1.0f - 2.0f*(qi*qi + qk*qk))*ay + 2.0f*(qj*qk - qr*qi)*az;
                 float gaz = 2.0f*(qi*qk - qr*qj)*ax + 2.0f*(qj*qk + qr*qi)*ay + (1.0f - 2.0f*(qi*qi + qj*qj))*az;
 
-                data_streams[GACCELX]      = constrain((gax / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELY]      = constrain((gay / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELZ]      = constrain((gaz / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GACCELLENGTH] = constrain(accel_len / ACCEL_SCALE, 0.0f, 1.0f);
+                data_streams[GACCELX]      = constrain((gax / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELY]      = constrain((gay / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELZ]      = constrain((gaz / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GACCELLENGTH] = constrain(accel_len / g_accel_scale, 0.0f, 1.0f);
 
                 // ── Swing-twist frame acceleration ────────────────────
                 // Project global-frame accel onto arm coordinate frame:
@@ -635,11 +710,11 @@ void setup() {
                     float af = gax*afx + gay*afy + gaz*afz;
                     float ar = gax*arx + gay*ary + gaz*arz;
                     float av = gax*tare_up_x + gay*tare_up_y + gaz*tare_up_z;
-                    data_streams[LIMB_FWD]   = constrain((af / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[LIMB_LAT]   = constrain((ar / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                    data_streams[LIMB_VERT]  = constrain((av / ACCEL_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_FWD]   = constrain((af / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_LAT]   = constrain((ar / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                    data_streams[LIMB_VERT]  = constrain((av / g_accel_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                     float limb_len = sqrtf(af*af + ar*ar + av*av);
-                    data_streams[TWITCH]     = constrain(limb_len / ACCEL_SCALE, 0.0f, 1.0f);
+                    data_streams[TWITCH]     = constrain(limb_len / g_accel_scale, 0.0f, 1.0f);
                 }
 
                 // ── Quaternion components (raw, untared) ───────────────
@@ -654,12 +729,11 @@ void setup() {
                 float gx, gy, gz;
                 imu_get_gyro(gx, gy, gz);
 
-                const float GYRO_SCALE = 4.0f;
-                data_streams[GYROX]       = constrain((gx / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GYROY]       = constrain((gy / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
-                data_streams[GYROZ]       = constrain((gz / GYRO_SCALE) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROX]       = constrain((gx / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROY]       = constrain((gy / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
+                data_streams[GYROZ]       = constrain((gz / g_gyro_scale) * 0.5f + 0.5f, 0.0f, 1.0f);
                 float gyro_len = sqrtf(gx * gx + gy * gy + gz * gz);
-                data_streams[GYROLENGTH]  = constrain(gyro_len / GYRO_SCALE, 0.0f, 1.0f);
+                data_streams[GYROLENGTH]  = constrain(gyro_len / g_gyro_scale, 0.0f, 1.0f);
 
                 // ── Update orientation tracker ────────────────────────
                 ot.update(qi, qj, qk, qr, gyro_len);
