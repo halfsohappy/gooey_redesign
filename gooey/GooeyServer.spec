@@ -8,6 +8,7 @@ a = Analysis(
     datas=[
         (os.path.join(SPECPATH, 'app'), 'app'),
         (os.path.join(SPECPATH, '..', 'docs'), 'docs'),
+        (os.path.join(SPECPATH, 'pyproject.toml'), '.'),
     ],
     hiddenimports=[
         'flask_socketio',

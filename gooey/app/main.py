@@ -22,16 +22,24 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() == "true"
 
 def _read_version():
-    """Read version from pyproject.toml, falling back to a timestamp."""
+    """Read version from pyproject.toml.
+
+    In a PyInstaller one-file bundle (sys.frozen=True) pyproject.toml is
+    extracted alongside the app to sys._MEIPASS.  In development it lives two
+    directories above this file.  Falls back to '0.0.0' (never a timestamp) so
+    the cache-busting script in index.html doesn't trigger an infinite reload.
+    """
+    import sys as _sys, tomllib
     try:
-        import importlib.resources, tomllib
-        here = os.path.dirname(os.path.dirname(__file__))
-        toml_path = os.path.join(here, "pyproject.toml")
+        if getattr(_sys, "frozen", False):
+            base = _sys._MEIPASS
+        else:
+            base = os.path.dirname(os.path.dirname(__file__))
+        toml_path = os.path.join(base, "pyproject.toml")
         with open(toml_path, "rb") as f:
             return tomllib.load(f)["project"]["version"]
     except Exception:
-        import time
-        return str(int(time.time()))
+        return "0.0.0"
 
 APP_VERSION = _read_version()
 
