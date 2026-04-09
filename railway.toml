@@ -1,6 +1,0 @@
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "gooey/Dockerfile.demo"
-
-[deploy]
-startCommand = "python run.py --host 0.0.0.0 --no-browser"

@@ -1,1 +1,0 @@
-Firmware for "BART" embedded boards originally developed for on-stage lighting and interactive sensing.

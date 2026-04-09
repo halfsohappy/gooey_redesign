@@ -1,40 +1,150 @@
-# TheaterGWD
+# annieData Control Center – TheaterGWD
 
-Wireless motion-sensor-to-OSC translation system for live theater. An ESP32-S3 device reads IMU, barometric, and quaternion data, normalizes all values to `[0, 1]`, and transmits them as OSC over WiFi at configurable rates.
+**The primary graphical interface for [TheaterGWD](https://github.com/halfsohappy/TheaterGWD) sensor devices.**
 
-Two board variants: **Bart** (ISM330DHCX IMU + BMP5xx barometer) and **ab7** (BNO085 IMU + orientation tracking).
+Built with Python. Runs in the browser. Designed for theater professionals.
 
-The **annieData Control Center** is the companion web GUI — it enables operators to configure sensor devices, manage shows, and monitor OSC traffic from a browser. Devices can also be controlled entirely through raw OSC commands from any software that speaks OSC.
+> Based on [annieOSC](https://github.com/halfsohappy/annieOSC) — redesigned and rebuilt as a dedicated TheaterGWD control center.
 
-## Documentation
+---
 
-| Guide | Audience | What's Covered |
-|-------|----------|---------------|
-| [Engineering Guide](docs/engineering.md) | Computer engineers | System architecture, firmware internals, build system, extending the code |
-| [GUI Guide](docs/gooey_guide.md) | Theater people (GUI) | Installing and using the annieData Control Center |
-| [OSC Guide](docs/osc_guide.md) | Theater people (OSC) | Controlling the device with raw OSC from any software |
+## Install
 
-## Quick Start
+| Platform | Command |
+|----------|---------|
+| macOS (Homebrew) | `brew install halfsohappy/theatergwd/gooey` |
+| Linux (snap) | `sudo snap install gooey-theatergwd` |
+| Arch / Manjaro (AUR) | `yay -S gooey-theatergwd` |
+| Any (pip) | `pip install gooey-theatergwd` |
 
-### Firmware
-
-```bash
-# Build and upload (PlatformIO)
-pio run -e bart -t upload    # Bart board
-pio run -e ab7 -t upload     # ab7 board
-```
-
-### annieData Control Center
+Then run:
 
 ```bash
-# Install
-pip install gooey-theatergwd
-
-# Or with Homebrew (macOS)
-brew install halfsohappy/theatergwd/gooey
-
-# Run
 gooey
 ```
 
-Opens at http://127.0.0.1:5000. See the [GUI Guide](docs/gooey_guide.md) for full instructions.
+Your browser opens automatically at http://127.0.0.1:5000.
+
+> **[Full Installation Guide](docs/installation.md)** — all methods, all platforms, troubleshooting.
+
+---
+
+## What's Different from annieOSC
+
+| Issue in annieOSC | Fixed in Control Center |
+|---|---|
+| Config strings split by spaces — commands like `value:accelX, ip:192.168.1.50` broken into multiple args | Config payloads sent as single string argument |
+| Status/reply feed buried at bottom of TheaterGWD tab | Always-visible live feed panel on the right |
+| Many commands missing (delete, clone, rename, move, solo, setAll, etc.) | Complete command coverage for all TheaterGWD operations |
+| Generic OSC tool with TheaterGWD as an afterthought | Purpose-built for TheaterGWD with organized sections |
+| Status config button sends empty payload (does nothing) | Proper status config form with IP, port, address fields |
+| No structured input for clone/rename/move payloads | Dedicated forms with source/destination fields |
+| Tab-based layout hides the feed when sending commands | Split-panel: controls left, live feed always visible |
+
+---
+
+## Layout
+
+The interface uses a **split-panel layout**:
+
+- **Left panel** — Organized command sections (Dashboard, Messages, Scenes, Direct, Advanced, Reference)
+- **Right panel** — Always-visible live activity feed showing all sent/received messages
+- **Top bar** — Device connection settings and reply listener toggle
+
+This enables operators to send commands and immediately see device replies without switching tabs.
+
+---
+
+## Sections
+
+### Dashboard
+Quick-access buttons for common operations:
+- **Blackout / Restore** — Emergency stop and resume
+- **Save / Load** — Persist to or restore from NVS
+- **NVS Clear** — Factory reset OSC config
+- **List** — Query messages, scenes, or everything (with verbose option)
+- **Status Config** — Tell the device where to send status messages
+
+### Messages
+Complete message management:
+- **Create/Update** — Config builder with sensor value, target IP/port/address, bounds, scene assignment
+- **Actions** — Info, Enable, Disable, Delete, Save for any named message
+- **Clone/Rename** — Duplicate or rename messages
+
+### Scenes
+Full scene control:
+- **Start/Stop/Delete** — Lifecycle management
+- **Info/Save** — Query details or persist individually
+- **Period/AdrMode/Override** — Configure scene behavior
+- **Add/Remove/Solo/Move** — Manage messages within scenes
+- **setAll** — Apply config to all messages at once
+- **Clone/Rename** — Duplicate or rename scenes
+
+### Direct
+One-step setup with config builder — creates message + scene, links them, starts streaming.
+
+### Advanced
+- **Raw OSC Send** — Send arbitrary OSC messages (single or repeated)
+- **JSON Batch** — Send multiple messages from JSON
+- **Bridge** — Forward messages between ports/hosts
+
+### Reference
+Searchable documentation for all:
+- **Commands** — Every OSC address pattern with description and expected payload
+- **Keywords** — Plain-language definitions for all TheaterGWD concepts
+- **Config Keys** — All key:value pairs accepted in config strings
+- **Address Modes** — How scenes compose OSC addresses
+
+---
+
+## Command-Line Options
+
+```
+gooey [OPTIONS]
+
+Options:
+  --port PORT       Web server port (default: 5000)
+  --host HOST       Web server host (default: 127.0.0.1)
+  --no-browser      Don't auto-open browser on startup
+  --debug           Enable debug mode
+```
+
+Examples:
+
+```bash
+gooey                           # Default — opens browser at localhost:5000
+gooey --port 8080               # Use a different port
+gooey --host 0.0.0.0            # Allow access from other devices on the network
+gooey --no-browser              # Don't auto-open browser
+```
+
+---
+
+## Documentation
+
+| Guide | Description |
+|-------|-------------|
+| **[Installation](docs/installation.md)** | All install methods for every platform |
+| **[Homebrew Guide](docs/homebrew.md)** | Homebrew-specific setup, updating, and troubleshooting |
+| **[Quick Start](docs/quickstart.md)** | First-time walkthrough of the UI |
+| **[Troubleshooting](docs/troubleshooting.md)** | Common issues and solutions |
+| **[GUI Guide](../docs/gooey_guide.md)** | Full annieData Control Center guide |
+| **[OSC Guide](../docs/osc_guide.md)** | Controlling the device with raw OSC |
+| **[Engineering Guide](../docs/engineering.md)** | Architecture and protocol details |
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Backend | Python 3 + Flask |
+| Real-time | Flask-SocketIO (WebSocket) |
+| OSC | python-osc |
+| Frontend | Vanilla HTML / CSS / JS (no build step) |
+
+---
+
+## License
+
+[MIT License](../LICENSE) — Same as TheaterGWD.
