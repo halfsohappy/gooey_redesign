@@ -119,14 +119,7 @@
     <button class="dev-dropdown-item" id="devDdVerbose">◉ Verbose Mode</button>
     <button class="dev-dropdown-item" id="devDdEdit">✎ Edit Device</button>
     <div class="dev-dropdown-sep"></div>
-    <button class="dev-dropdown-item" id="devDdImuTare" title="Zero the Euler angle output to the device's current orientation (instant single frame)">⊕ IMU Tare</button>
-    <button class="dev-dropdown-item" id="devDdImuTareAvg" title="Average 20 frames (~400ms) before zeroing — hold device still">⊕ IMU Tare (Averaged)</button>
-    <div class="dev-dropdown-sep"></div>
-    <button class="dev-dropdown-item" id="devDdTareST" title="Zero twist, azimuth, and tilt to the current arm position">⊕ Zero Swing-Twist</button>
-    <button class="dev-dropdown-item" id="devDdTareTwist" title="Zero wrist rotation (twist) only to the current position">⊕ Zero Wrist (Twist)</button>
-    <button class="dev-dropdown-item" id="devDdTareAzi" title="Zero pointing direction (azimuth) only to the current position">⊕ Zero Azimuth</button>
-    <button class="dev-dropdown-item" id="devDdTareTilt" title="Zero vertical angle (tilt) only to the current position">⊕ Zero Tilt</button>
-    <button class="dev-dropdown-item" id="devDdTareSTReset" title="Clear all swing-twist offsets — twist/azimuth/tilt return to tare-relative values">↺ Reset Swing-Twist Zeros</button>
+    <button class="dev-dropdown-item" id="devDdOpenTare">⊕ Calibrate &amp; Zero…</button>
     <div class="dev-dropdown-sep"></div>
     <button class="dev-dropdown-item dev-dropdown-item-warn" id="devDdNvsClear">× NVS Clear</button>
     <button class="dev-dropdown-item dev-dropdown-item-danger" id="devDdRemove">✕ Remove Device</button>
@@ -1223,6 +1216,115 @@
       <div class="modal-actions">
         <button id="deviceConfigCancel" class="btn">Cancel</button>
         <button id="deviceConfigSave" class="btn btn-primary">Add Device</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calibrate & Zero modal -->
+  <div id="tareModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tareModalTitle">
+    <div class="modal-box modal-box--tare">
+      <div class="tare-modal-header">
+        <div>
+          <div class="modal-title" id="tareModalTitle">Calibrate &amp; Zero</div>
+          <div class="tare-modal-device" id="tareModalDevice"></div>
+        </div>
+        <button class="tare-modal-close" id="tareModalClose" aria-label="Close">✕</button>
+      </div>
+
+      <!-- SECTION 1: Orientation Zero -->
+      <div class="tare-section">
+        <div class="tare-section-header">
+          <span class="tare-section-icon">🎯</span>
+          <div>
+            <div class="tare-section-title">Orientation Zero</div>
+            <div class="tare-section-desc">Tell the device what direction is "home." Do this whenever you put the sensor on, move it to a new position, or the orientation output looks wrong.</div>
+          </div>
+        </div>
+        <div class="tare-action-row">
+          <div class="tare-action-card" id="tareBtnInstant">
+            <div class="tare-action-label">Zero Now</div>
+            <div class="tare-action-hint">Takes a single snapshot of the current orientation and sets it as zero. Works instantly — no need to hold still.</div>
+            <button class="btn btn-primary tare-big-btn" data-tare-action="instant">Set Zero</button>
+          </div>
+          <div class="tare-action-card" id="tareBtnAvg">
+            <div class="tare-action-label">Precise Zero <span class="tare-badge">Recommended</span></div>
+            <div class="tare-action-hint">Hold the device completely still, then click. It will average the readings over about half a second for a more accurate zero.</div>
+            <button class="btn btn-primary tare-big-btn" data-tare-action="avg">Hold Still &amp; Zero</button>
+          </div>
+        </div>
+        <div class="tare-feedback" id="tareFeedbackImu"></div>
+      </div>
+
+      <!-- SECTION 2: Arm Position Zeros -->
+      <div class="tare-section">
+        <div class="tare-section-header">
+          <span class="tare-section-icon">💪</span>
+          <div>
+            <div class="tare-section-title">Arm Position Zeros</div>
+            <div class="tare-section-desc">Set the current arm position as your starting reference. These zeros work on top of the orientation zero — move the arm to where it should read as "neutral," then click below.</div>
+          </div>
+        </div>
+        <div class="tare-all-row">
+          <button class="btn btn-primary tare-big-btn tare-big-btn--full" data-tare-action="swingtwist">Zero Everything — All Three Axes</button>
+          <div class="tare-all-hint">Zeros wrist rotation, pointing direction, and vertical tilt all at once. This is usually all you need.</div>
+        </div>
+        <div class="tare-sep-label">Or zero just one aspect:</div>
+        <div class="tare-axis-row">
+          <div class="tare-axis-card">
+            <div class="tare-axis-name">Wrist Rotation</div>
+            <div class="tare-axis-desc">How much the wrist is rotated (like turning a doorknob). Zero this when the arm is straight and your palm faces the right direction.</div>
+            <button class="btn tare-axis-btn" data-tare-action="twist">Zero Wrist</button>
+          </div>
+          <div class="tare-axis-card">
+            <div class="tare-axis-name">Pointing Direction</div>
+            <div class="tare-axis-desc">Which horizontal direction the arm points (left, right, forward). Zero this when the arm is pointing in your intended forward direction.</div>
+            <button class="btn tare-axis-btn" data-tare-action="azimuth">Zero Direction</button>
+          </div>
+          <div class="tare-axis-card">
+            <div class="tare-axis-name">Vertical Tilt</div>
+            <div class="tare-axis-desc">How far up or down the arm is angled. Zero this when the arm is at the height that should read as the neutral position.</div>
+            <button class="btn tare-axis-btn" data-tare-action="tilt">Zero Tilt</button>
+          </div>
+        </div>
+        <div class="tare-feedback" id="tareFeedbackST"></div>
+        <div class="tare-reset-row">
+          <button class="btn btn-ghost tare-reset-btn" data-tare-action="swingtwist/reset">↺ Clear All Arm Zeros — Return to Raw Values</button>
+        </div>
+      </div>
+
+      <!-- SECTION 3: Advanced -->
+      <details class="tare-advanced">
+        <summary class="tare-advanced-toggle">Advanced Settings</summary>
+        <div class="tare-advanced-body">
+          <div class="tare-adv-row">
+            <div class="tare-adv-label">
+              <span class="tare-adv-name">Euler Decomposition Order</span>
+              <span class="tare-adv-desc">Controls the mathematical order used to convert the sensor's orientation into three separate angles. <strong>Auto</strong> picks the best option to avoid "gimbal lock" problems at the time of zeroing, and is almost always the right choice.</span>
+            </div>
+            <div class="tare-adv-controls">
+              <select id="tareEulerOrder" class="tare-adv-select">
+                <option value="auto" selected>Auto (Recommended)</option>
+                <option value="zyx">ZYX</option>
+                <option value="zxy">ZXY</option>
+              </select>
+              <button class="btn btn-mid" id="tareBtnEulerApply">Apply</button>
+            </div>
+          </div>
+          <div class="tare-adv-row">
+            <div class="tare-adv-label">
+              <span class="tare-adv-name">Check Current State</span>
+              <span class="tare-adv-desc">Ask the device to report its current zero settings — useful for troubleshooting.</span>
+            </div>
+            <div class="tare-adv-controls">
+              <button class="btn btn-mid" id="tareBtnStatus">Query Status</button>
+            </div>
+          </div>
+          <div class="tare-adv-status" id="tareAdvStatus"></div>
+        </div>
+      </details>
+
+      <div class="modal-actions" style="margin-top:20px">
+        <button class="btn btn-primary" id="tareModalDone">Done</button>
       </div>
     </div>
   </div>

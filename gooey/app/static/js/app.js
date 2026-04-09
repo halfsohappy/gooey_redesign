@@ -2860,61 +2860,103 @@ $("#btnSceneMove").addEventListener("click", function () {
     });
   });
 
-  /* IMU Tare (device dropdown) */
-  $("#devDdImuTare").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare"), null).then(function (res) {
-      if (res.status === "ok") toast("IMU tare set", "success");
-    });
-  });
+  /* ── Calibrate & Zero Modal ── */
+  (function () {
+    var modal    = $("#tareModal");
+    var fbImu    = $("#tareFeedbackImu");
+    var fbST     = $("#tareFeedbackST");
+    var advStatus = $("#tareAdvStatus");
 
-  /* IMU Tare Averaged */
-  $("#devDdImuTareAvg").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/avg"), "20").then(function (res) {
-      if (res.status === "ok") toast("Averaged tare started — hold still", "success");
-    });
-  });
+    function openTareModal() {
+      var d = devices[_dropdownDeviceId];
+      if (!d) return;
+      $("#tareModalDevice").textContent = d.name + " · " + d.host + ":" + d.port;
+      setFeedback(fbImu, "", "");
+      setFeedback(fbST, "", "");
+      advStatus.textContent = "";
+      advStatus.classList.remove("visible");
+      modal.classList.remove("hidden");
+    }
 
-  /* Zero Swing-Twist (all axes) */
-  $("#devDdTareST").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/swingtwist"), null).then(function (res) {
-      if (res.status === "ok") toast("Swing-twist zeroed", "success");
-    });
-  });
+    function closeTareModal() { modal.classList.add("hidden"); }
 
-  /* Zero Wrist (Twist only) */
-  $("#devDdTareTwist").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/twist"), null).then(function (res) {
-      if (res.status === "ok") toast("Wrist (twist) zeroed", "success");
-    });
-  });
+    function setFeedback(el, msg, type) {
+      el.textContent = msg;
+      el.className = "tare-feedback" + (type ? " " + type : "");
+    }
 
-  /* Zero Azimuth only */
-  $("#devDdTareAzi").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/azimuth"), null).then(function (res) {
-      if (res.status === "ok") toast("Azimuth zeroed", "success");
-    });
-  });
+    /* Map data-tare-action values to OSC paths + feedback messages */
+    var TARE_ACTIONS = {
+      "instant":           { path: "/tare",              args: null,  imuFb: true,  okMsg: "✓ Orientation zeroed" },
+      "avg":               { path: "/tare/avg",          args: "20",  imuFb: true,  working: "Averaging — hold completely still…", okMsg: "✓ Precise zero set" },
+      "swingtwist":        { path: "/tare/swingtwist",   args: null,  stFb: true,   okMsg: "✓ All arm positions zeroed" },
+      "twist":             { path: "/tare/twist",        args: null,  stFb: true,   okMsg: "✓ Wrist rotation zeroed" },
+      "azimuth":           { path: "/tare/azimuth",      args: null,  stFb: true,   okMsg: "✓ Pointing direction zeroed" },
+      "tilt":              { path: "/tare/tilt",         args: null,  stFb: true,   okMsg: "✓ Vertical tilt zeroed" },
+      "swingtwist/reset":  { path: "/tare/swingtwist/reset", args: null, stFb: true, okMsg: "✓ All arm zeros cleared" }
+    };
 
-  /* Zero Tilt only */
-  $("#devDdTareTilt").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/tilt"), null).then(function (res) {
-      if (res.status === "ok") toast("Tilt zeroed", "success");
-    });
-  });
+    modal.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-tare-action]");
+      if (!btn) return;
+      var action = btn.dataset.tareAction;
+      var cfg = TARE_ACTIONS[action];
+      if (!cfg || !_dropdownDeviceId) return;
 
-  /* Reset all swing-twist zeros */
-  $("#devDdTareSTReset").addEventListener("click", function () {
-    closeDevDropdown();
-    sendCmd(addr("/annieData/{device}/tare/swingtwist/reset"), null).then(function (res) {
-      if (res.status === "ok") toast("Swing-twist zeros cleared", "success");
+      var fb = cfg.imuFb ? fbImu : fbST;
+      if (cfg.working) setFeedback(fb, cfg.working, "working");
+      btn.disabled = true;
+
+      sendCmd("/annieData/" + _dropdownDeviceId + cfg.path, cfg.args || null).then(function (res) {
+        btn.disabled = false;
+        if (res && res.status === "ok") {
+          setFeedback(fb, cfg.okMsg, "ok");
+          setTimeout(function () { setFeedback(fb, "", ""); }, 3500);
+        } else {
+          setFeedback(fb, "✕ Command failed — is the device connected?", "err");
+        }
+      }).catch(function () {
+        btn.disabled = false;
+        setFeedback(fb, "✕ No response — check device connection", "err");
+      });
     });
-  });
+
+    /* Euler order apply */
+    $("#tareBtnEulerApply").addEventListener("click", function () {
+      var val = $("#tareEulerOrder").value;
+      sendCmd("/annieData/" + _dropdownDeviceId + "/tare/order", val).then(function (res) {
+        if (res && res.status === "ok") toast("Euler order set to " + val, "success");
+      });
+    });
+
+    /* Status query */
+    $("#tareBtnStatus").addEventListener("click", function () {
+      advStatus.textContent = "Querying…";
+      advStatus.classList.add("visible");
+      sendCmd("/annieData/" + _dropdownDeviceId + "/tare/status", null).then(function (res) {
+        if (res && res.reply) {
+          advStatus.textContent = res.reply;
+        } else if (res && res.status === "ok") {
+          advStatus.textContent = "(No status text returned — device may be on older firmware)";
+        } else {
+          advStatus.textContent = "No response — check device connection";
+        }
+      }).catch(function () {
+        advStatus.textContent = "No response — check device connection";
+      });
+    });
+
+    /* Close buttons */
+    $("#devDdOpenTare").addEventListener("click", function () {
+      closeDevDropdown();
+      openTareModal();
+    });
+    $("#tareModalClose").addEventListener("click", closeTareModal);
+    $("#tareModalDone").addEventListener("click", closeTareModal);
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) closeTareModal();
+    });
+  }());
 
   function refreshBridgeList() {
     fetch("/api/status").then(function (r) { return r.json(); }).then(function (data) {
