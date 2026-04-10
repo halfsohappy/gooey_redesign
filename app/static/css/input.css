@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* Tell Tailwind where to scan for class names */
+@source "../../templates";
+@source "../js";
+
+/* Load DaisyUI */
+@plugin "daisyui";
+
+/*
+ * ─── Custom Theme: "gooey" (light) ─────────────────────────────────────────
+ *
+ * All colors use oklch() — easy to tweak hue/chroma/lightness independently.
+ * Docs: https://daisyui.com/docs/themes/
+ *
+ * To experiment:
+ *   1. Change values below
+ *   2. Run:  npm run css:build   (or css:watch for live rebuild)
+ *   3. Reload browser at http://127.0.0.1:5080
+ */
+@plugin "daisyui/theme" {
+  name: "gooey";
+  default: true;
+  color-scheme: light;
+
+  /* ── Surface ── */
+  --color-base-100: oklch(98% 0.005 260);     /* page background */
+  --color-base-200: oklch(95% 0.008 260);     /* cards / raised surfaces */
+  --color-base-300: oklch(90% 0.012 260);     /* borders / dividers */
+  --color-base-content: oklch(25% 0.02 260);  /* body text */
+
+  /* ── Brand ── */
+  --color-primary: oklch(55% 0.25 260);           /* main actions */
+  --color-primary-content: oklch(98% 0.005 260);
+  --color-secondary: oklch(62% 0.2 330);          /* secondary actions */
+  --color-secondary-content: oklch(98% 0.005 330);
+  --color-accent: oklch(72% 0.2 165);             /* highlights / badges */
+  --color-accent-content: oklch(15% 0.02 165);
+
+  /* ── Chrome ── */
+  --color-neutral: oklch(28% 0.015 260);           /* navbar / sidebar */
+  --color-neutral-content: oklch(95% 0 0);
+
+  /* ── Semantic ── */
+  --color-info: oklch(65% 0.19 240);
+  --color-info-content: oklch(98% 0 0);
+  --color-success: oklch(68% 0.19 155);
+  --color-success-content: oklch(98% 0 0);
+  --color-warning: oklch(78% 0.16 80);
+  --color-warning-content: oklch(20% 0.04 80);
+  --color-error: oklch(60% 0.22 25);
+  --color-error-content: oklch(98% 0 0);
+
+  /* ── Shape ── */
+  --rounded-box: 0.75rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1.5rem;
+
+  /* ── Motion ── */
+  --animation-btn: 0.2s;
+  --animation-input: 0.15s;
+  --btn-focus-scale: 0.97;
+
+  /* ── Borders ── */
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+}
+
+/*
+ * ─── Custom Theme: "gooey-dark" ────────────────────────────────────────────
+ *
+ * Automatically activates when the user's OS is in dark mode,
+ * or when you set data-theme="gooey-dark" on <html>.
+ */
+@plugin "daisyui/theme" {
+  name: "gooey-dark";
+  prefersdark: true;
+  color-scheme: dark;
+
+  /* ── Surface ── */
+  --color-base-100: oklch(22% 0.015 260);
+  --color-base-200: oklch(18% 0.015 260);
+  --color-base-300: oklch(15% 0.015 260);
+  --color-base-content: oklch(90% 0.005 260);
+
+  /* ── Brand ── */
+  --color-primary: oklch(65% 0.25 260);
+  --color-primary-content: oklch(15% 0.01 260);
+  --color-secondary: oklch(70% 0.18 330);
+  --color-secondary-content: oklch(15% 0.01 330);
+  --color-accent: oklch(75% 0.2 165);
+  --color-accent-content: oklch(15% 0.02 165);
+
+  /* ── Chrome ── */
+  --color-neutral: oklch(75% 0.01 260);
+  --color-neutral-content: oklch(20% 0.02 260);
+
+  /* ── Semantic ── */
+  --color-info: oklch(65% 0.19 240);
+  --color-info-content: oklch(15% 0 0);
+  --color-success: oklch(68% 0.19 155);
+  --color-success-content: oklch(15% 0 0);
+  --color-warning: oklch(78% 0.16 80);
+  --color-warning-content: oklch(20% 0.04 80);
+  --color-error: oklch(60% 0.22 25);
+  --color-error-content: oklch(98% 0 0);
+
+  /* ── Shape (same as light — change if you want rounder/sharper in dark) ── */
+  --rounded-box: 0.75rem;
+  --rounded-btn: 0.5rem;
+  --rounded-badge: 1.5rem;
+
+  /* ── Motion ── */
+  --animation-btn: 0.2s;
+  --animation-input: 0.15s;
+  --btn-focus-scale: 0.97;
+
+  /* ── Borders ── */
+  --border-btn: 1px;
+  --tab-border: 1px;
+  --tab-radius: 0.5rem;
+}
