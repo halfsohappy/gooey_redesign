@@ -18,54 +18,41 @@
  *   2. Run:  npm run css:build   (or css:watch for live rebuild)
  *   3. Reload browser at http://127.0.0.1:5080
  */
-@plugin "daisyui/theme" {
+@plugin "daisyui/theme" 
   name: "gooey";
   default: true;
-  color-scheme: light;
-
-  /* ── Surface ── */
-  --color-base-100: oklch(98% 0.005 260);     /* page background */
-  --color-base-200: oklch(95% 0.008 260);     /* cards / raised surfaces */
-  --color-base-300: oklch(90% 0.012 260);     /* borders / dividers */
-  --color-base-content: oklch(25% 0.02 260);  /* body text */
-
-  /* ── Brand ── */
-  --color-primary: oklch(55% 0.25 260);           /* main actions */
-  --color-primary-content: oklch(98% 0.005 260);
-  --color-secondary: oklch(62% 0.2 330);          /* secondary actions */
-  --color-secondary-content: oklch(98% 0.005 330);
-  --color-accent: oklch(72% 0.2 165);             /* highlights / badges */
-  --color-accent-content: oklch(15% 0.02 165);
-
-  /* ── Chrome ── */
-  --color-neutral: oklch(28% 0.015 260);           /* navbar / sidebar */
-  --color-neutral-content: oklch(95% 0 0);
-
-  /* ── Semantic ── */
-  --color-info: oklch(65% 0.19 240);
-  --color-info-content: oklch(98% 0 0);
-  --color-success: oklch(68% 0.19 155);
-  --color-success-content: oklch(98% 0 0);
-  --color-warning: oklch(78% 0.16 80);
-  --color-warning-content: oklch(20% 0.04 80);
-  --color-error: oklch(60% 0.22 25);
-  --color-error-content: oklch(98% 0 0);
-
-  /* ── Shape ── */
-  --rounded-box: 0.75rem;
-  --rounded-btn: 0.5rem;
-  --rounded-badge: 1.5rem;
-
-  /* ── Motion ── */
-  --animation-btn: 0.2s;
-  --animation-input: 0.15s;
-  --btn-focus-scale: 0.97;
-
-  /* ── Borders ── */
-  --border-btn: 1px;
-  --tab-border: 1px;
-  --tab-radius: 0.5rem;
+  prefersdark: false;
+  color-scheme: "light";
+  --color-base-100: oklch(94% 0.029 294.588);
+  --color-base-200: oklch(89% 0.057 293.283);
+  --color-base-300: oklch(81% 0.111 293.571);
+  --color-base-content: oklch(27% 0.041 260.031);
+  --color-primary: oklch(97% 0.071 103.193);
+  --color-primary-content: oklch(27% 0.041 260.031);
+  --color-secondary: oklch(97% 0.071 103.193);
+  --color-secondary-content: oklch(27% 0.041 260.031);
+  --color-accent: oklch(0.3718 0.0738 325.94);
+  --color-accent-content: oklch(92% 0.013 255.508);
+  --color-neutral: oklch(94% 0.029 294.588);
+  --color-neutral-content: oklch(27% 0.041 260.031);
+  --color-info: oklch(80% 0.114 19.571);
+  --color-info-content: oklch(27% 0.041 260.031);
+  --color-success: oklch(84% 0.238 128.85);
+  --color-success-content: oklch(27% 0.041 260.031);
+  --color-warning: oklch(82% 0.189 84.429);
+  --color-warning-content: oklch(27% 0.041 260.031);
+  --color-error: oklch(52% 0.223 3.958);
+  --color-error-content: oklch(92% 0.013 255.508);
+  --radius-selector: 2rem;
+  --radius-field: 1rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 2px;
+  --depth: 1;
+  --noise: 1;
 }
+
 
 /*
  * ─── Custom Theme: "gooey-dark" ────────────────────────────────────────────

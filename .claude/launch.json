@@ -2,17 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "qr-preview",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "7823", "--directory", "/tmp"],
-      "port": 7823
+      "name": "gooey-redesign",
+      "runtimeExecutable": "/Users/bugsy/cyberannabel/TheaterGWD/gooey/venv/bin/python",
+      "runtimeArgs": ["run.py", "--no-browser", "--port", "5080"],
+      "port": 5080
     },
     {
-      "name": "gooey",
+      "name": "rough-demo",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-c", "import sys; sys.path.insert(0,'.'); from app.main import create_app; app,sio=create_app(); sio.run(app,host='127.0.0.1',port=5255,use_reloader=False,allow_unsafe_werkzeug=True)"],
-      "port": 5255,
-      "cwd": "gooey"
+      "runtimeArgs": ["-m", "http.server", "5099", "-d", "app/static"],
+      "port": 5099
     }
   ]
 }
