@@ -1335,7 +1335,7 @@
   </div>
 
   <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ v }}"></script>
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}?v={{ v }}"></script>
   <script>
     /* Disable autocorrect/autocapitalize on every input and textarea,
        including elements added dynamically after page load. */
