@@ -9,7 +9,7 @@ import { initGatePicker } from './message-manager.js';
 
 /* ── Scene gate picker instance (uses shared initGatePicker factory) ── */
 
-const sceneGatePicker = initGatePicker(
+export const sceneGatePicker = initGatePicker(
   "sceneGateSource", "sceneGateOri", "sceneGateMode",
   "sceneGateLo", "sceneGateHi", "sceneGateHint",
   "sceneGateOriGroup", "sceneGateLoGroup", "sceneGateHiGroup",
