@@ -164,16 +164,18 @@ export function renderDeviceTabs() {
   }
   /* Update feed device filter */
   const sel = $("#feedDeviceFilter");
-  const curVal = sel.value;
-  sel.innerHTML = '<option value="">All devices</option>';
-  Object.keys(devices).forEach(function (id) {
-    const d = devices[id];
-    const opt = document.createElement("option");
-    opt.value = d.name;
-    opt.textContent = d.name;
-    sel.appendChild(opt);
-  });
-  sel.value = curVal;
+  if (sel) {
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">All devices</option>';
+    Object.keys(devices).forEach(function (id) {
+      const d = devices[id];
+      const opt = document.createElement("option");
+      opt.value = d.name;
+      opt.textContent = d.name;
+      sel.appendChild(opt);
+    });
+    sel.value = curVal;
+  }
   /* Sync the header query-device select */
   _refreshQueryDeviceSelect && _refreshQueryDeviceSelect();
 }

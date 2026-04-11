@@ -116,7 +116,8 @@ export function editDevice(id) {
 }
 
 /* ── Add-device button ── */
-$("#btnAddDevice").addEventListener("click", function () {
+const _btnAdd = $("#btnAddDevice");
+if (_btnAdd) _btnAdd.addEventListener("click", function () {
   openDeviceConfigModal("add");
 });
 
