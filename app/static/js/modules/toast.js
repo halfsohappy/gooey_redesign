@@ -4,6 +4,11 @@ import { $ } from "./state.js";
 
 const _toastHistory = [];
 
+export function clearNotifHistory() {
+  _toastHistory.length = 0;
+  renderNotifHistory();
+}
+
 export function renderNotifHistory() {
   const container = $("#notifHistory");
   if (!container) return;
