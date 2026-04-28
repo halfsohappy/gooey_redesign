@@ -10,47 +10,49 @@
   <script>
     (function(){
       var t = localStorage.getItem('gooey-theme');
-      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches))
+      if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme:dark)').matches)) {
         document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'gooey-dark');
+      }
     })();
   </script>
 </head>
-<body class="docs-page">
+<body class="docs-page overflow-auto flex flex-col min-h-screen bg-base-200">
 
   <!-- ===== Docs Header ===== -->
-  <header class="docs-header">
-    <a class="hdr-logo-box" href="/">
-      <span class="hdr-logo-text">Gooey</span>
-      <span class="hdr-logo-sub">annieData · Control Center</span>
+  <header class="docs-header bg-base-300 shadow-md sticky top-0 z-20 flex items-stretch min-h-16">
+    <a class="hdr-logo-box flex flex-col justify-center px-5 border-r border-base-content/10 gap-0.5 no-underline text-inherit" href="/">
+      <span class="hdr-logo-text font-[family-name:var(--font-title)] text-[22px] font-light tracking-tight leading-tight">Gooey</span>
+      <span class="hdr-logo-sub font-[family-name:var(--font-body)] text-[9px] font-normal text-base-content/40 uppercase tracking-wider leading-snug">annieData · Control Center</span>
     </a>
-    <nav class="hdr-nav">
+    <nav class="hdr-nav flex items-stretch">
       <a href="/">← App</a>
       {% for slug, label in other_guides.items() %}
       <a href="{{ url_for('docs', guide=slug) }}">{{ label }}</a>
       {% endfor %}
     </nav>
-    <div class="hdr-title">{{ title }}</div>
+    <div class="hdr-title flex items-center px-5 font-[family-name:var(--font-title)] text-base font-normal flex-1">{{ title }}</div>
   </header>
 
   <!-- ===== Docs Layout ===== -->
-  <div class="docs-layout">
+  <div class="docs-layout flex flex-1 max-w-[1400px] mx-auto w-full py-8 px-4 gap-8 items-start">
 
     <!-- Sidebar TOC -->
-    <nav class="docs-toc" id="docsToc">
-      <div class="docs-toc-heading">Contents</div>
+    <nav class="docs-toc w-[260px] shrink-0 sticky top-24 max-h-[calc(100vh-112px)] overflow-y-auto bg-base-100 border border-base-300 rounded-lg pt-4 pb-5 shadow-sm" id="docsToc">
+      <div class="docs-toc-heading font-[family-name:var(--font-body)] text-[10px] font-medium uppercase tracking-wider text-base-content/40 px-4 pb-2">Contents</div>
       {{ toc | safe }}
     </nav>
 
     <!-- Main content -->
-    <main class="docs-content" id="docsContent">
-      <article class="docs-article">
+    <main class="docs-content flex-1 min-w-0" id="docsContent">
+      <article class="docs-article bg-base-100 border border-base-300 rounded-lg px-12 py-10 shadow-md">
         {{ content | safe }}
       </article>
     </main>
 
   </div>
 
-  <footer class="docs-footer">
+  <footer class="docs-footer text-center py-6 text-xs text-base-content/40 border-t border-base-300 mt-4">
     Gooey &mdash; <a href="/">Back to App</a>
   </footer>
 

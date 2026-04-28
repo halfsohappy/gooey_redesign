@@ -8,6 +8,22 @@ import { sendToDevice } from "./device-config.js";
 
 /* ── Status config modal helpers ── */
 
+/* Pre-fill statusIP with the machine's LAN IP once per session */
+let _myIpFetched = false;
+function prefillStatusIp() {
+  const ipEl = $("#statusIP");
+  if (!ipEl || ipEl.value.trim()) return;   /* already has a value — don't overwrite */
+  if (_myIpFetched) return;
+  _myIpFetched = true;
+  fetch("/api/my-ip")
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (d.ip && ipEl && !ipEl.value.trim()) ipEl.value = d.ip; })
+    .catch(function () { /* ignore */ });
+}
+
+/* Run on page load so the field is populated before the modal opens */
+prefillStatusIp();
+
 export function openDevSettingsModal() {
   /* Populate target device dropdown */
   const sel = $("#statusConfigTarget");
@@ -22,7 +38,8 @@ export function openDevSettingsModal() {
       sel.appendChild(opt);
     });
   }
-  $("#devSettingsModal").classList.remove("hidden");
+  prefillStatusIp();
+  $("#networkSettingsModal").classList.remove("hidden");
 }
 
 export function getStatusConfigTargets() {

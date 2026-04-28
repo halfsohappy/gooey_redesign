@@ -1,9 +1,9 @@
-/* ── Inline Field Validation — IP expansion, error hints, blur handlers ── */
+/* ── Inline Field Validation — IP expansion, destination lookup, error hints ── */
 
 import { $ } from './state.js';
 
 /* ═══════════════════════════════════════════
-   INLINE FIELD VALIDATION
+   ASSUME-IP PREFIX
    ═══════════════════════════════════════════ */
 
 let _assumeIpPrefix = "";
@@ -32,6 +32,31 @@ export function expandIp(val) {
   return val;
 }
 
+/* ═══════════════════════════════════════════
+   NETWORK DESTINATIONS
+   ═══════════════════════════════════════════ */
+
+let _networkDests = [];
+
+export function setNetworkDests(dests) {
+  _networkDests = Array.isArray(dests) ? dests : [];
+}
+
+/* Map each IP field to its paired port field (null = no auto-fill port) */
+const IP_PORT_PAIRS = {
+  msgIP:          "msgPort",
+  sceneIP:        "scenePort",
+  rawHost:        "rawPort",
+  bridgeOutHost:  "bridgeOutPort",
+  statusIP:       "statusPort",
+  deviceConfigIP: null,
+  netDestIp:      null,   /* modal add-form: port is a separate adjacent field */
+};
+
+/* ═══════════════════════════════════════════
+   VALIDATION HELPER
+   ═══════════════════════════════════════════ */
+
 export function validateField(input, isValid, msg) {
   let hint;
   if (!isValid) {
@@ -48,13 +73,36 @@ export function validateField(input, isValid, msg) {
   }
 }
 
-/* IP validation — expand shorthand and show format hint */
-["statusIP", "msgIP", "sceneIP", "rawHost", "bridgeOutHost", "deviceConfigIP"].forEach(function (fieldId) {
+/* ═══════════════════════════════════════════
+   BLUR HANDLERS FOR IP FIELDS
+   Resolution order:
+     1. Destination name  → fill IP + port
+     2. Assume-IP prefix  → expand short octet
+   ═══════════════════════════════════════════ */
+
+Object.keys(IP_PORT_PAIRS).forEach(function (fieldId) {
   const el = $("#" + fieldId);
   if (!el) return;
+
   el.addEventListener("blur", function () {
     const v = el.value.trim();
-    if (!v) return; /* allow empty */
+    if (!v) return;
+
+    /* 1 — Destination name match */
+    const dest = _networkDests.find(function (d) {
+      return d.name.toLowerCase() === v.toLowerCase();
+    });
+    if (dest) {
+      el.value = dest.ip;
+      const portId = IP_PORT_PAIRS[fieldId];
+      if (portId && dest.port) {
+        const portEl = $("#" + portId);
+        if (portEl) portEl.value = dest.port;
+      }
+      return;
+    }
+
+    /* 2 — Assume-IP expansion */
     const expanded = expandIp(v);
     if (expanded !== v) { el.value = expanded; }
   });

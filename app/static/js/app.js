@@ -49,7 +49,7 @@ import {
 } from "./modules/message-manager.js";
 
 /* ── Scenes ── */
-import { renderSceneTable } from "./modules/scene-manager.js";
+import { renderSceneTable, populateSceneForm } from "./modules/scene-manager.js";
 
 /* ── Orientations ── */
 import {
@@ -97,11 +97,20 @@ import "./modules/column-picker.js";
 /* ── Serial terminal ── */
 import "./modules/serial.js";
 
+/* ── Network settings ── */
+import "./modules/network-settings.js";
+
+/* ── Direct send (Raw OSC + Bridge) ── */
+import "./modules/direct-send.js";
+
 /* ── Guided tour ── */
 import "./modules/guided-tour.js";
 
 /* ── Script console ── */
 import "./modules/script-console.js";
+
+/* ── Reference panel ── */
+import "./modules/reference.js";
 
 
 /* ═══════════════════════════════════════════
@@ -147,6 +156,14 @@ setFeedCallbacks({
 
 setOriManagerCallbacks({
   expandIp,
+});
+
+/* ── V1 tracker: wire edit actions via custom events (avoids circular deps) ── */
+document.addEventListener('v1:editScene', function (e) {
+  populateSceneForm(e.detail.name, e.detail.data);
+});
+document.addEventListener('v1:editMsg', function (e) {
+  populateMsgForm(e.detail.name, e.detail.data);
 });
 
 /* ── Restore saved devices on startup ── */

@@ -40,6 +40,7 @@
       html.classList.add("transitioning");
       if (dark) html.classList.add("dark");
       else html.classList.remove("dark");
+      html.setAttribute("data-theme", dark ? "gooey-dark" : "gooey");
       if (icon) icon.className = dark ? "bi bi-sun-fill" : "bi bi-moon-fill";
       setTimeout(function () { html.classList.remove("transitioning"); }, 250);
     }
@@ -145,7 +146,7 @@
     document.getElementById("confirmBody").textContent = body;
     var okBtn = document.getElementById("confirmOk");
     okBtn.textContent = okLabel;
-    okBtn.className = "btn " + (danger ? "btn-danger" : "btn-primary");
+    okBtn.className = "btn btn-sm " + (danger ? "btn-error" : "btn-accent");
     modal.classList.remove("hidden");
     var cancel = document.getElementById("confirmCancel");
     cancel.focus();

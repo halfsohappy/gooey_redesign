@@ -24,3 +24,7 @@ node_modules/
 
 # Build artifacts
 build/
+
+# Claude Code
+.claude/settings.local.json
+.claude/hooks/node_modules/

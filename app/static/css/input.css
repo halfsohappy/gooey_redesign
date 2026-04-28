@@ -1,3 +1,11 @@
+/* ─── Google Fonts ─────────────────────────────────────────────────────────
+   Martian Mono  — body / UI
+   Playwrite DE Grund — section titles / card headings
+   Playwrite IE — header branding
+   (must precede @import "tailwindcss" per CSS spec)
+   ──────────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&family=Playwrite+IE:wght@100..400&display=swap');
+
 @import "tailwindcss";
 
 /* Tell Tailwind where to scan for class names */
@@ -18,7 +26,7 @@
  *   2. Run:  npm run css:build   (or css:watch for live rebuild)
  *   3. Reload browser at http://127.0.0.1:5080
  */
-@plugin "daisyui/theme" 
+@plugin "daisyui/theme" {
   name: "gooey";
   default: true;
   prefersdark: false;
@@ -57,54 +65,337 @@
 /*
  * ─── Custom Theme: "gooey-dark" ────────────────────────────────────────────
  *
+ * Derived from "gooey" light: same hue families, inverted lightness.
  * Automatically activates when the user's OS is in dark mode,
  * or when you set data-theme="gooey-dark" on <html>.
+ *
+ * Light → Dark mapping:
+ *   base-100  94% → 18%  (surface)
+ *   base-200  89% → 22%  (alt surface)
+ *   base-300  81% → 30%  (borders)
+ *   content   27% → 90%  (text)
+ *   Hues preserved from light theme (~294 purple, ~103 yellow-green, ~326 accent)
  */
 @plugin "daisyui/theme" {
   name: "gooey-dark";
   prefersdark: true;
   color-scheme: dark;
 
-  /* ── Surface ── */
-  --color-base-100: oklch(22% 0.015 260);
-  --color-base-200: oklch(18% 0.015 260);
-  --color-base-300: oklch(15% 0.015 260);
-  --color-base-content: oklch(90% 0.005 260);
+  /* ── Surface — same purple hue ~294, inverted lightness ── */
+  --color-base-100: oklch(18% 0.015 294.588);
+  --color-base-200: oklch(22% 0.025 293.283);
+  --color-base-300: oklch(30% 0.04  293.571);
+  --color-base-content: oklch(90% 0.015 260.031);
 
-  /* ── Brand ── */
-  --color-primary: oklch(65% 0.25 260);
-  --color-primary-content: oklch(15% 0.01 260);
-  --color-secondary: oklch(70% 0.18 330);
-  --color-secondary-content: oklch(15% 0.01 330);
-  --color-accent: oklch(75% 0.2 165);
-  --color-accent-content: oklch(15% 0.02 165);
+  /* ── Brand — same hue ~103, boosted lightness for dark bg ── */
+  --color-primary: oklch(80% 0.071 103.193);
+  --color-primary-content: oklch(18% 0.02 103.193);
+  --color-secondary: oklch(80% 0.071 103.193);
+  --color-secondary-content: oklch(18% 0.02 103.193);
 
-  /* ── Chrome ── */
-  --color-neutral: oklch(75% 0.01 260);
-  --color-neutral-content: oklch(20% 0.02 260);
+  /* ── Accent — same deep purple hue ~326, lifted to read on dark ── */
+  --color-accent: oklch(65% 0.074 325.94);
+  --color-accent-content: oklch(92% 0.013 255.508);
 
-  /* ── Semantic ── */
-  --color-info: oklch(65% 0.19 240);
-  --color-info-content: oklch(15% 0 0);
-  --color-success: oklch(68% 0.19 155);
-  --color-success-content: oklch(15% 0 0);
-  --color-warning: oklch(78% 0.16 80);
-  --color-warning-content: oklch(20% 0.04 80);
-  --color-error: oklch(60% 0.22 25);
-  --color-error-content: oklch(98% 0 0);
+  /* ── Chrome — same hue ~294, lighter for readability ── */
+  --color-neutral: oklch(30% 0.015 294.588);
+  --color-neutral-content: oklch(90% 0.015 260.031);
 
-  /* ── Shape (same as light — change if you want rounder/sharper in dark) ── */
-  --rounded-box: 0.75rem;
-  --rounded-btn: 0.5rem;
-  --rounded-badge: 1.5rem;
+  /* ── Semantic — same hues as light, slightly desaturated for dark ── */
+  --color-info: oklch(72% 0.10 19.571);
+  --color-info-content: oklch(18% 0.02 19.571);
+  --color-success: oklch(72% 0.18 128.85);
+  --color-success-content: oklch(18% 0.02 128.85);
+  --color-warning: oklch(75% 0.15 84.429);
+  --color-warning-content: oklch(18% 0.02 84.429);
+  --color-error: oklch(60% 0.20 3.958);
+  --color-error-content: oklch(95% 0.01 3.958);
 
-  /* ── Motion ── */
-  --animation-btn: 0.2s;
-  --animation-input: 0.15s;
-  --btn-focus-scale: 0.97;
+  /* ── Shape — matches light ── */
+  --radius-selector: 2rem;
+  --radius-field: 1rem;
+  --radius-box: 0.25rem;
+  --size-selector: 0.21875rem;
+  --size-field: 0.21875rem;
+  --border: 2px;
+  --depth: 1;
+  --noise: 1;
+}
 
-  /* ── Borders ── */
-  --border-btn: 1px;
-  --tab-border: 1px;
-  --tab-radius: 0.5rem;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CUSTOM UTILITIES & COMPONENT EXTENSIONS
+
+   Migration conventions:
+   ─────────────────────────────────────────────────────────────────────────
+   • Use daisyUI classes for: btn, card, input, select, modal, badge,
+     toggle, tabs, dropdown, tooltip, table, navbar, drawer
+   • Use Tailwind utilities for: spacing, sizing, flex/grid, colors,
+     typography, responsive, states
+   • Keep JS hook classes separate from visual classes:
+     - JS hooks: IDs (#btnFoo) or data-* attributes
+     - Visual: Tailwind/daisyUI classes
+   • Legacy class names preserved during migration for JS compatibility
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* Font family custom properties — used by both legacy and new styles */
+  :root {
+    --font-body: "Martian Mono", monospace;
+    --font-title: "Playwrite DE Grund", cursive;
+    --font-header: "Playwrite IE", cursive;
+  }
+
+  body {
+    font-family: var(--font-body);
+  }
+
+  /* Legacy compat — bridge old var(--font) / var(--font-title) names */
+  [data-theme="gooey"],
+  [data-theme="gooey-dark"] {
+    --font: "Martian Mono", monospace;
+    --font-title: "Playwrite DE Grund", cursive;
+    --font-header: "Playwrite IE", cursive;
+  }
+}
+
+@layer components {
+
+  /* ─── Button variants not covered by stock daisyUI ───────────────────── */
+
+  /* Mid-weight: outlined primary — for single-setting sends, clone, rename */
+  .btn-mid {
+    @apply btn btn-outline btn-accent btn-sm;
+  }
+
+  /* Stop: outlined danger for destructive stop actions */
+  .btn-stop {
+    @apply btn btn-outline btn-error btn-sm;
+  }
+
+  /* Warning: outlined warning */
+  .btn-warn {
+    @apply btn btn-outline btn-warning btn-sm;
+  }
+
+  /* Ghost with visible border */
+  .btn-ghost-bordered {
+    @apply btn btn-ghost border border-base-300;
+  }
+
+  /* Legacy compat — JS sets btn-danger dynamically */
+  .btn-danger {
+    @apply btn-error;
+  }
+
+  /* Listen button — special overlay style with animated dot */
+  .btn-listen {
+    @apply btn btn-outline border-2 text-neutral;
+    &:hover { @apply border-accent text-accent; }
+    &.active { @apply border-success text-success bg-success/10; }
+  }
+
+  /* ─── Card headings ─────────────────────────────────────────────────── */
+  .card-heading {
+    font-family: var(--font-title);
+    @apply text-lg font-normal border-b border-accent/30 pb-2 mb-3;
+  }
+
+  /* ─── Section nav buttons ──────────────────────────────────────────── */
+  .nav-btn {
+    font-family: var(--font-title);
+    @apply text-lg px-5 border-b-2 border-transparent text-base-content/40;
+    &:hover { @apply text-base-content/60; }
+    &.active { @apply text-accent border-accent font-medium; }
+  }
+
+  /* ─── Feed log tags ─────────────────────────────────────────────────── */
+  .log-tag {
+    @apply text-xs font-medium px-1 py-0.5 rounded uppercase text-center min-w-9;
+  }
+  .log-tag-send { @apply bg-info/10 text-info; }
+  .log-tag-recv { @apply bg-success/10 text-success; }
+  .log-tag-bridge { @apply bg-warning/15 text-warning; }
+
+  /* ─── Empty state ───────────────────────────────────────────────────── */
+  .empty-state {
+    @apply text-center py-8 px-4 text-base-content/40;
+  }
+  .empty-state-inline {
+    @apply py-2 px-3 text-sm text-left;
+  }
+
+  /* ─── Status dots ───────────────────────────────────────────────────── */
+  .ws-dot {
+    @apply w-2 h-2 rounded-full bg-base-content/30;
+    &.connected { @apply bg-success shadow-[0_0_6px_rgba(76,175,80,0.4)]; }
+    &.error { @apply bg-error; }
+  }
+
+  .listen-dot {
+    @apply w-1.5 h-1.5 rounded-full bg-base-content/30;
+    &.on { @apply bg-success shadow-[0_0_6px_rgba(76,175,80,0.5)] animate-pulse; }
+  }
+
+  /* ─── Scene pills ───────────────────────────────────────────────────── */
+  .scene-pill {
+    @apply inline-flex items-center gap-1.5 text-xs font-medium tracking-wider px-3 py-1 rounded-full whitespace-nowrap;
+  }
+  .scene-pill-run {
+    @apply bg-accent/10 text-accent border border-accent/40;
+  }
+  .scene-pill-stop {
+    @apply bg-base-200 text-base-content/40 border border-base-300;
+  }
+
+  /* ─── Ori badges ────────────────────────────────────────────────────── */
+  .ori-badge {
+    @apply text-xs px-1.5 py-0.5 rounded font-medium;
+  }
+
+  /* ─── Form label ────────────────────────────────────────────────────── */
+  .form-label {
+    @apply text-xs font-medium uppercase tracking-wider text-accent/60 mb-0.5;
+  }
+
+  /* ─── Hint text ─────────────────────────────────────────────────────── */
+  .hint-text {
+    @apply text-sm text-base-content/40 mb-2.5 font-light;
+  }
+
+  /* ─── Quick action grid buttons ─────────────────────────────────────── */
+  .qbtn {
+    @apply flex-1 px-5 py-3 border border-base-300 rounded bg-base-100 text-neutral cursor-pointer whitespace-nowrap transition-all;
+    font-family: var(--font-body);
+    &:hover { @apply bg-base-200 text-base-content border-accent; }
+  }
+
+  /* ─── Table action buttons ──────────────────────────────────────────── */
+  .tbl-btn {
+    @apply bg-transparent border-none cursor-pointer px-1.5 py-1 rounded text-sm min-h-7 min-w-7 inline-flex items-center justify-center text-neutral transition-colors;
+    font-family: var(--font-body);
+    &:hover { @apply bg-accent/10; }
+  }
+
+  /* ─── Bulk action row ───────────────────────────────────────────────── */
+  .bulk-action-row {
+    @apply hidden;
+  }
+
+  /* ─── Reference panel collapse modifier ────────────────────────────── */
+  .ref-collapse {
+    @apply bg-base-200 border border-accent/25 mb-2;
+    .collapse-title {
+      font-family: var(--font-title);
+      @apply text-sm font-normal py-2.5 min-h-0;
+    }
+  }
+
+  /* ─── Tooltip ───────────────────────────────────────────────────────── */
+  .tooltip-body-wide {
+    @apply bg-base-100 border border-accent/40 rounded-lg p-3 text-sm leading-relaxed text-neutral whitespace-normal shadow-lg pointer-events-none normal-case tracking-normal;
+  }
+
+  /* ─── Modal (preserving legacy class names for JS compatibility) ───── */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/45 z-[1000] flex items-center justify-center;
+    &.hidden { @apply hidden; }
+  }
+  .modal-box {
+    @apply bg-base-100 rounded-xl p-6 max-w-sm w-[90%] shadow-2xl;
+  }
+  .modal-box--wide { @apply max-w-xl; }
+
+  /* daisyUI uses a high-specificity :not() chain to hide .modal-box when its
+     parent is not an [open] <dialog>. Our .modal-overlay is a div so that
+     selector never fires the show-state. Override with !important, scoped to
+     our overlay so daisyUI's own <dialog> modals are unaffected. */
+  .modal-overlay .modal-box {
+    opacity: 1 !important;
+    transform: none !important;
+    scale: 1 !important;
+  }
+
+  /* ─── Modal actions footer ──────────────────────────────────────────── */
+  .modal-actions {
+    @apply flex gap-2.5 justify-end pt-4 mt-2 border-t border-accent/30;
+  }
+
+  /* ─── Header button (shared across header areas) ────────────────────── */
+  .hdr-btn {
+    @apply text-sm font-medium px-3 py-1.5 border rounded cursor-pointer whitespace-nowrap inline-flex items-center gap-1 transition-colors;
+    font-family: var(--font-body);
+    border-color: var(--overlay-border, oklch(0% 0 0 / 0.18));
+    background: var(--overlay-bg, oklch(100% 0 0 / 0.55));
+    &:hover { background: var(--overlay-bg-hover, oklch(100% 0 0 / 0.85)); }
+  }
+
+  /* ─── Panel toggle buttons ──────────────────────────────────────────── */
+  .panel-btn {
+    @apply text-xs font-medium border rounded-md cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 transition-colors;
+    font-family: var(--font-body);
+    border-color: var(--overlay-border, oklch(0% 0 0 / 0.18));
+    background: var(--overlay-bg, oklch(100% 0 0 / 0.55));
+    &:hover { background: var(--overlay-bg-hover, oklch(100% 0 0 / 0.85)); }
+    &.active, &.panel-active {
+      @apply bg-accent text-accent-content border-accent;
+      &:hover { @apply bg-accent/80; }
+    }
+  }
+
+  /* ─── Device tab ────────────────────────────────────────────────────── */
+  .dev-tab {
+    @apply text-sm px-2 py-0 max-w-44 border rounded-md cursor-pointer whitespace-nowrap flex items-center gap-1.5 transition-colors;
+    font-family: var(--font-body);
+    border-color: var(--overlay-border, oklch(0% 0 0 / 0.18));
+    background: var(--overlay-bg, oklch(100% 0 0 / 0.55));
+    &:hover { background: var(--overlay-bg-hover, oklch(100% 0 0 / 0.85)); }
+    &.active { @apply bg-accent text-accent-content border-accent; }
+  }
+
+  /* ─── Checkbox row ──────────────────────────────────────────────────── */
+  .cb-row {
+    @apply flex gap-2.5 items-center flex-wrap mb-1.5;
+  }
+  .cb-label {
+    @apply flex items-center gap-1 text-xs text-neutral cursor-pointer normal-case font-normal;
+  }
+
+  /* ─── Device dropdown (positioned by JS) ────────────────────────────── */
+  .dev-dropdown {
+    @apply fixed min-w-48 bg-base-100 border border-base-300 rounded-lg shadow-xl z-[600] py-1 hidden;
+  }
+  .dev-dropdown-item {
+    @apply block w-full text-left py-1.5 px-3.5 text-sm font-normal cursor-pointer border-none bg-transparent whitespace-nowrap transition-colors;
+    font-family: var(--font-body);
+    &:hover { @apply bg-base-200; }
+  }
+  .dev-dropdown-item-danger { @apply !text-error; }
+  .dev-dropdown-item-danger:hover { @apply !bg-error/10; }
+  .dev-dropdown-item-warn { @apply !text-warning; }
+  .dev-dropdown-item-warn:hover { @apply !bg-warning/10; }
+
+  /* ─── Script editor ─────────────────────────────────────────────────── */
+  .script-editor-wrap {
+    @apply flex border border-base-300 rounded-md overflow-hidden my-2;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    @apply text-sm leading-relaxed;
+  }
+
+  /* ─── Serial terminal (always dark) ─────────────────────────────────── */
+  .panel-view-serial {
+    @apply bg-[#0f0f0f];
+    font-family: var(--font-body);
+  }
+
+  /* ─── Welcome banner ────────────────────────────────────────────────── */
+  .welcome-banner {
+    @apply border border-accent/40 rounded-xl p-5 mb-4;
+    background: linear-gradient(135deg, oklch(62% 0.06 300 / 0.1) 0%, var(--color-base-100, #fff) 100%);
+  }
+
+  /* ─── Tour overlay (high z-index system) ────────────────────────────── */
+  .tour-backdrop { @apply fixed inset-0 z-[10000] pointer-events-auto; }
+  .tour-spotlight { @apply fixed z-[10001] rounded-md pointer-events-none; }
+  .tour-tooltip { @apply fixed z-[10002] bg-base-100 border border-accent/40 rounded-xl p-5 max-w-sm min-w-56 shadow-xl text-sm leading-relaxed pointer-events-auto; }
 }

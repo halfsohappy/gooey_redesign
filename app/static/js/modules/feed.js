@@ -91,6 +91,21 @@ let msgCount = 0;
 let rateCounter = 0;
 let lastRateCheck = Date.now();
 
+/* ── Clear feed button ── */
+const btnFeedClear = $("#btnFeedClear");
+if (btnFeedClear) {
+  btnFeedClear.addEventListener("click", function () {
+    const feedEl = $("#feedLog");
+    if (feedEl) feedEl.innerHTML = "";
+    msgCount = 0;
+    rateCounter = 0;
+    const countEl = $("#feedCount");
+    const rateEl  = $("#feedRate");
+    if (countEl) countEl.textContent = "0 messages";
+    if (rateEl)  rateEl.textContent  = "0 msg/s";
+  });
+}
+
 setInterval(function () {
   const now = Date.now();
   const elapsed = (now - lastRateCheck) / 1000;

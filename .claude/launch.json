@@ -2,16 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "gooey-redesign",
-      "runtimeExecutable": "/Users/bugsy/cyberannabel/TheaterGWD/gooey/venv/bin/python",
-      "runtimeArgs": ["run.py", "--no-browser", "--port", "5080"],
-      "port": 5080
-    },
-    {
-      "name": "rough-demo",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "5099", "-d", "app/static"],
-      "port": 5099
+      "name": "gooey",
+      "runtimeExecutable": "/Users/bugsy/cyberannabel/gooey_redesign/.venv/bin/python",
+      "runtimeArgs": ["run.py", "--no-browser"],
+      "port": 5091
     }
   ]
 }

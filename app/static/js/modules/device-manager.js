@@ -183,3 +183,40 @@ export function renderDeviceTabs() {
 /* ── Restore devices from previous session ── */
 restoreDevicesFromStorage();
 renderDeviceTabs();
+
+/* ── Save devices to JSON file ── */
+const btnSaveDevices = $("#btnSaveDevices");
+if (btnSaveDevices) btnSaveDevices.addEventListener("click", function () {
+  const data = Object.keys(devices).map(function (id) {
+    const d = devices[id];
+    return { host: d.host, port: d.port, name: d.name };
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "gooey-devices.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* ── Load devices from JSON file ── */
+const deviceFileInput = $("#deviceFileInput");
+if (deviceFileInput) deviceFileInput.addEventListener("change", function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      const list = JSON.parse(ev.target.result);
+      list.forEach(function (d) {
+        if (d.host && d.port && d.name) addDevice(d.host, parseInt(d.port, 10), d.name);
+      });
+      _renderMsgTable && _renderMsgTable();
+      _renderSceneTable && _renderSceneTable();
+      _renderOriTable && _renderOriTable();
+      toast("Loaded " + list.length + " device(s)", "success");
+    } catch (_) { toast("Invalid device file", "error"); }
+  };
+  reader.readAsText(file);
+  e.target.value = "";
+});

@@ -1,0 +1,419 @@
+{
+  "version": "1.0",
+  "skills": {
+    "skill-developer": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "description": "Meta-skill for creating and managing Claude Code skills",
+      "promptTriggers": {
+        "keywords": [
+          "skill system",
+          "create skill",
+          "add skill",
+          "skill triggers",
+          "skill rules",
+          "hook system",
+          "skill development",
+          "skill-rules.json"
+        ],
+        "intentPatterns": [
+          "(how do|how does|explain).*?skill",
+          "(create|add|modify|build).*?skill",
+          "skill.*?(work|trigger|activate|system)"
+        ]
+      }
+    },
+    "tailwindcss": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": [
+          "tailwind",
+          "tailwindcss",
+          "utility classes",
+          "@apply",
+          "tailwind.config",
+          "dark mode"
+        ],
+        "intentPatterns": [
+          "style.*with.*tailwind",
+          "add.*tailwind.*classes",
+          "configure.*tailwind",
+          "setup.*tailwind",
+          "customize.*theme",
+          "add.*dark.*mode"
+        ]
+      },
+      "fileTriggers": {
+        "pathPatterns": [
+          "**/tailwind.config.js",
+          "**/tailwind.config.ts",
+          "**/globals.css",
+          "**/*.css"
+        ],
+        "contentPatterns": [
+          "className=['\"].*flex",
+          "className=['\"].*grid",
+          "className=['\"].*bg-",
+          "@apply"
+        ]
+      }
+    }
+  },
+  "agents": {
+    "auto-error-resolver": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "critical",
+      "promptTriggers": {
+        "keywords": [
+          "build error",
+          "build errors",
+          "compilation error",
+          "compilation errors",
+          "typescript error",
+          "typescript errors",
+          "tsc error",
+          "build fail",
+          "build failed",
+          "build failing",
+          "fix errors",
+          "fix build",
+          "resolve errors",
+          "errors in build"
+        ],
+        "intentPatterns": [
+          "(fix|resolve|solve).*(build|compilation|typescript|tsc).*(error|errors|issue)",
+          "(build|compilation).*(fail|failed|failing|broken)",
+          "(typescript|tsc).*(error|errors|issue).*( in | with )",
+          "\\d+.*(error|errors).*(found|detected|in)",
+          "(clean|fix).*(build|compilation)"
+        ]
+      },
+      "errorTriggers": {
+        "enabled": true,
+        "patterns": [
+          "TS\\d{4}:",
+          "error TS\\d{4}:",
+          "Type error:",
+          "build failed",
+          "Compilation failed"
+        ],
+        "description": "Automatically suggest when TypeScript or build errors are detected"
+      }
+    },
+    "code-architecture-reviewer": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": [
+          "review code",
+          "review my code",
+          "finished implementing",
+          "completed",
+          "done with",
+          "check my code",
+          "code review",
+          "review this",
+          "review the",
+          "added a new",
+          "created a new",
+          "implemented a new",
+          "finished the",
+          "completed the"
+        ],
+        "intentPatterns": [
+          "(review|check).*(code|implementation)",
+          "(finished|completed|done).*(implementing|building|creating|adding)",
+          "(finished|completed|done).*(component|feature|endpoint|service|function)",
+          "(added|created|implemented).*(new).*(component|endpoint|service|feature)",
+          "i('ve| have).*(finished|completed|added|created|implemented)",
+          "(refactored|updated).*(to use|with)"
+        ]
+      },
+      "postToolUseTriggers": {
+        "enabled": true,
+        "tools": [
+          "Edit",
+          "Write",
+          "MultiEdit"
+        ],
+        "minEdits": 3,
+        "withinMinutes": 10,
+        "description": "Suggest code review after significant editing session"
+      }
+    },
+    "code-refactor-master": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": [
+          "reorganize",
+          "cleanup",
+          "clean up",
+          "is a mess",
+          "messy",
+          "break down",
+          "extract",
+          "split up",
+          "too large",
+          "too big",
+          "unmaintainable",
+          "hard to maintain",
+          "loading patterns",
+          "loading returns",
+          "file structure",
+          "move files",
+          "relocate"
+        ],
+        "intentPatterns": [
+          "(reorganize|cleanup|clean up).*(folder|directory|structure|components)",
+          "(folder|directory|component).*(is a mess|messy)",
+          "(break down|split|extract).*(large|big).*(component|file)",
+          "(file|component).*(too large|too big|over \\d+ lines)",
+          "(fix|replace).*(loading|early return).*(pattern|indicator)",
+          "(move|relocate).*(files|components)"
+        ]
+      }
+    },
+    "documentation-architect": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": [
+          "document",
+          "documentation",
+          "create docs",
+          "write docs",
+          "readme",
+          "api docs",
+          "api documentation",
+          "data flow",
+          "architecture diagram",
+          "developer guide",
+          "document this",
+          "document the",
+          "needs documentation",
+          "needs docs",
+          "update docs",
+          "update documentation"
+        ],
+        "intentPatterns": [
+          "(create|write|update|enhance).*(documentation|docs|readme)",
+          "(document|explain).*(this|the).*(feature|system|api|flow)",
+          "(need|needs).*(documentation|docs)",
+          "(api|endpoint|feature).*(needs|requires).*(documentation|docs)",
+          "(data flow|architecture).*(diagram|documentation)"
+        ]
+      }
+    },
+    "plan-reviewer": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": [
+          "review plan",
+          "review my plan",
+          "review this plan",
+          "check plan",
+          "check my plan",
+          "before implementation",
+          "before implementing",
+          "before i start",
+          "before proceeding",
+          "plan to",
+          "strategy for",
+          "approach for",
+          "migration plan",
+          "integration plan"
+        ],
+        "intentPatterns": [
+          "(review|check|validate).*(plan|strategy|approach)",
+          "(before).*(implementation|implementing|proceeding|starting)",
+          "here('s| is).*(plan|strategy|approach)",
+          "(migration|integration|refactoring).*(plan|strategy)",
+          "(want|need).*(to make sure|ensure|verify)",
+          "(haven't|might have).*(missed|overlooked)"
+        ]
+      }
+    },
+    "principal-engineer": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "high",
+      "description": "Apply rigorous first-principles engineering analysis to any technical task",
+      "promptTriggers": {
+        "keywords": [
+          "implement",
+          "build",
+          "create",
+          "write",
+          "develop",
+          "add feature",
+          "new feature",
+          "debug",
+          "fix",
+          "solve",
+          "troubleshoot",
+          "broken",
+          "not working",
+          "issue",
+          "problem",
+          "bug",
+          "error",
+          "optimize",
+          "improve",
+          "refactor",
+          "enhance",
+          "performance",
+          "slow",
+          "faster",
+          "efficient",
+          "design",
+          "architect",
+          "architecture",
+          "structure",
+          "organize",
+          "plan",
+          "approach",
+          "strategy",
+          "review",
+          "analyze",
+          "evaluate",
+          "check",
+          "assess",
+          "investigate",
+          "best way",
+          "right way",
+          "correct way",
+          "should i",
+          "how do i",
+          "how to",
+          "what's the best",
+          "which approach",
+          "trade-off",
+          "tradeoff",
+          "pros and cons",
+          "alternative",
+          "better way",
+          "complex",
+          "complicated",
+          "messy",
+          "clean up",
+          "simplify",
+          "scale",
+          "scalability",
+          "production",
+          "edge case",
+          "corner case"
+        ],
+        "intentPatterns": [
+          "(how|what).*(best|right|correct|proper).*(way|approach|method)",
+          "(should i|can i|would you).*(use|implement|build|create)",
+          "(implement|build|create|write|add).*(feature|function|component|service|api)",
+          "(debug|fix|solve|troubleshoot).*(bug|error|issue|problem)",
+          "(optimize|improve|make.*faster|speed up|enhance)",
+          "(refactor|restructure|reorganize|clean up)",
+          "(design|architect|plan).*(system|architecture|approach|solution)",
+          "(review|analyze|evaluate|assess).*(code|implementation|approach|design)",
+          "(performance|slow|bottleneck|inefficient)",
+          "(trade.*off|tradeoff|alternative|option|choice)",
+          "(complex|complicated|messy|hard to understand)",
+          "(scale|scalability|production|real world)",
+          "(is this|does this).*(right|correct|good|best)",
+          "what.*think.*(about|of)",
+          "(help|assist).*(with|me).*(implement|build|design|fix|optimize)"
+        ]
+      },
+      "contextTriggers": {
+        "fileTypes": [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".jsx",
+          ".py",
+          ".go",
+          ".rs",
+          ".java",
+          ".c",
+          ".cpp",
+          ".h",
+          ".hpp"
+        ],
+        "description": "Activate for any serious engineering work in code files"
+      }
+    },
+    "refactor-planner": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": [
+          "refactor",
+          "restructure",
+          "reorganize",
+          "improve code",
+          "modernize",
+          "code structure",
+          "better organization",
+          "technical debt",
+          "code smell",
+          "design patterns",
+          "getting large",
+          "getting complex",
+          "legacy code",
+          "messy code"
+        ],
+        "intentPatterns": [
+          "(refactor|restructure|reorganize).*(code|component|service|module)",
+          "improve.*(organization|structure|architecture)",
+          "(need|want).*(better|cleaner).*(organization|structure)",
+          "(code|component|file).*(is|getting).*(large|complex|messy)",
+          "(modernize|update).*(legacy|old).*(code|patterns)",
+          "(consolidate|deduplicate).*(code|logic|patterns)"
+        ]
+      }
+    },
+    "web-research-specialist": {
+      "type": "workflow",
+      "activation": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": [
+          "research",
+          "find solution",
+          "search for",
+          "look up",
+          "debug",
+          "debugging",
+          "error",
+          "getting error",
+          "how do others",
+          "how to",
+          "best practices",
+          "pros and cons",
+          "compare",
+          "comparison",
+          "stack overflow",
+          "github issues",
+          "similar issues"
+        ],
+        "intentPatterns": [
+          "(research|find|search|look up).*(solution|information|approach)",
+          "(how|what).*(others|developers).*(implement|approach|handle)",
+          "(debug|fix|solve).*(error|issue|problem)",
+          "(getting|encountering|having).*(error|issue|problem)",
+          "(compare|comparison).*(different|various).*(solutions|approaches|libraries)",
+          "(pros and cons|advantages).*(of)",
+          "(best practice|recommended way).*(to|for)"
+        ]
+      }
+    }
+  }
+}

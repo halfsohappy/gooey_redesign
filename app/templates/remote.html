@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="gooey">
+<html lang="en" data-theme="gooey" class="h-full overflow-hidden">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -11,372 +11,248 @@
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
   <style>
-    :root {
-      --bg: #0f0f0f;
-      --surface: #1a1a1a;
-      --surface2: #242424;
-      --border: #333;
-      --lavender: #DAC7FF;
-      --lavender-dark: #b8a0e8;
-      --accent: #90849c;
-      --fg: #f0f0f0;
-      --fg2: #aaa;
-      --danger: #D64541;
-      --success: #4CAF50;
-      --warn: #f59e0b;
-      --radius: 10px;
-      --touch: 52px;
-      --font: 'Martian Mono', 'Courier New', monospace;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13px; }
-
-    /* ── Screen system ── */
-    .screen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--bg); transition: transform .22s cubic-bezier(.4,0,.2,1), opacity .22s; will-change: transform; }
-    .screen.hidden { pointer-events: none; opacity: 0; transform: translateX(100%); }
+    /* ── Screen transitions (toggled by JS) ── */
+    .screen { transition: transform .22s cubic-bezier(.4,0,.2,1), opacity .22s; will-change: transform; }
+    .screen.hidden { display: flex; pointer-events: none; opacity: 0; transform: translateX(100%); }
     .screen.slide-back { transform: translateX(-30%); opacity: 0; }
 
-    /* ── Header ── */
-    .hdr { background: var(--lavender); color: #000; display: flex; align-items: center; padding: 0 14px; min-height: 52px; flex-shrink: 0; gap: 10px; }
-    .hdr-back { background: none; border: none; font: inherit; font-size: 20px; cursor: pointer; color: #000; padding: 8px 4px; line-height: 1; }
-    .hdr-title { font-size: 15px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hdr-action { background: none; border: none; font: inherit; font-size: 14px; cursor: pointer; color: #000; padding: 8px 4px; opacity: .75; }
-    .hdr-action:active { opacity: 1; }
-    .ws-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-    .ws-dot.ok { background: var(--success); }
-    .ws-dot.err { background: var(--danger); }
-
-    /* ── Scroll body ── */
-    .body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-
-    /* ── Cards / rows ── */
-    .card { background: var(--surface); border-radius: var(--radius); overflow: hidden; }
-    .card-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); padding: 10px 14px 4px; }
-    .row { display: flex; align-items: center; gap: 10px; min-height: var(--touch); padding: 0 14px; border-top: 1px solid var(--border); cursor: pointer; user-select: none; }
-    .row:first-child, .card-label + .row { border-top: none; }
-    .row:active { background: var(--surface2); }
-    .row-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
-    .row-text { flex: 1; overflow: hidden; }
-    .row-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-sub { font-size: 11px; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row-chev { color: var(--fg2); font-size: 16px; flex-shrink: 0; }
-    .row.danger .row-title { color: var(--danger); }
-    .row.success .row-title { color: var(--success); }
-    .row.warn .row-title { color: var(--warn); }
-
-    /* ── Action buttons (big touch targets) ── */
-    .btn { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--touch); border-radius: var(--radius); border: none; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; padding: 0 16px; transition: filter .1s; }
-    .btn:active { filter: brightness(1.2); }
-    .btn-lavender  { background: var(--lavender); color: #000; }
-    .btn-danger    { background: var(--danger);   color: #fff; }
-    .btn-success   { background: var(--success);  color: #fff; }
-    .btn-surface   { background: var(--surface2); color: var(--fg); }
-    .btn-outline   { background: transparent; color: var(--lavender); border: 1.5px solid var(--lavender); }
-    .btn-primary   { background: var(--lavender); color: #000; }
-    .btn-stop      { background: var(--danger);   color: #fff; }
-    .btn-secondary { background: var(--surface2); color: var(--fg); }
-    .btn-row { display: flex; gap: 8px; }
-    .btn-row .btn { flex: 1; }
-    .text-input { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 7px; color: var(--fg); font: inherit; font-size: 14px; padding: 10px 12px; outline: none; -webkit-appearance: none; box-sizing: border-box; }
-    .text-input:focus { border-color: var(--lavender); }
-    .rec-name-row { padding: 8px 14px; }
-    .remote-rec-status { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex-wrap: wrap; }
-    .rec-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--danger); animation: rec-blink .8s step-start infinite; flex-shrink: 0; }
-    @keyframes rec-blink { 0%,100%{opacity:1} 50%{opacity:0} }
-
-    /* ── Form inputs ── */
-    label { display: block; font-size: 11px; color: var(--fg2); margin-bottom: 4px; text-transform: uppercase; letter-spacing: .06em; }
-    input[type=text], input[type=number] {
-      width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
-      border-radius: 7px; color: var(--fg); font: inherit; font-size: 14px;
-      padding: 10px 12px; outline: none; -webkit-appearance: none;
-    }
-    input:focus { border-color: var(--lavender); }
-    .field { display: flex; flex-direction: column; gap: 6px; }
-    .fields { display: flex; flex-direction: column; gap: 12px; }
-
-    /* ── Connect screen ── */
-    #screenConnect .body { justify-content: center; max-width: 420px; margin: 0 auto; width: 100%; }
-    .connect-logo { text-align: center; padding: 24px 0 8px; }
-    .connect-logo-title { font-size: 26px; font-weight: 700; color: var(--lavender); letter-spacing: -.02em; }
-    .connect-logo-sub { font-size: 12px; color: var(--fg2); margin-top: 4px; }
-
-    /* ── Status bar ── */
-    .status-bar { background: var(--surface2); border-radius: var(--radius); padding: 10px 14px; font-size: 11px; color: var(--fg2); display: flex; align-items: center; gap: 8px; }
-    .status-bar span { flex: 1; }
-
-    /* ── Reply / result screen ── */
-    .result-box { background: var(--surface); border-radius: var(--radius); padding: 14px; font-size: 12px; line-height: 1.7; word-break: break-all; flex: 1; overflow-y: auto; white-space: pre-wrap; color: var(--fg); }
-    .result-addr { font-size: 11px; color: var(--lavender); margin-bottom: 8px; }
-
-    /* ── Monitor list ── */
-    .monitor-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column-reverse; gap: 1px; }
-    .monitor-item { background: var(--surface); border-radius: 6px; padding: 8px 12px; font-size: 11px; }
-    .monitor-item-addr { color: var(--lavender); }
-    .monitor-item-args { color: var(--fg2); }
-
-    /* ── Overlay: loading ── */
-    #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 100; }
-    #overlay.hidden { display: none; }
-    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--lavender); border-radius: 50%; animation: spin .7s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #overlay-msg { font-size: 13px; color: var(--fg2); }
-
-    /* ── Toast ── */
-    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--surface2); border: 1.5px solid var(--border); color: var(--fg); padding: 10px 18px; border-radius: 50px; font-size: 13px; z-index: 200; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+    /* ── Toast show (toggled by JS) ── */
     #toast.show { opacity: 1; }
 
-    /* ── Confirm sheet ── */
-    #confirmSheet { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; z-index: 150; }
-    #confirmSheet.hidden { display: none; }
-    .confirm-box { background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; padding: 20px 16px 32px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
-    .confirm-msg { font-size: 14px; text-align: center; color: var(--fg); line-height: 1.5; padding: 0 8px; }
-
-    /* ── Tag list (names) ── */
-    .tag-list { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
-    .tag { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 50px; padding: 6px 14px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: background .1s; }
-    .tag:active { background: var(--lavender); color: #000; }
-
-    /* ── Settings inputs ── */
-    .settings-row { display: flex; align-items: center; min-height: var(--touch); padding: 0 14px; gap: 12px; border-top: 1px solid var(--border); }
-    .settings-row:first-child { border-top: none; }
-    .settings-row label { margin: 0; flex-shrink: 0; width: 100px; }
-    .settings-row input { flex: 1; }
-
-    /* ── Section divider ── */
-    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); padding: 8px 4px 0; }
+    /* ── Animations ── */
+    @keyframes rec-blink { 0%,100%{opacity:1} 50%{opacity:0} }
   </style>
 </head>
-<body>
+<body class="h-full overflow-hidden bg-[#0f0f0f] text-[#f0f0f0] font-mono text-[13px]" style="-webkit-tap-highlight-color:transparent">
 
 <!-- ══ CONNECT ══════════════════════════════════════════════════════════════ -->
-<div class="screen" id="screenConnect">
-  <div class="hdr">
-    <div class="hdr-title">annieData Remote</div>
-    <div class="ws-dot" id="wsDot"></div>
+<div class="screen absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenConnect">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">annieData Remote</div>
+    <div class="w-[9px] h-[9px] rounded-full bg-[#90849c] shrink-0" id="wsDot"></div>
   </div>
-  <div class="body">
-    <div class="connect-logo">
-      <div class="connect-logo-title">Remote</div>
-      <div class="connect-logo-sub">annieData Control</div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2 justify-center max-w-[420px] mx-auto w-full">
+    <div class="text-center py-6 pb-2">
+      <div class="text-[26px] font-bold text-[#DAC7FF] tracking-tight">Remote</div>
+      <div class="text-xs text-[#aaa] mt-1">annieData Control</div>
     </div>
-    <div class="fields">
-      <div class="field">
-        <label>Device IP</label>
-        <input type="text" id="cfgHost" placeholder="192.168.1.x" inputmode="decimal">
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-1.5">
+        <label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Device IP</label>
+        <input type="text" id="cfgHost" placeholder="192.168.1.x" inputmode="decimal" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]">
       </div>
-      <div class="btn-row">
-        <div class="field" style="flex:1">
-          <label>OSC Port</label>
-          <input type="number" id="cfgPort" value="8000" min="1" max="65535" inputmode="numeric">
+      <div class="flex gap-2">
+        <div class="flex flex-col gap-1.5" style="flex:1">
+          <label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">OSC Port</label>
+          <input type="number" id="cfgPort" value="8000" min="1" max="65535" inputmode="numeric" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]">
         </div>
-        <div class="field" style="flex:1">
-          <label>Reply Port</label>
-          <input type="number" id="cfgListenPort" value="9000" min="1" max="65535" inputmode="numeric">
+        <div class="flex flex-col gap-1.5" style="flex:1">
+          <label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Reply Port</label>
+          <input type="number" id="cfgListenPort" value="9000" min="1" max="65535" inputmode="numeric" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]">
         </div>
       </div>
-      <div class="field">
-        <label>Device Name</label>
-        <input type="text" id="cfgDevice" value="annieData" placeholder="annieData">
+      <div class="flex flex-col gap-1.5">
+        <label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Device Name</label>
+        <input type="text" id="cfgDevice" value="annieData" placeholder="annieData" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]">
       </div>
-      <button class="btn btn-lavender" id="btnConnect">Connect</button>
+      <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-[#DAC7FF] text-black" id="btnConnect">Connect</button>
     </div>
-    <div class="status-bar" id="connectStatus" style="display:none">
-      <span id="connectStatusMsg"></span>
+    <div class="bg-[#242424] rounded-[10px] px-3.5 py-2.5 text-[11px] text-[#aaa] flex items-center gap-2" id="connectStatus" style="display:none">
+      <span id="connectStatusMsg" class="flex-1"></span>
     </div>
   </div>
 </div>
 
 <!-- ══ MAIN MENU ════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenMain">
-  <div class="hdr">
-    <button class="hdr-action" id="btnDisconnect" title="Disconnect">✕</button>
-    <div class="hdr-title" id="mainTitle">annieData</div>
-    <div class="ws-dot" id="wsDot2"></div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenMain">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-sm cursor-pointer text-black py-2 px-1 opacity-75 active:opacity-100" id="btnDisconnect" title="Disconnect">✕</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis" id="mainTitle">annieData</div>
+    <div class="w-[9px] h-[9px] rounded-full bg-[#90849c] shrink-0" id="wsDot2"></div>
   </div>
-  <div class="body">
-    <div class="card">
-      <div class="row" id="menuMessages"><div class="row-icon">▸</div><div class="row-text"><div class="row-title">Messages</div><div class="row-sub">List, enable, disable, delete</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuScenes"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">Scenes</div><div class="row-sub">Start, stop, info, delete</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuOris"><div class="row-icon">◎</div><div class="row-text"><div class="row-title">Orientations</div><div class="row-sub">Save, list, reset, delete oris</div></div><div class="row-chev">›</div></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="menuMessages"><div class="text-xl shrink-0 w-7 text-center">▸</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Messages</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">List, enable, disable, delete</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="menuScenes"><div class="text-xl shrink-0 w-7 text-center">≡</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Scenes</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Start, stop, info, delete</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="menuOris"><div class="text-xl shrink-0 w-7 text-center">◎</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Orientations</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Save, list, reset, delete oris</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
     </div>
-    <div class="card">
-      <div class="row" id="menuQuick"><div class="row-icon">→</div><div class="row-text"><div class="row-title">Quick Actions</div><div class="row-sub">Blackout, restore, save, load</div></div><div class="row-chev">›</div></div>
-      <div class="row" id="menuMonitor"><div class="row-icon">◉</div><div class="row-text"><div class="row-title">Monitor</div><div class="row-sub">Incoming OSC replies</div></div><div class="row-chev">›</div></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="menuQuick"><div class="text-xl shrink-0 w-7 text-center">→</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Quick Actions</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Blackout, restore, save, load</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="menuMonitor"><div class="text-xl shrink-0 w-7 text-center">◉</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Monitor</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Incoming OSC replies</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
     </div>
-    <div class="card">
-      <div class="row" id="menuSettings"><div class="row-icon">⚙</div><div class="row-text"><div class="row-title">Settings</div><div class="row-sub">Change connection details</div></div><div class="row-chev">›</div></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="menuSettings"><div class="text-xl shrink-0 w-7 text-center">⚙</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Settings</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Change connection details</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
     </div>
   </div>
 </div>
 
 <!-- ══ MESSAGES LIST ════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenMessages">
-  <div class="hdr">
-    <button class="hdr-back" id="backMessages">‹</button>
-    <div class="hdr-title">Messages</div>
-    <button class="hdr-action" id="btnRefreshMsgs">↻</button>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenMessages">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backMessages">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Messages</div>
+    <button class="bg-transparent border-none font-inherit text-sm cursor-pointer text-black py-2 px-1 opacity-75 active:opacity-100" id="btnRefreshMsgs">↻</button>
   </div>
-  <div class="body" id="msgListBody">
-    <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="msgListBody">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden"><div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]"><div class="flex-1 overflow-hidden"><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Loading…</div></div></div></div>
   </div>
 </div>
 
 <!-- ══ MESSAGE DETAIL ═══════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenMsgDetail">
-  <div class="hdr">
-    <button class="hdr-back" id="backMsgDetail">‹</button>
-    <div class="hdr-title" id="msgDetailTitle">Message</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenMsgDetail">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backMsgDetail">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis" id="msgDetailTitle">Message</div>
   </div>
-  <div class="body" id="msgDetailBody"></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="msgDetailBody"></div>
 </div>
 
 <!-- ══ SCENES LIST ═════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenScenes">
-  <div class="hdr">
-    <button class="hdr-back" id="backScenes">‹</button>
-    <div class="hdr-title">Scenes</div>
-    <button class="hdr-action" id="btnRefreshScenes">↻</button>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenScenes">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backScenes">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Scenes</div>
+    <button class="bg-transparent border-none font-inherit text-sm cursor-pointer text-black py-2 px-1 opacity-75 active:opacity-100" id="btnRefreshScenes">↻</button>
   </div>
-  <div class="body" id="sceneListBody">
-    <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="sceneListBody">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden"><div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]"><div class="flex-1 overflow-hidden"><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Loading…</div></div></div></div>
   </div>
 </div>
 
 <!-- ══ SCENE DETAIL ══════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenSceneDetail">
-  <div class="hdr">
-    <button class="hdr-back" id="backSceneDetail">‹</button>
-    <div class="hdr-title" id="sceneDetailTitle">Scene</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenSceneDetail">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backSceneDetail">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis" id="sceneDetailTitle">Scene</div>
   </div>
-  <div class="body" id="sceneDetailBody"></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="sceneDetailBody"></div>
 </div>
 
 <!-- ══ ORIS LIST ════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenOris">
-  <div class="hdr">
-    <button class="hdr-back" id="backOris">‹</button>
-    <div class="hdr-title">Orientations</div>
-    <button class="hdr-action" id="btnRefreshOris">↻</button>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenOris">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backOris">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Orientations</div>
+    <button class="bg-transparent border-none font-inherit text-sm cursor-pointer text-black py-2 px-1 opacity-75 active:opacity-100" id="btnRefreshOris">↻</button>
   </div>
-  <div class="body">
-    <div class="card">
-      <div class="card-label">Global Settings</div>
-      <div class="row" id="qOriStrict"><div class="row-icon">◈</div><div class="row-text"><div class="row-title">Toggle Strict Mode</div><div class="row-sub">Only one ori active at a time</div></div></div>
-      <div class="row" id="qOriClear"><div class="row-icon">×</div><div class="row-text"><div class="row-title danger" style="color:var(--danger)">Clear All Oris</div><div class="row-sub">Delete every saved orientation</div></div></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="text-[10px] uppercase tracking-wider text-[#aaa] px-3.5 pt-2.5 pb-1">Global Settings</div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="qOriStrict"><div class="text-xl shrink-0 w-7 text-center">◈</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Toggle Strict Mode</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Only one ori active at a time</div></div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="qOriClear"><div class="text-xl shrink-0 w-7 text-center">×</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis text-[#D64541]">Clear All Oris</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Delete every saved orientation</div></div></div>
     </div>
-    <div class="card">
-      <div class="card-label">Threshold &amp; Tolerance</div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="text-[10px] uppercase tracking-wider text-[#aaa] px-3.5 pt-2.5 pb-1">Threshold &amp; Tolerance</div>
       <div style="display:flex;gap:8px;padding:10px 14px">
-        <div class="field" style="flex:1"><label>Threshold</label><input type="number" id="oriThreshInput" step="0.01" min="0" placeholder="0.10"></div>
-        <div class="field" style="flex:1"><label>Tolerance</label><input type="number" id="oriTolInput" step="0.01" min="0" placeholder="0.05"></div>
+        <div class="flex flex-col gap-1.5" style="flex:1"><label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Threshold</label><input type="number" id="oriThreshInput" step="0.01" min="0" placeholder="0.10" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
+        <div class="flex flex-col gap-1.5" style="flex:1"><label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Tolerance</label><input type="number" id="oriTolInput" step="0.01" min="0" placeholder="0.05" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
       </div>
       <div style="padding:0 14px 12px;display:flex;gap:8px">
-        <button class="btn btn-outline" id="btnSetThresh" style="flex:1">Set Threshold</button>
-        <button class="btn btn-outline" id="btnSetTol" style="flex:1">Set Tolerance</button>
+        <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-[1.5px] border-solid border-[#DAC7FF] font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-transparent text-[#DAC7FF]" id="btnSetThresh" style="flex:1">Set Threshold</button>
+        <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-[1.5px] border-solid border-[#DAC7FF] font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-transparent text-[#DAC7FF]" id="btnSetTol" style="flex:1">Set Tolerance</button>
       </div>
     </div>
-    <div class="card">
-      <div class="card-label">Save Current Orientation As</div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="text-[10px] uppercase tracking-wider text-[#aaa] px-3.5 pt-2.5 pb-1">Save Current Orientation As</div>
       <div style="padding:10px 14px;display:flex;gap:8px;align-items:flex-end">
-        <div class="field" style="flex:1"><label>Name</label><input type="text" id="oriNewName" placeholder="e.g. upright"></div>
-        <button class="btn btn-lavender" id="btnSaveOri" style="flex:0 0 auto;min-width:80px;width:auto">Save</button>
+        <div class="flex flex-col gap-1.5" style="flex:1"><label class="block text-[11px] text-[#aaa] mb-1 uppercase tracking-wider">Name</label><input type="text" id="oriNewName" placeholder="e.g. upright" class="w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
+        <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer px-4 active:brightness-125 bg-[#DAC7FF] text-black" id="btnSaveOri" style="flex:0 0 auto;min-width:80px;width:auto">Save</button>
       </div>
     </div>
-    <div class="section-label">Saved Oris — tap to manage</div>
+    <div class="text-[10px] uppercase tracking-wider text-[#aaa] px-1 pt-2">Saved Oris — tap to manage</div>
     <div id="oriListBody">
-      <div class="card"><div class="row"><div class="row-text"><div class="row-sub">Tap ↻ to load</div></div></div></div>
+      <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden"><div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]"><div class="flex-1 overflow-hidden"><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Tap ↻ to load</div></div></div></div>
     </div>
   </div>
 </div>
 
 <!-- ══ ORI DETAIL ════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenOriDetail">
-  <div class="hdr">
-    <button class="hdr-back" id="backOriDetail">‹</button>
-    <div class="hdr-title" id="oriDetailTitle">Orientation</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenOriDetail">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backOriDetail">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis" id="oriDetailTitle">Orientation</div>
   </div>
-  <div class="body" id="oriDetailBody"></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2" id="oriDetailBody"></div>
 </div>
 
 <!-- ══ QUICK ACTIONS ════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenQuick">
-  <div class="hdr">
-    <button class="hdr-back" id="backQuick">‹</button>
-    <div class="hdr-title">Quick Actions</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenQuick">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backQuick">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Quick Actions</div>
   </div>
-  <div class="body">
-    <div class="card">
-      <div class="row danger" id="qBlackout"><div class="row-icon">■</div><div class="row-text"><div class="row-title">Blackout</div><div class="row-sub">Stop all scenes immediately</div></div></div>
-      <div class="row success" id="qRestore"><div class="row-icon">◆</div><div class="row-text"><div class="row-title">Restore</div><div class="row-sub">Restart previously running scenes</div></div></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="qBlackout"><div class="text-xl shrink-0 w-7 text-center">■</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis text-[#D64541]">Blackout</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Stop all scenes immediately</div></div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="qRestore"><div class="text-xl shrink-0 w-7 text-center">◆</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis text-[#4CAF50]">Restore</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Restart previously running scenes</div></div></div>
     </div>
-    <div class="card">
-      <div class="row" id="qSave"><div class="row-icon">↓</div><div class="row-text"><div class="row-title">Save</div><div class="row-sub">Persist all config to NVS</div></div></div>
-      <div class="row" id="qLoad"><div class="row-icon">↑</div><div class="row-text"><div class="row-title">Load</div><div class="row-sub">Reload config from NVS</div></div></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="qSave"><div class="text-xl shrink-0 w-7 text-center">↓</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Save</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Persist all config to NVS</div></div></div>
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]" id="qLoad"><div class="text-xl shrink-0 w-7 text-center">↑</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">Load</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Reload config from NVS</div></div></div>
     </div>
-    <div class="card">
-      <div class="row" id="qListAll"><div class="row-icon">≡</div><div class="row-text"><div class="row-title">List All</div><div class="row-sub">Show all messages and scenes</div></div><div class="row-chev">›</div></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="qListAll"><div class="text-xl shrink-0 w-7 text-center">≡</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis">List All</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Show all messages and scenes</div></div><div class="text-[#aaa] text-base shrink-0">›</div></div>
     </div>
-    <div class="card">
-      <div class="row danger" id="qNvsClear"><div class="row-icon">×</div><div class="row-text"><div class="row-title">NVS Clear</div><div class="row-sub">Factory reset — erase all saved data</div></div></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]" id="qNvsClear"><div class="text-xl shrink-0 w-7 text-center">×</div><div class="flex-1 overflow-hidden"><div class="text-[13px] whitespace-nowrap overflow-hidden text-ellipsis text-[#D64541]">NVS Clear</div><div class="text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis">Factory reset — erase all saved data</div></div></div>
     </div>
   </div>
 </div>
 
 <!-- ══ MONITOR ══════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenMonitor">
-  <div class="hdr">
-    <button class="hdr-back" id="backMonitor">‹</button>
-    <div class="hdr-title">Monitor</div>
-    <button class="hdr-action" id="btnClearMonitor">Clear</button>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenMonitor">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backMonitor">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Monitor</div>
+    <button class="bg-transparent border-none font-inherit text-sm cursor-pointer text-black py-2 px-1 opacity-75 active:opacity-100" id="btnClearMonitor">Clear</button>
   </div>
-  <div class="body" style="padding:8px">
-    <div class="monitor-list" id="monitorList"></div>
+  <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+    <div class="flex-1 overflow-y-auto flex flex-col-reverse gap-px" id="monitorList"></div>
   </div>
 </div>
 
 <!-- ══ SETTINGS ═════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenSettings">
-  <div class="hdr">
-    <button class="hdr-back" id="backSettings">‹</button>
-    <div class="hdr-title">Settings</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenSettings">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backSettings">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis">Settings</div>
   </div>
-  <div class="body">
-    <div class="card">
-      <div class="settings-row"><label>Device IP</label><input type="text" id="sHost" inputmode="decimal"></div>
-      <div class="settings-row"><label>OSC Port</label><input type="number" id="sPort" min="1" max="65535" inputmode="numeric"></div>
-      <div class="settings-row"><label>Reply Port</label><input type="number" id="sListenPort" min="1" max="65535" inputmode="numeric"></div>
-      <div class="settings-row"><label>Device Name</label><input type="text" id="sDevice"></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+    <div class="bg-[#1a1a1a] rounded-[10px] overflow-hidden">
+      <div class="flex items-center min-h-[52px] px-3.5 gap-3"><label class="m-0 shrink-0 w-[100px] block text-[11px] text-[#aaa] uppercase tracking-wider">Device IP</label><input type="text" id="sHost" inputmode="decimal" class="flex-1 w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
+      <div class="flex items-center min-h-[52px] px-3.5 gap-3 border-t border-[#333]"><label class="m-0 shrink-0 w-[100px] block text-[11px] text-[#aaa] uppercase tracking-wider">OSC Port</label><input type="number" id="sPort" min="1" max="65535" inputmode="numeric" class="flex-1 w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
+      <div class="flex items-center min-h-[52px] px-3.5 gap-3 border-t border-[#333]"><label class="m-0 shrink-0 w-[100px] block text-[11px] text-[#aaa] uppercase tracking-wider">Reply Port</label><input type="number" id="sListenPort" min="1" max="65535" inputmode="numeric" class="flex-1 w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
+      <div class="flex items-center min-h-[52px] px-3.5 gap-3 border-t border-[#333]"><label class="m-0 shrink-0 w-[100px] block text-[11px] text-[#aaa] uppercase tracking-wider">Device Name</label><input type="text" id="sDevice" class="flex-1 w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]"></div>
     </div>
-    <button class="btn btn-lavender" id="btnSaveSettings">Apply &amp; Reconnect</button>
+    <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-[#DAC7FF] text-black" id="btnSaveSettings">Apply &amp; Reconnect</button>
   </div>
 </div>
 
 <!-- ══ RESULT ═══════════════════════════════════════════════════════════════ -->
-<div class="screen hidden" id="screenResult">
-  <div class="hdr">
-    <button class="hdr-back" id="backResult">‹</button>
-    <div class="hdr-title" id="resultTitle">Reply</div>
+<div class="screen hidden absolute inset-0 flex flex-col bg-[#0f0f0f]" id="screenResult">
+  <div class="bg-[#DAC7FF] text-black flex items-center px-3.5 min-h-[52px] shrink-0 gap-2.5">
+    <button class="bg-transparent border-none font-inherit text-xl cursor-pointer text-black py-2 px-1 leading-none" id="backResult">‹</button>
+    <div class="text-[15px] font-bold flex-1 whitespace-nowrap overflow-hidden text-ellipsis" id="resultTitle">Reply</div>
   </div>
-  <div class="body">
-    <div class="result-addr" id="resultAddr"></div>
-    <div class="result-box" id="resultBox"></div>
+  <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+    <div class="text-[11px] text-[#DAC7FF] mb-2" id="resultAddr"></div>
+    <div class="bg-[#1a1a1a] rounded-[10px] p-3.5 text-xs leading-relaxed break-all flex-1 overflow-y-auto whitespace-pre-wrap text-[#f0f0f0]" id="resultBox"></div>
   </div>
 </div>
 
 <!-- ══ OVERLAYS ══════════════════════════════════════════════════════════════ -->
-<div id="overlay" class="hidden">
-  <div class="spinner"></div>
-  <div id="overlay-msg">Sending…</div>
+<div id="overlay" class="hidden fixed inset-0 bg-black/70 flex flex-col items-center justify-center gap-3.5 z-[100]">
+  <div class="w-9 h-9 border-[3px] border-[#333] border-t-[#DAC7FF] rounded-full animate-spin"></div>
+  <div id="overlay-msg" class="text-[13px] text-[#aaa]">Sending…</div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#242424] border-[1.5px] border-[#333] text-[#f0f0f0] px-4.5 py-2.5 rounded-full text-[13px] z-[200] opacity-0 transition-opacity duration-200 pointer-events-none whitespace-nowrap"></div>
 
-<div id="confirmSheet" class="hidden">
-  <div class="confirm-box">
-    <div class="confirm-msg" id="confirmMsg"></div>
-    <button class="btn btn-danger" id="confirmOk">Confirm</button>
-    <button class="btn btn-surface" id="confirmCancel">Cancel</button>
+<div id="confirmSheet" class="hidden fixed inset-0 bg-black/60 flex items-end z-[150]">
+  <div class="bg-[#1a1a1a] rounded-t-[10px] px-4 pt-5 pb-8 w-full flex flex-col gap-3">
+    <div class="text-sm text-center text-[#f0f0f0] leading-relaxed px-2" id="confirmMsg"></div>
+    <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-[#D64541] text-white" id="confirmOk">Confirm</button>
+    <button class="flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125 bg-[#242424] text-[#f0f0f0]" id="confirmCancel">Cancel</button>
   </div>
 </div>
 

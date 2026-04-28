@@ -65,7 +65,7 @@ export function showConfirm(title, body, onConfirm, okLabel, danger) {
   document.getElementById("confirmBody").textContent = body;
   const okBtn = document.getElementById("confirmOk");
   okBtn.textContent = okLabel;
-  okBtn.className = "btn " + (danger ? "btn-danger" : "btn-primary");
+  okBtn.className = "btn btn-sm " + (danger ? "btn-error" : "btn-accent");
   modal.classList.remove("hidden");
   const cancel = document.getElementById("confirmCancel");
   cancel.focus();

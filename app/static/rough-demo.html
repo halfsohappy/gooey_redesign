@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gooey — Rough Sketch Demo</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<script defer src="https://cdn.jsdelivr.net/npm/roughjs@4.6.6/bundled/rough.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Martian+Mono:wght@300;400;500&family=Playwrite+DE+Grund:wght@400;500&family=Playwrite+IE:wght@100..400&display=swap');
+
+/* ── Tokens ── */
+:root {
+  --paper-bg: #faf8f5;
+  --paper-grid: rgba(0,0,0,0.035);
+  --sketch-stroke: #444;
+  --sketch-light: #999;
+
+  --header-bg: #DAC7FF;
+  --header-text: #2A2F36;
+  --accent: #90849c;
+  --accent-hover: #7a6f8a;
+  --accent-dim: rgba(144,132,156,0.12);
+  --bg-card: #ffffff;
+  --bg-input: #f9fafb;
+  --text-dark: #2A2F36;
+  --text-medium: #6C7A89;
+  --text-light: #ABB7B7;
+  --success: #4CAF50;
+  --warning: #c49030;
+  --danger: #a85858;
+  --border: #ddd;
+  --tag-send: #2A34D5;
+  --tag-recv: #4CAF50;
+
+  --font: "Martian Mono", monospace;
+  --font-title: "Playwrite DE Grund", cursive;
+  --font-header: "Playwrite IE", cursive;
+}
+
+html.dark {
+  --paper-bg: #1a1918;
+  --paper-grid: rgba(255,255,255,0.03);
+  --sketch-stroke: #999;
+  --sketch-light: #666;
+  --header-bg: #2a2234;
+  --header-text: #e8e0f0;
+  --accent: #b8a8d4;
+  --accent-hover: #c8b8e4;
+  --accent-dim: rgba(164,150,184,0.15);
+  --bg-card: rgba(30,28,26,0.85);
+  --bg-input: #252528;
+  --text-dark: #e8e6ec;
+  --text-medium: #9a96a0;
+  --text-light: #6a6670;
+  --success: #4CAF50;
+  --danger: #b86868;
+  --border: #333;
+  --tag-send: #7a84ff;
+  --tag-recv: #4CAF50;
+}
+
+/* ── Reset & Paper ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--text-dark);
+  background-color: var(--paper-bg);
+  background-image:
+    linear-gradient(var(--paper-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* ── Draw animation ── */
+@keyframes sketchDraw {
+  from { stroke-dashoffset: var(--path-len); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeInSoft {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sketch-svg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.sketch-svg path {
+  animation: sketchDraw 0.6s ease-out forwards;
+  animation-delay: var(--draw-delay, 0s);
+}
+
+.no-animate path {
+  animation: none !important;
+  stroke-dashoffset: 0 !important;
+}
+
+/* ── Layout ── */
+.demo-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto auto 1fr;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.main-header {
+  grid-column: 1 / -1;
+  background: var(--header-bg);
+  position: relative;
+  display: flex;
+  transition: background-color 0.3s;
+}
+
+.hdr-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.hdr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.dev-tabs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dev-tab {
+  position: relative;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 400;
+  padding: 5px 14px;
+  background: none;
+  border: none;
+  color: var(--header-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dev-tab.active { font-weight: 500; }
+
+.hdr-btn {
+  position: relative;
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 5px 12px;
+  background: none;
+  border: none;
+  color: var(--header-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hdr-btn-blackout {
+  background: #111;
+  color: #fff;
+  font-weight: 500;
+  padding: 5px 16px;
+}
+
+.hdr-sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(0,0,0,0.12);
+  flex-shrink: 0;
+}
+
+.port-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--header-text);
+}
+
+.port-input {
+  position: relative;
+  font-family: var(--font);
+  font-size: 11px;
+  width: 56px;
+  padding: 4px 6px;
+  background: rgba(255,255,255,0.4);
+  border: none;
+  color: var(--header-text);
+  text-align: center;
+}
+
+html.dark .port-input { background: rgba(255,255,255,0.1); }
+
+.listen-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ── Status strip ── */
+.hdr-strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 16px;
+  font-size: 10px;
+  color: var(--header-text);
+  opacity: 0.7;
+  border-top: 1px solid rgba(0,0,0,0.06);
+}
+
+.ws-dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-right: 4px;
+}
+
+/* ── Panel toggle grid ── */
+.hdr-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: rgba(0,0,0,0.06);
+  flex-shrink: 0;
+  width: 160px;
+}
+
+.panel-btn {
+  position: relative;
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 8px 6px;
+  background: rgba(255,255,255,0.25);
+  border: none;
+  color: var(--header-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.panel-btn.active { background: rgba(255,255,255,0.5); font-weight: 500; }
+html.dark .panel-btn { background: rgba(255,255,255,0.06); }
+html.dark .panel-btn.active { background: rgba(255,255,255,0.14); }
+
+/* ── Section nav ── */
+.section-nav {
+  grid-column: 1 / -1;
+  position: relative;
+  display: flex;
+  gap: 0;
+  padding: 0 16px;
+  background: var(--bg-card);
+  transition: background-color 0.3s;
+}
+
+.nav-btn {
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 400;
+  padding: 10px 20px;
+  border: none;
+  background: none;
+  color: var(--text-light);
+  cursor: pointer;
+  position: relative;
+}
+.nav-btn:hover { color: var(--text-medium); }
+.nav-btn.active { color: var(--accent); font-weight: 500; }
+
+/* ── Main content area ── */
+.main-content {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* ── Cards ── */
+.card {
+  position: relative;
+  background: var(--bg-card);
+  padding: 16px;
+  margin-bottom: 16px;
+  border: none;
+  transition: background-color 0.3s;
+}
+
+.card h2 {
+  font-family: var(--font-title);
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--text-dark);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  position: relative;
+}
+
+.card h3 {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+/* ── Table ── */
+.msg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.msg-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-medium);
+  padding: 6px 8px;
+}
+.msg-table td {
+  padding: 8px;
+  color: var(--text-dark);
+  vertical-align: middle;
+}
+.msg-table tbody tr {
+  position: relative;
+}
+.msg-name {
+  font-weight: 400;
+  color: var(--accent);
+  cursor: pointer;
+}
+.msg-name:hover { text-decoration: underline; }
+.en-on { color: var(--success); font-size: 13px; }
+.en-off { color: var(--text-light); font-size: 13px; }
+.scene-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* ── Forms ── */
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.form-group {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.form-group.narrow { flex: 0 0 80px; min-width: 80px; }
+
+.form-group label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-medium);
+}
+
+.form-group input,
+.form-group select {
+  position: relative;
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 7px 10px;
+  background: var(--bg-input);
+  border: none;
+  color: var(--text-dark);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  position: relative;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 7px 18px;
+  border: none;
+  cursor: pointer;
+  background: none;
+  color: var(--text-dark);
+  white-space: nowrap;
+}
+
+.btn-primary { color: #fff; }
+.btn-accent  { color: #fff; }
+.btn-stop    { color: var(--danger); }
+
+/* ── Feed panel ── */
+.panel-feed {
+  position: relative;
+  background: #fef8f0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.3s;
+  min-height: 0;
+}
+
+html.dark .panel-feed { background: #1c1a18; }
+
+.feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.feed-header h2 {
+  font-family: var(--font-title);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-dark);
+}
+.feed-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.feed-btn {
+  position: relative;
+  font-family: var(--font);
+  font-size: 9px;
+  padding: 3px 8px;
+  background: none;
+  border: none;
+  color: var(--text-medium);
+  cursor: pointer;
+}
+
+.feed-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px;
+  font-size: 11px;
+  scrollbar-width: none;
+}
+.feed-scroll::-webkit-scrollbar { display: none; }
+
+.feed-row {
+  display: grid;
+  grid-template-columns: 58px 50px 1fr auto;
+  gap: 8px;
+  padding: 4px 4px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.feed-time { color: var(--text-light); font-size: 10px; }
+.feed-dev  { color: var(--accent); font-weight: 400; font-size: 10px; }
+.feed-addr { color: var(--text-medium); font-size: 10px; }
+.feed-val  { color: var(--text-dark); font-size: 10px; text-align: right; }
+.feed-tag {
+  font-size: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border-radius: 2px;
+  letter-spacing: 0.03em;
+}
+.feed-tag-send { color: var(--tag-send); }
+.feed-tag-recv { color: var(--tag-recv); }
+
+.feed-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 14px;
+  font-size: 9px;
+  color: var(--text-light);
+  border-top: 1px dashed var(--border);
+}
+
+/* ── Theme toggle ── */
+.theme-toggle {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100;
+  width: 40px; height: 40px;
+  background: var(--bg-card);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* ── Wobble helpers ── */
+.wobble-1 { transform: rotate(-0.4deg); }
+.wobble-2 { transform: rotate(0.25deg); }
+.wobble-3 { transform: rotate(-0.6deg); }
+
+/* ── Bulk action row ── */
+.bulk-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 0 0;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: var(--text-medium);
+}
+.bulk-row input {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border: none;
+  color: var(--text-dark);
+  width: 140px;
+  position: relative;
+}
+.bulk-row select {
+  font-family: var(--font);
+  font-size: 10px;
+  padding: 4px 6px;
+  background: var(--bg-input);
+  border: none;
+  color: var(--text-dark);
+  position: relative;
+}
+.bulk-row .btn {
+  font-size: 9px;
+  padding: 4px 10px;
+}
+</style>
+</head>
+<body>
+
+<div class="demo-layout">
+
+  <!-- ===== Header ===== -->
+  <header class="main-header">
+    <div class="hdr-content">
+      <div class="hdr-row">
+
+        <!-- Device action buttons -->
+        <div class="dev-tabs">
+          <button class="hdr-btn" title="Add device"><i class="bi bi-plus-lg"></i></button>
+          <button class="hdr-btn" title="Save"><i class="bi bi-floppy"></i></button>
+          <div class="hdr-sep"></div>
+
+          <!-- Device tabs -->
+          <button class="dev-tab active">bartholo</button>
+          <button class="dev-tab">lilliana</button>
+          <button class="dev-tab">samantha</button>
+        </div>
+
+        <div class="hdr-sep"></div>
+
+        <!-- Query -->
+        <button class="hdr-btn"><i class="bi bi-arrow-repeat"></i> Query</button>
+
+        <div class="hdr-sep"></div>
+
+        <!-- Port -->
+        <div class="port-box">
+          <span class="listen-dot"></span>
+          Listening: <strong>9000</strong>
+          <input type="number" class="port-input" value="9000">
+          <button class="hdr-btn">Apply</button>
+        </div>
+
+        <div class="hdr-sep"></div>
+
+        <!-- Blackout -->
+        <button class="hdr-btn hdr-btn-blackout"><i class="bi bi-stop-circle"></i> Blackout</button>
+      </div>
+
+      <!-- Status strip -->
+      <div class="hdr-strip">
+        <span><span class="ws-dot"></span> Connected</span>
+        <span><i class="bi bi-bell"></i> bartholo status: streaming</span>
+        <span><i class="bi bi-broadcast"></i> /annieData/bartholo/ori/quat</span>
+      </div>
+    </div>
+
+    <!-- Panel toggles -->
+    <div class="hdr-tools">
+      <button class="panel-btn active"><i class="bi bi-broadcast"></i> Feed</button>
+      <button class="panel-btn"><i class="bi bi-terminal"></i> Serial</button>
+      <button class="panel-btn"><i class="bi bi-bell"></i> Notifs</button>
+      <button class="panel-btn"><i class="bi bi-book"></i> Ref</button>
+    </div>
+  </header>
+
+  <!-- ===== Section Nav ===== -->
+  <nav class="section-nav">
+    <button class="nav-btn active">Messages</button>
+    <button class="nav-btn">Scenes</button>
+    <button class="nav-btn">Ori</button>
+    <button class="nav-btn">Shows</button>
+    <button class="nav-btn">Advanced</button>
+  </nav>
+
+  <!-- ===== Main Content ===== -->
+  <main class="main-content">
+
+    <!-- Message Tracker Card -->
+    <div class="card wobble-2">
+      <table class="msg-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Scenes</th>
+            <th>Sensor / Range</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="msg-name">accelX</span></td>
+            <td><span class="scene-tag">scene_01</span></td>
+            <td>accel &middot; 0.00 &ndash; 1.00</td>
+            <td><span class="en-on">&#x2714;</span></td>
+          </tr>
+          <tr>
+            <td><span class="msg-name">gyroY</span></td>
+            <td><span class="scene-tag">scene_01</span> <span class="scene-tag">scene_02</span></td>
+            <td>gyro &middot; &minus;1.00 &ndash; 1.00</td>
+            <td><span class="en-on">&#x2714;</span></td>
+          </tr>
+          <tr>
+            <td><span class="msg-name">flex_1</span></td>
+            <td><span class="scene-tag">scene_02</span></td>
+            <td>flex &middot; 0 &ndash; 4095</td>
+            <td><span class="en-off">&#x2718;</span></td>
+          </tr>
+          <tr>
+            <td><span class="msg-name">euler_z</span></td>
+            <td>&mdash;</td>
+            <td>ori &middot; &minus;180 &ndash; 180</td>
+            <td><span class="en-on">&#x2714;</span></td>
+          </tr>
+          <tr>
+            <td><span class="msg-name">quat_w</span></td>
+            <td><span class="scene-tag">scene_01</span></td>
+            <td>ori &middot; &minus;1.00 &ndash; 1.00</td>
+            <td><span class="en-on">&#x2714;</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Bulk action row -->
+      <div class="bulk-row">
+        <span>Bulk:</span>
+        <input type="text" placeholder="pattern, e.g. accel*">
+        <select>
+          <option>Enable</option>
+          <option>Disable</option>
+          <option>Delete</option>
+        </select>
+        <button class="btn">Apply</button>
+      </div>
+    </div>
+
+    <!-- Create / Edit Message Card -->
+    <div class="card wobble-3">
+      <h2>Create / Edit Message</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" placeholder="e.g. accelX">
+        </div>
+        <div class="form-group">
+          <label>Sensor</label>
+          <select>
+            <option>-- pick --</option>
+            <option>accel</option>
+            <option>gyro</option>
+            <option>flex</option>
+            <option>ori</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data Stream</label>
+          <select>
+            <option>-- pick sensor --</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Target IP</label>
+          <input type="text" placeholder="192.168.1.50">
+        </div>
+        <div class="form-group narrow">
+          <label>Port</label>
+          <input type="text" value="9000">
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" placeholder="/sensor/x">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group narrow">
+          <label>Low</label>
+          <input type="text" placeholder="0">
+        </div>
+        <div class="form-group narrow">
+          <label>High</label>
+          <input type="text" placeholder="1">
+        </div>
+        <div class="form-group">
+          <label>Scene</label>
+          <input type="text" placeholder="assign to scene">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary">Apply to Device</button>
+        <button class="btn btn-accent">Send Direct</button>
+        <button class="btn">Clear Form</button>
+      </div>
+    </div>
+
+    <!-- Clone / Rename Card -->
+    <div class="card wobble-1">
+      <h2>Clone / Rename</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Source</label>
+          <input type="text" placeholder="existing name">
+        </div>
+        <div class="form-group">
+          <label>New Name</label>
+          <input type="text" placeholder="new name">
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn">Clone</button>
+        <button class="btn">Rename</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== Feed Panel ===== -->
+  <aside class="panel-feed">
+    <div class="feed-header">
+      <h2>Live Feed</h2>
+      <div class="feed-controls">
+        <button class="feed-btn"><i class="bi bi-pause-fill"></i> Pause</button>
+        <button class="feed-btn"><i class="bi bi-trash3"></i> Clear</button>
+      </div>
+    </div>
+    <div class="feed-scroll">
+      <div class="feed-row"><span class="feed-time">14:02:38</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/accelX</span><span class="feed-val">0.847</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:38</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/gyroY</span><span class="feed-val">-0.132</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:37</span><span class="feed-dev">lilli</span><span class="feed-addr">/annieData/lilli/flex_1</span><span class="feed-val">2847</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:37</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/ori/quat</span><span class="feed-val">0.12 -0.44 0.87</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:36</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/euler_z</span><span class="feed-val">-42.8</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:36</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/accelX</span><span class="feed-val">0.851</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:35</span><span class="feed-dev">lilli</span><span class="feed-addr">/annieData/lilli/quat_w</span><span class="feed-val">0.993</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:35</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/gyroY</span><span class="feed-val">0.044</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:34</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/flex_1</span><span class="feed-val">1203</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:34</span><span class="feed-dev">lilli</span><span class="feed-addr">/annieData/lilli/euler_z</span><span class="feed-val">88.2</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:33</span><span class="feed-dev">bart</span><span class="feed-addr">/annieData/bart/accelX</span><span class="feed-val">0.839</span></div>
+      <div class="feed-row"><span class="feed-time">14:02:33</span><span class="feed-dev">sam</span><span class="feed-addr">/annieData/sam/flex_1</span><span class="feed-val">3901</span></div>
+    </div>
+    <div class="feed-stats">
+      <span>248 messages</span>
+      <span>3 devices</span>
+    </div>
+  </aside>
+
+</div>
+
+<!-- Theme toggle -->
+<button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+  <i class="bi bi-moon-fill"></i>
+</button>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const root = document.documentElement;
+
+  // ── Rough.js helpers ──
+
+  function sketchRect(el, opts = {}) {
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    if (!w || !h) return null;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('sketch-svg');
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+    const rc = rough.svg(svg);
+    const stroke = getComputedStyle(root).getPropertyValue('--sketch-stroke').trim() || '#444';
+
+    const defaults = {
+      roughness: 1.5,
+      stroke: stroke,
+      strokeWidth: 1.5,
+      bowing: 1,
+      fill: 'none',
+    };
+    const merged = { ...defaults, ...opts };
+    if (!opts.stroke) merged.stroke = stroke;
+
+    const pad = 2;
+    const node = rc.rectangle(pad, pad, w - pad * 2, h - pad * 2, merged);
+    svg.appendChild(node);
+
+    // Set up stroke animation
+    svg.querySelectorAll('path').forEach(p => {
+      const len = p.getTotalLength();
+      p.style.setProperty('--path-len', len);
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+    });
+
+    el.style.position = el.style.position || 'relative';
+    el.appendChild(svg);
+    return svg;
+  }
+
+  function sketchLine(container, x1, y1, x2, y2, opts = {}) {
+    let svg = container.querySelector('.sketch-svg-lines');
+    const w = container.offsetWidth;
+    const h = container.offsetHeight;
+
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.classList.add('sketch-svg', 'sketch-svg-lines');
+      svg.setAttribute('width', w);
+      svg.setAttribute('height', h);
+      svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      container.style.position = container.style.position || 'relative';
+      container.appendChild(svg);
+    }
+
+    const rc = rough.svg(svg);
+    const stroke = getComputedStyle(root).getPropertyValue('--sketch-light').trim() || '#999';
+    const defaults = { roughness: 1.2, stroke: stroke, strokeWidth: 0.8, bowing: 0.8 };
+    const merged = { ...defaults, ...opts };
+    if (!opts.stroke) merged.stroke = stroke;
+
+    const node = rc.line(x1, y1, x2, y2, merged);
+    svg.appendChild(node);
+
+    svg.querySelectorAll('path:not([data-animated])').forEach(p => {
+      const len = p.getTotalLength();
+      p.style.setProperty('--path-len', len);
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+      p.setAttribute('data-animated', '1');
+    });
+
+    return svg;
+  }
+
+  function sketchCircle(el, diameter, opts = {}) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('sketch-svg');
+    svg.setAttribute('width', diameter + 4);
+    svg.setAttribute('height', diameter + 4);
+    svg.setAttribute('viewBox', `0 0 ${diameter + 4} ${diameter + 4}`);
+
+    const rc = rough.svg(svg);
+    const node = rc.circle(diameter / 2 + 2, diameter / 2 + 2, diameter, {
+      roughness: 1.5,
+      stroke: opts.stroke || getComputedStyle(root).getPropertyValue('--sketch-stroke').trim(),
+      strokeWidth: 1,
+      fill: opts.fill || 'none',
+      fillStyle: opts.fillStyle || 'solid',
+      ...opts,
+    });
+    svg.appendChild(node);
+
+    svg.querySelectorAll('path').forEach(p => {
+      const len = p.getTotalLength();
+      p.style.setProperty('--path-len', len);
+      p.style.strokeDasharray = len;
+      p.style.strokeDashoffset = len;
+    });
+
+    el.style.position = el.style.position || 'relative';
+    el.appendChild(svg);
+    return svg;
+  }
+
+  function setDelay(svg, delay) {
+    if (!svg) return;
+    svg.querySelectorAll('path').forEach(p => {
+      p.style.setProperty('--draw-delay', delay + 's');
+    });
+  }
+
+  function clearAllSketches() {
+    document.querySelectorAll('.sketch-svg').forEach(s => s.remove());
+  }
+
+  // ── Draw everything ──
+
+  function drawAllSketches(animate = true) {
+    clearAllSketches();
+    let d = 0;
+    const S = animate ? 0.1 : 0;
+
+    // Header border
+    const header = document.querySelector('.main-header');
+    const hdrSvg = sketchRect(header, { roughness: 1, strokeWidth: 1.8 });
+    setDelay(hdrSvg, d); d += S * 2;
+
+    // Device tabs
+    document.querySelectorAll('.dev-tab').forEach(tab => {
+      const isActive = tab.classList.contains('active');
+      const opts = isActive
+        ? { roughness: 1.8, fill: 'rgba(144,132,156,0.25)', fillStyle: 'hachure', hachureAngle: -41, hachureGap: 5, strokeWidth: 1.5 }
+        : { roughness: 2, strokeWidth: 1 };
+      const s = sketchRect(tab, opts);
+      setDelay(s, d); d += S * 0.4;
+    });
+
+    // Header buttons (non-tab)
+    document.querySelectorAll('.hdr-btn').forEach(btn => {
+      const isBo = btn.classList.contains('hdr-btn-blackout');
+      const opts = isBo
+        ? { roughness: 2, stroke: '#a85858', strokeWidth: 2, fill: 'rgba(0,0,0,0.85)', fillStyle: 'solid' }
+        : { roughness: 2, strokeWidth: 1 };
+      const s = sketchRect(btn, opts);
+      setDelay(s, d); d += S * 0.25;
+    });
+
+    // Port input
+    const portInput = document.querySelector('.port-input');
+    if (portInput) {
+      const s = sketchRect(portInput, { roughness: 2, strokeWidth: 0.8 });
+      setDelay(s, d); d += S * 0.3;
+    }
+
+    // Panel toggle buttons
+    document.querySelectorAll('.panel-btn').forEach(btn => {
+      const isActive = btn.classList.contains('active');
+      const opts = isActive
+        ? { roughness: 1.5, fill: 'rgba(144,132,156,0.18)', fillStyle: 'hachure', hachureGap: 6 }
+        : { roughness: 1.5, strokeWidth: 0.8 };
+      const s = sketchRect(btn, opts);
+      setDelay(s, d); d += S * 0.2;
+    });
+
+    d += S;
+
+    // Section nav background
+    const sNav = document.querySelector('.section-nav');
+    const sNavSvg = sketchRect(sNav, { roughness: 0.8, strokeWidth: 1 });
+    setDelay(sNavSvg, d); d += S;
+
+    // Active nav underline
+    const activeNav = document.querySelector('.nav-btn.active');
+    if (activeNav && sNav) {
+      const navRect = sNav.getBoundingClientRect();
+      const btnRect = activeNav.getBoundingClientRect();
+      const x1 = btnRect.left - navRect.left + 4;
+      const x2 = btnRect.right - navRect.left - 4;
+      const y = btnRect.bottom - navRect.top - 2;
+      const stroke = getComputedStyle(root).getPropertyValue('--accent').trim();
+      const lineSvg = sketchLine(sNav, x1, y, x2, y, { stroke: stroke, strokeWidth: 2, roughness: 1.5 });
+      setDelay(lineSvg, d);
+    }
+    d += S;
+
+    // Cards
+    document.querySelectorAll('.card').forEach(card => {
+      const s = sketchRect(card, { roughness: 1.5, strokeWidth: 1.2 });
+      setDelay(s, d); d += S * 1.5;
+
+      // Card title underlines
+      const h2 = card.querySelector('h2');
+      if (h2) {
+        const cardRect = card.getBoundingClientRect();
+        const h2Rect = h2.getBoundingClientRect();
+        const y = h2Rect.bottom - cardRect.top + 2;
+        const lineSvg = sketchLine(card, 16, y, cardRect.width - 16, y, { roughness: 1.2, strokeWidth: 0.6 });
+        setDelay(lineSvg, d);
+        d += S * 0.3;
+      }
+
+      // Form inputs in this card
+      card.querySelectorAll('input, select').forEach(inp => {
+        const s2 = sketchRect(inp, { roughness: 2.2, strokeWidth: 0.8, stroke: '' });
+        setDelay(s2, d); d += S * 0.15;
+      });
+
+      // Buttons in this card
+      card.querySelectorAll('.btn').forEach(btn => {
+        let opts = { roughness: 2 };
+        if (btn.classList.contains('btn-primary')) {
+          opts = { roughness: 1.8, fill: 'rgba(74,85,104,0.85)', fillStyle: 'hachure', hachureGap: 3.5, hachureAngle: 60, strokeWidth: 1.5 };
+        } else if (btn.classList.contains('btn-accent')) {
+          opts = { roughness: 1.8, fill: 'rgba(76,175,80,0.7)', fillStyle: 'hachure', hachureGap: 3.5, hachureAngle: -30, strokeWidth: 1.5 };
+        } else if (btn.classList.contains('btn-stop')) {
+          opts = { roughness: 2, stroke: '#a85858', strokeWidth: 1.5 };
+        } else {
+          opts = { roughness: 2, strokeWidth: 1 };
+        }
+        const s2 = sketchRect(btn, opts);
+        setDelay(s2, d); d += S * 0.3;
+      });
+    });
+
+    // Bulk row inputs & buttons
+    document.querySelectorAll('.bulk-row input, .bulk-row select, .bulk-row .btn').forEach(el => {
+      const s = sketchRect(el, { roughness: 2.5, strokeWidth: 0.7 });
+      setDelay(s, d); d += S * 0.1;
+    });
+
+    // Table row separator lines
+    const table = document.querySelector('.msg-table');
+    if (table) {
+      const card = table.closest('.card');
+      if (card) {
+        const cardRect = card.getBoundingClientRect();
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach((row, i) => {
+          if (i === 0) return; // skip first row
+          const rowRect = row.getBoundingClientRect();
+          const y = rowRect.top - cardRect.top;
+          sketchLine(card, 8, y, cardRect.width - 8, y, { roughness: 1, strokeWidth: 0.4 });
+        });
+        // Header separator
+        const thead = table.querySelector('thead');
+        if (thead) {
+          const thRect = thead.getBoundingClientRect();
+          const y = thRect.bottom - cardRect.top;
+          const stroke = getComputedStyle(root).getPropertyValue('--sketch-stroke').trim();
+          sketchLine(card, 8, y, cardRect.width - 8, y, { roughness: 1, strokeWidth: 0.8, stroke: stroke });
+        }
+      }
+    }
+
+    // Feed panel
+    const feed = document.querySelector('.panel-feed');
+    if (feed) {
+      const s = sketchRect(feed, { roughness: 1, strokeWidth: 1.5 });
+      setDelay(s, d); d += S;
+
+      // Feed control buttons
+      feed.querySelectorAll('.feed-btn').forEach(btn => {
+        const s2 = sketchRect(btn, { roughness: 2.5, strokeWidth: 0.6 });
+        setDelay(s2, d); d += S * 0.15;
+      });
+    }
+
+    // If not animating, instantly show all
+    if (!animate) {
+      document.querySelectorAll('.sketch-svg').forEach(svg => svg.classList.add('no-animate'));
+    }
+  }
+
+  // ── Theme toggle ──
+
+  const toggle = document.getElementById('themeToggle');
+  toggle.addEventListener('click', () => {
+    root.classList.toggle('dark');
+    const isDark = root.classList.contains('dark');
+    toggle.querySelector('i').className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+    // Redraw with new colors (instant, no animation)
+    setTimeout(() => drawAllSketches(false), 50);
+  });
+
+  // ── Resize handler ──
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => drawAllSketches(false), 200);
+  });
+
+  // ── Go! ──
+  drawAllSketches(true);
+});
+</script>
+
+</body>
+</html>

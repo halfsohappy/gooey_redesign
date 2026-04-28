@@ -15,6 +15,35 @@ const App = (() => {
   let _currentSceneName = null;
   const monitorItems = [];
 
+  /* ── Tailwind class tokens ─────────────────────────────────────────────── */
+  const _tw = {
+    card:       "bg-[#1a1a1a] rounded-[10px] overflow-hidden",
+    cardLabel:  "text-[10px] uppercase tracking-wider text-[#aaa] px-3.5 pt-2.5 pb-1",
+    row:        "flex items-center gap-2.5 min-h-[52px] px-3.5 border-t border-[#333] cursor-pointer select-none active:bg-[#242424]",
+    rowFirst:   "flex items-center gap-2.5 min-h-[52px] px-3.5 cursor-pointer select-none active:bg-[#242424]",
+    rowIcon:    "text-xl shrink-0 w-7 text-center",
+    rowText:    "flex-1 overflow-hidden",
+    rowTitle:   "text-[13px] whitespace-nowrap overflow-hidden text-ellipsis",
+    rowSub:     "text-[11px] text-[#aaa] whitespace-nowrap overflow-hidden text-ellipsis",
+    rowChev:    "text-[#aaa] text-base shrink-0",
+    sectionLbl: "text-[10px] uppercase tracking-wider text-[#aaa] px-1 pt-2",
+    tagList:    "flex flex-wrap gap-2 px-3.5 py-3",
+    tag:        "bg-[#242424] border-[1.5px] border-[#333] rounded-full px-3.5 py-1.5 text-xs cursor-pointer whitespace-nowrap active:bg-[#DAC7FF] active:text-black",
+    textInput:  "w-full bg-[#242424] border-[1.5px] border-[#333] rounded-[7px] text-[#f0f0f0] font-inherit text-sm px-3 py-2.5 outline-none appearance-none focus:border-[#DAC7FF]",
+    btn:        "flex items-center justify-center gap-2 min-h-[52px] rounded-[10px] border-none font-inherit text-sm font-semibold cursor-pointer w-full px-4 active:brightness-125",
+    btnPrimary: "bg-[#DAC7FF] text-black",
+    btnStop:    "bg-[#D64541] text-white",
+    btnSecondary: "bg-[#242424] text-[#f0f0f0]",
+    btnRow:     "flex gap-2",
+    recNameRow: "px-3.5 py-2",
+    recStatus:  "flex items-center gap-2 px-3.5 py-2 flex-wrap",
+    recDot:     "w-[9px] h-[9px] rounded-full bg-[#D64541] animate-[rec-blink_0.8s_step-start_infinite] shrink-0",
+    clsDanger:  "text-[#D64541]",
+    clsSuccess: "text-[#4CAF50]",
+    clsWarn:    "text-[#f59e0b]",
+  };
+  const _titleColor = { danger: _tw.clsDanger, success: _tw.clsSuccess, warn: _tw.clsWarn };
+
   /* ── Persistence ─────────────────────────────────────────────────────────── */
   function loadConfig() {
     try {
@@ -79,11 +108,12 @@ const App = (() => {
   }
 
   /* ── WS dot sync ────────────────────────────────────────────────────────── */
+  const _wsDotBase = "w-[9px] h-[9px] rounded-full shrink-0";
   function setDot(ok) {
     ["wsDot","wsDot2"].forEach(id => {
       const d = document.getElementById(id);
       if (!d) return;
-      d.className = "ws-dot" + (ok === true ? " ok" : ok === false ? " err" : "");
+      d.className = _wsDotBase + (ok === true ? " bg-[#4CAF50]" : ok === false ? " bg-[#D64541]" : " bg-[#90849c]");
     });
   }
 
@@ -187,9 +217,9 @@ const App = (() => {
     if (monitorItems.length > 200) monitorItems.shift();
     const list = document.getElementById("monitorList");
     const el = document.createElement("div");
-    el.className = "monitor-item";
-    el.innerHTML = `<div class="monitor-item-addr">${esc(d.address)}</div>` +
-                   (args ? `<div class="monitor-item-args">${esc(args)}</div>` : "");
+    el.className = "bg-[#1a1a1a] rounded-md px-3 py-2 text-[11px]";
+    el.innerHTML = `<div class="text-[#DAC7FF]">${esc(d.address)}</div>` +
+                   (args ? `<div class="text-[#aaa]">${esc(args)}</div>` : "");
     list.prepend(el);
     // Trim DOM
     while (list.children.length > 200) list.removeChild(list.lastChild);
@@ -202,20 +232,20 @@ const App = (() => {
   /* ── Messages screen ─────────────────────────────────────────────────────── */
   function loadMessages() {
     const body = document.getElementById("msgListBody");
-    body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
+    body.innerHTML = `<div class="${_tw.card}"><div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">Loading…</div></div></div></div>`;
     showLoading("Fetching messages…");
     osc("list/msgs").then(reply => {
       hideLoading();
       const names = parseNames(reply);
       if (!names.length) {
-        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No messages found</div></div></div></div>`;
+        body.innerHTML = `<div class="${_tw.card}"><div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">No messages found</div></div></div></div>`;
         return;
       }
-      body.innerHTML = `<div class="section-label">Tap to manage</div>`;
-      const card = document.createElement("div"); card.className = "card";
-      names.forEach(name => {
-        const row = document.createElement("div"); row.className = "row";
-        row.innerHTML = `<div class="row-icon">📨</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
+      body.innerHTML = `<div class="${_tw.sectionLbl}">Tap to manage</div>`;
+      const card = document.createElement("div"); card.className = _tw.card;
+      names.forEach((name, i) => {
+        const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+        row.innerHTML = `<div class="${_tw.rowIcon}">📨</div><div class="${_tw.rowText}"><div class="${_tw.rowTitle}">${esc(name)}</div></div><div class="${_tw.rowChev}">›</div>`;
         row.addEventListener("click", () => openMsgDetail(name));
         card.appendChild(row);
       });
@@ -228,16 +258,17 @@ const App = (() => {
     document.getElementById("msgDetailTitle").textContent = name;
     const body = document.getElementById("msgDetailBody");
     body.innerHTML = "";
-    const card = document.createElement("div"); card.className = "card";
+    const card = document.createElement("div"); card.className = _tw.card;
     const actions = [
       { label:"Info",    icon:"ℹ️",  fn: () => _sendAndShow(`msg/${name}/info`, null, `${name} info`) },
       { label:"Enable",  icon:"✅",  cls:"success", fn: () => { _sendNoReply(`msg/${name}/enable`); toast("Enabled"); back(); } },
       { label:"Disable", icon:"🔇",  cls:"warn",    fn: () => { _sendNoReply(`msg/${name}/disable`); toast("Disabled"); back(); } },
       { label:"Delete",  icon:"🗑",  cls:"danger",  fn: () => confirm(`Delete message "${name}"?`, () => { _sendNoReply(`msg/${name}/delete`); toast("Deleted"); back(); }) },
     ];
-    actions.forEach(a => {
-      const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
-      row.innerHTML = `<div class="row-icon">${a.icon}</div><div class="row-text"><div class="row-title">${a.label}</div></div>`;
+    actions.forEach((a, i) => {
+      const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+      const titleCls = _tw.rowTitle + (a.cls && _titleColor[a.cls] ? ` ${_titleColor[a.cls]}` : "");
+      row.innerHTML = `<div class="${_tw.rowIcon}">${a.icon}</div><div class="${_tw.rowText}"><div class="${titleCls}">${a.label}</div></div>`;
       row.addEventListener("click", a.fn);
       card.appendChild(row);
     });
@@ -248,20 +279,20 @@ const App = (() => {
   /* ── Scenes screen ──────────────────────────────────────────────────────── */
   function loadScenes() {
     const body = document.getElementById("sceneListBody");
-    body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
+    body.innerHTML = `<div class="${_tw.card}"><div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">Loading…</div></div></div></div>`;
     showLoading("Fetching scenes…");
     osc("list/scenes").then(reply => {
       hideLoading();
       const names = parseNames(reply);
       if (!names.length) {
-        body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">No scenes found</div></div></div></div>`;
+        body.innerHTML = `<div class="${_tw.card}"><div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">No scenes found</div></div></div></div>`;
         return;
       }
-      body.innerHTML = `<div class="section-label">Tap to manage</div>`;
-      const card = document.createElement("div"); card.className = "card";
-      names.forEach(name => {
-        const row = document.createElement("div"); row.className = "row";
-        row.innerHTML = `<div class="row-icon">🗂</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
+      body.innerHTML = `<div class="${_tw.sectionLbl}">Tap to manage</div>`;
+      const card = document.createElement("div"); card.className = _tw.card;
+      names.forEach((name, i) => {
+        const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+        row.innerHTML = `<div class="${_tw.rowIcon}">🗂</div><div class="${_tw.rowText}"><div class="${_tw.rowTitle}">${esc(name)}</div></div><div class="${_tw.rowChev}">›</div>`;
         row.addEventListener("click", () => openSceneDetail(name));
         card.appendChild(row);
       });
@@ -274,7 +305,7 @@ const App = (() => {
     document.getElementById("sceneDetailTitle").textContent = name;
     const body = document.getElementById("sceneDetailBody");
     body.innerHTML = "";
-    const card = document.createElement("div"); card.className = "card";
+    const card = document.createElement("div"); card.className = _tw.card;
     const actions = [
       { label:"Start",      icon:"▶️", cls:"success", fn: () => { _sendNoReply(`scene/${name}/start`); toast("Started"); } },
       { label:"Stop",       icon:"⏹", cls:"warn",    fn: () => { _sendNoReply(`scene/${name}/stop`);  toast("Stopped"); } },
@@ -282,9 +313,10 @@ const App = (() => {
       { label:"Enable All", icon:"✅",                fn: () => { _sendNoReply(`scene/${name}/enableAll`); toast("All enabled"); } },
       { label:"Delete",     icon:"🗑", cls:"danger",  fn: () => confirm(`Delete scene "${name}"?`, () => { _sendNoReply(`scene/${name}/delete`); toast("Deleted"); back(); }) },
     ];
-    actions.forEach(a => {
-      const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
-      row.innerHTML = `<div class="row-icon">${a.icon}</div><div class="row-text"><div class="row-title">${a.label}</div></div>`;
+    actions.forEach((a, i) => {
+      const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+      const titleCls = _tw.rowTitle + (a.cls && _titleColor[a.cls] ? ` ${_titleColor[a.cls]}` : "");
+      row.innerHTML = `<div class="${_tw.rowIcon}">${a.icon}</div><div class="${_tw.rowText}"><div class="${titleCls}">${a.label}</div></div>`;
       row.addEventListener("click", a.fn);
       card.appendChild(row);
     });
@@ -322,7 +354,7 @@ const App = (() => {
 
   function loadOris() {
     const body = document.getElementById("oriListBody");
-    body.innerHTML = `<div class="card"><div class="row"><div class="row-text"><div class="row-sub">Loading…</div></div></div></div>`;
+    body.innerHTML = `<div class="${_tw.card}"><div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">Loading…</div></div></div></div>`;
     showLoading("Fetching oris…");
     osc("ori/list").then(reply => {
       hideLoading();
@@ -330,14 +362,14 @@ const App = (() => {
       body.innerHTML = "";
 
       /* ── Quick-tap: one button per ori ── */
-      const quickCard = document.createElement("div"); quickCard.className = "card";
-      const quickLabel = document.createElement("div"); quickLabel.className = "card-label";
+      const quickCard = document.createElement("div"); quickCard.className = _tw.card;
+      const quickLabel = document.createElement("div"); quickLabel.className = _tw.cardLabel;
       quickLabel.textContent = "Quick Save — tap to add one sample";
       quickCard.appendChild(quickLabel);
       if (names.length) {
-        const tagList = document.createElement("div"); tagList.className = "tag-list";
+        const tagList = document.createElement("div"); tagList.className = _tw.tagList;
         names.forEach(name => {
-          const tag = document.createElement("button"); tag.className = "tag";
+          const tag = document.createElement("button"); tag.className = _tw.tag;
           tag.textContent = name;
           tag.addEventListener("click", () => {
             _sendNoReply(`ori/save/${name}`);
@@ -347,28 +379,28 @@ const App = (() => {
         });
         quickCard.appendChild(tagList);
       } else {
-        quickCard.innerHTML += `<div class="row"><div class="row-text"><div class="row-sub">No oris registered yet</div></div></div>`;
+        quickCard.innerHTML += `<div class="${_tw.rowFirst}"><div class="${_tw.rowText}"><div class="${_tw.rowSub}">No oris registered yet</div></div></div>`;
       }
       body.appendChild(quickCard);
 
       /* ── Recording section ── */
-      const recCard = document.createElement("div"); recCard.className = "card";
+      const recCard = document.createElement("div"); recCard.className = _tw.card;
       recCard.innerHTML = `
-        <div class="card-label">Record Ori — hold pose, then stop</div>
-        <div class="rec-name-row">
-          <input id="remoteRecName" class="text-input" type="text" placeholder="ori name"
+        <div class="${_tw.cardLabel}">Record Ori — hold pose, then stop</div>
+        <div class="${_tw.recNameRow}">
+          <input id="remoteRecName" class="${_tw.textInput}" type="text" placeholder="ori name"
                  list="remoteOriList" autocomplete="off">
           <datalist id="remoteOriList">
             ${names.map(n => `<option value="${esc(n)}">`).join("")}
           </datalist>
         </div>
-        <button id="btnRemoteRecStart" class="btn btn-full btn-primary">▶ Start Recording</button>
-        <div id="remoteRecStatus" class="remote-rec-status hidden">
-          <span class="rec-dot"></span>
+        <button id="btnRemoteRecStart" class="${_tw.btn} ${_tw.btnPrimary}">▶ Start Recording</button>
+        <div id="remoteRecStatus" class="${_tw.recStatus} hidden">
+          <span class="${_tw.recDot}"></span>
           <span id="remoteRecCounter">0 samples</span>
-          <div class="btn-row" style="margin-top:6px">
-            <button id="btnRemoteRecStop"   class="btn btn-stop">■ Stop</button>
-            <button id="btnRemoteRecCancel" class="btn btn-secondary">✕ Cancel</button>
+          <div class="${_tw.btnRow}" style="margin-top:6px">
+            <button id="btnRemoteRecStop"   class="${_tw.btn} ${_tw.btnStop}">■ Stop</button>
+            <button id="btnRemoteRecCancel" class="${_tw.btn} ${_tw.btnSecondary}">✕ Cancel</button>
           </div>
         </div>`;
       body.appendChild(recCard);
@@ -410,10 +442,10 @@ const App = (() => {
 
       /* ── Full ori list — tap to view details ── */
       if (names.length) {
-        const listCard = document.createElement("div"); listCard.className = "card";
-        names.forEach(name => {
-          const row = document.createElement("div"); row.className = "row";
-          row.innerHTML = `<div class="row-icon">🧭</div><div class="row-text"><div class="row-title">${esc(name)}</div></div><div class="row-chev">›</div>`;
+        const listCard = document.createElement("div"); listCard.className = _tw.card;
+        names.forEach((name, i) => {
+          const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+          row.innerHTML = `<div class="${_tw.rowIcon}">🧭</div><div class="${_tw.rowText}"><div class="${_tw.rowTitle}">${esc(name)}</div></div><div class="${_tw.rowChev}">›</div>`;
           row.addEventListener("click", () => openOriDetail(name));
           listCard.appendChild(row);
         });
@@ -426,16 +458,17 @@ const App = (() => {
     document.getElementById("oriDetailTitle").textContent = name;
     const body = document.getElementById("oriDetailBody");
     body.innerHTML = "";
-    const card = document.createElement("div"); card.className = "card";
+    const card = document.createElement("div"); card.className = _tw.card;
     const actions = [
       { label: "Info",              icon: "ℹ️",              fn: () => _sendAndShow(`ori/info/${name}`, null, `${name} info`) },
       { label: "Quick Save Sample", icon: "📍",              fn: () => { _sendNoReply(`ori/save/${name}`); toast("Sample added"); } },
       { label: "Clear Samples",     icon: "🔄", cls: "warn", fn: () => confirm(`Clear samples for "${name}"?`, () => { _sendNoReply(`ori/reset/${name}`); toast("Samples cleared"); back(); }) },
       { label: "Delete",            icon: "🗑", cls: "danger", fn: () => confirm(`Delete ori "${name}"?`, () => { _sendNoReply(`ori/delete/${name}`); toast("Deleted"); back(); }) },
     ];
-    actions.forEach(a => {
-      const row = document.createElement("div"); row.className = "row" + (a.cls ? ` ${a.cls}` : "");
-      row.innerHTML = `<div class="row-icon">${a.icon}</div><div class="row-text"><div class="row-title">${a.label}</div></div>`;
+    actions.forEach((a, i) => {
+      const row = document.createElement("div"); row.className = i === 0 ? _tw.rowFirst : _tw.row;
+      const titleCls = _tw.rowTitle + (a.cls && _titleColor[a.cls] ? ` ${_titleColor[a.cls]}` : "");
+      row.innerHTML = `<div class="${_tw.rowIcon}">${a.icon}</div><div class="${_tw.rowText}"><div class="${titleCls}">${a.label}</div></div>`;
       row.addEventListener("click", a.fn);
       card.appendChild(row);
     });

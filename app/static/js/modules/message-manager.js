@@ -5,6 +5,7 @@ import { toast, showConfirm } from './toast.js';
 import { sendCmd, addr, sendFlush } from './command.js';
 import { getActiveDev, saveDevicesToStorage } from './device-manager.js';
 import { esc } from './feed.js';
+import { renderGroupedTracker } from './scene-tracker-v1.js';
 
 /* ── Scene lookup for a given message ── */
 
@@ -128,6 +129,7 @@ export function renderMsgTable() {
     tbody.appendChild(expTr);
   });
   renderMsgSceneFilter();
+  renderGroupedTracker();
   if (window._refreshGateMsgSources) window._refreshGateMsgSources();
 }
 

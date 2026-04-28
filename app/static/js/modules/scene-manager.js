@@ -6,6 +6,7 @@ import { sendCmd, addr, sendFlush } from './command.js';
 import { getActiveDev, saveDevicesToStorage } from './device-manager.js';
 import { esc } from './feed.js';
 import { initGatePicker } from './message-manager.js';
+import { renderGroupedTracker } from './scene-tracker-v1.js';
 
 /* ── Scene gate picker instance (uses shared initGatePicker factory) ── */
 
@@ -19,8 +20,13 @@ export const sceneGatePicker = initGatePicker(
 /* ── Render scene table ── */
 
 export function renderSceneTable() {
+  renderGroupedTracker();
+}
+
+function _renderSceneTableLegacy() {
   const dev = getActiveDev();
   const tbody = $("#sceneTableBody");
+  if (!tbody) return;
   tbody.innerHTML = "";
   if (!dev || Object.keys(dev.scenes).length === 0) {
     tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">○</div><div class="empty-text">No scenes tracked yet.</div><div class="empty-sub">Click the device tab → Query to load from device, or create one below.</div></div></td></tr>';

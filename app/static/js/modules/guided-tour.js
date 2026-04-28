@@ -45,9 +45,9 @@ import { $ } from "./state.js";
       body: "Group messages together with shared timing and addressing. Start, stop, or solo scenes to control what streams."
     },
     {
-      sel: '.nav-btn[data-section="direct"]',
-      title: "Direct",
-      body: "The fastest path — pick a sensor, enter a target, and click Send. Gooey creates a message, scene, and starts streaming in one step."
+      sel: '.nav-btn[data-section="ori"]',
+      title: "Ori",
+      body: "Orientation tracking — configure tilt, twist, and rotation conditions that trigger OSC messages when the device moves."
     },
     {
       sel: '.nav-btn[data-section="shows"]',

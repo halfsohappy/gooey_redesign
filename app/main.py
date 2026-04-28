@@ -18,6 +18,7 @@ from .script_runner import ScriptRunner
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "theatergwd-control-center"
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 DEMO_MODE = os.environ.get("DEMO_MODE", "").lower() == "true"
 
@@ -298,6 +299,56 @@ def api_log_clear():
 @app.route("/api/status", methods=["GET"])
 def api_status():
     return jsonify({"status": "ok", **engine.get_status()})
+
+
+@app.route("/api/network-scan", methods=["GET"])
+def api_network_scan():
+    """Return the server machine's current WiFi SSID and a list of visible networks."""
+    import subprocess, platform as _platform
+    current   = None
+    available = []
+    try:
+        sys = _platform.system()
+        if sys == "Darwin":
+            # Current SSID via networksetup
+            r = subprocess.run(
+                ["networksetup", "-getairportnetwork", "en0"],
+                capture_output=True, text=True, timeout=3
+            )
+            if "Current Wi-Fi Network:" in r.stdout:
+                current = r.stdout.split("Current Wi-Fi Network:")[-1].strip()
+            # Available networks via airport utility
+            airport = (
+                "/System/Library/PrivateFrameworks/"
+                "Apple80211.framework/Versions/Current/Resources/airport"
+            )
+            r2 = subprocess.run([airport, "-s"], capture_output=True, text=True, timeout=6)
+            seen = set()
+            for line in r2.stdout.splitlines()[1:]:
+                parts = line.strip().split()
+                if parts:
+                    ssid = parts[0]
+                    if ssid and ssid not in seen:
+                        seen.add(ssid)
+                        available.append(ssid)
+        elif sys == "Linux":
+            r = subprocess.run(["iwgetid", "-r"], capture_output=True, text=True, timeout=3)
+            current = r.stdout.strip() or None
+            r2 = subprocess.run(
+                ["nmcli", "-f", "SSID", "device", "wifi", "list"],
+                capture_output=True, text=True, timeout=6
+            )
+            seen = set()
+            for line in r2.stdout.splitlines()[1:]:
+                ssid = line.strip()
+                if ssid and ssid not in seen:
+                    seen.add(ssid)
+                    available.append(ssid)
+    except Exception:
+        pass
+    if current and current not in available:
+        available.insert(0, current)
+    return jsonify({"status": "ok", "current": current, "available": available})
 
 
 @app.route("/api/my-ip", methods=["GET"])

@@ -5,6 +5,7 @@ import { toast, showConfirm } from "./toast.js";
 import { api } from "./api.js";
 import { getActiveDev, devHost, devPort, devName } from "./device-manager.js";
 import { SENSOR_CATEGORIES } from "./message-manager.js";
+import { setAssumeIpPrefix } from "./field-validation.js";
 
 (function () {
   /* ── Direct auto-start toggle ── */
@@ -125,7 +126,7 @@ import { SENSOR_CATEGORIES } from "./message-manager.js";
     }
 
     function updateIpLabels(prefix) {
-      window._assumeIpPrefix = prefix;
+      setAssumeIpPrefix(prefix);
       let badge = "";
       if (prefix) {
         const prefixDots = (prefix.match(/\./g) || []).length;

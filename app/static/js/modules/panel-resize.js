@@ -175,17 +175,7 @@ $("#btnNotifToggle").addEventListener("click", function () {
   toggleView("notifications");
 });
 
-/* Collapsible reference section blocks */
-(function () {
-  const refContent = $("#viewReference");
-  if (!refContent) return;
-  refContent.addEventListener("click", function (e) {
-    const title = e.target.closest(".ref-section-title");
-    if (!title) return;
-    const block = title.closest(".ref-section-block");
-    if (block) block.classList.toggle("collapsed");
-  });
-}());
+/* Reference collapse is handled natively by daisyUI collapse <input type="checkbox"> */
 
 /* Click on latest notif text also toggles notifications panel */
 const notifLatestEl = $("#notifLatest");
@@ -216,11 +206,8 @@ if (btnNotifClearPanel) {
   const STORAGE_KEY = "gooey_panel_width";
   const MIN_PX = 200;
 
-  /* Restore persisted width */
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) panel.style.width = saved + "px";
-  } catch (e) {}
+  /* Panel width is locked to 50% via CSS — clear any stale saved width */
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
 
   handle.addEventListener("mousedown", function (e) {
     e.preventDefault();

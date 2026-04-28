@@ -23,24 +23,26 @@
     (function(){
       if (GOOEY_DEMO) return; // demo always uses light mode
       var t = localStorage.getItem('gooey-theme');
-      if (t !== 'light')
+      if (t === 'dark') {
         document.documentElement.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'gooey-dark');
+      }
     })();
   </script>
 </head>
-<body>
+<body class="flex flex-col overflow-hidden">
 
   <!-- ===== Main Header ===== -->
-  <header class="main-header">
+  <header class="main-header flex flex-row items-stretch bg-base-300 shrink-0 shadow-md relative z-20 overflow-visible">
 
-    <div class="hdr-content">
+    <div class="hdr-content flex-1 flex flex-col min-w-0">
 
       <!-- ── Main row: devices · query · port ── -->
-      <div class="hdr-row">
+      <div class="hdr-row flex items-stretch min-h-16">
 
         <!-- Device action grid + scrollable 2-row tab strip -->
-        <div class="hdr-devices" id="hdrDevices">
-          <div class="dev-actions-grid">
+        <div class="hdr-devices flex-1 flex flex-row items-stretch px-2 border-r border-base-content/10 overflow-hidden gap-1.5" id="hdrDevices">
+          <div class="dev-actions-grid grid grid-cols-2 grid-rows-2 gap-1 self-stretch shrink-0 py-1.5">
             <button class="hdr-btn" id="btnAddDevice" title="Add device" aria-label="Add device"><i class="bi bi-plus-lg"></i></button>
             <button class="hdr-btn" id="btnSaveDevices" title="Save devices to file" aria-label="Save devices"><i class="bi bi-floppy"></i></button>
             <button class="hdr-btn" id="btnStatusConfigHeader" title="Status config — tell device where to send status messages" aria-label="Status config"><i class="bi bi-wrench"></i></button>
@@ -48,14 +50,14 @@
               <i class="bi bi-folder2-open"></i><input type="file" id="deviceFileInput" accept=".json" style="display:none">
             </label>
           </div>
-          <div class="dev-tabs-wrap" id="devTabsWrap">
+          <div class="dev-tabs-wrap flex-1 min-w-0 flex flex-nowrap items-stretch gap-1.5 py-1.5 overflow-x-auto overflow-y-hidden" id="devTabsWrap">
             <!-- Device tabs injected by JS before sentinel -->
             <div id="hdrDevActions" style="display:none;"></div>
           </div>
         </div>
 
         <!-- Query: button stacked above all-devices checkbox -->
-        <div class="hdr-query">
+        <div class="hdr-query flex-none flex flex-col justify-center gap-1.5 px-3.5 border-r border-base-content/10">
           <button class="hdr-btn hdr-btn-query" id="btnQueryDevice" title="Query verbose — refresh registry">
             <i class="bi bi-arrow-repeat"></i> Query
           </button>
@@ -65,7 +67,7 @@
         </div>
 
         <!-- Port: status stacked above input/apply -->
-        <div class="hdr-port-box">
+        <div class="hdr-port-box flex-none flex flex-col justify-center gap-1.5 px-4.5 border-r border-base-content/10">
           <div class="hdr-port-status">
             <span class="listen-dot" id="listenDot"></span>
             <span class="hdr-listen-label">Listening: <strong id="listenPortDisplay">9000</strong></span>
@@ -82,21 +84,21 @@
       </div><!-- /hdr-row -->
 
       <!-- ── Status strip ── -->
-      <div class="hdr-strip">
+      <div class="hdr-strip flex items-stretch bg-base-content/5 border-t border-base-content/10 min-h-7 font-[family-name:var(--font-body)]">
 
-        <button class="strip-theme-btn" id="btnThemeToggle" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
+        <button class="strip-theme-btn bg-transparent border-none cursor-pointer px-2.5 text-sm text-base-content/35 shrink-0 border-r border-base-content/10 flex items-center" id="btnThemeToggle" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi bi-moon-fill"></i></button>
 
-        <div class="strip-cell">
+        <button class="strip-cell flex items-center gap-1.5 px-4 border-r border-base-content/10 text-xs text-base-content/55 whitespace-nowrap shrink-0 ws-status-btn" id="btnNetworkSettings" title="Network settings" aria-label="Open network settings">
           <span class="ws-dot" id="wsDot"></span>
           <span class="ws-label" id="wsLabel">Connecting…</span>
-        </div>
+        </button>
 
-        <div class="strip-notif">
+        <div class="strip-notif flex-1 flex items-center gap-2 px-3.5 text-xs text-base-content/35 italic overflow-hidden min-w-0">
           <span class="strip-notif-label"><i class="bi bi-bell"></i></span>
           <span class="hdr-notif-latest" id="notifLatest">No notifications</span>
         </div>
 
-        <div class="strip-notif" style="border-left:1px solid var(--overlay-rule)">
+        <div class="strip-notif flex-1 flex items-center gap-2 px-3.5 text-xs text-base-content/35 italic overflow-hidden min-w-0" style="border-left:1px solid var(--overlay-rule)">
           <span class="strip-notif-label"><i class="bi bi-broadcast"></i></span>
           <span id="feedLatest" class="hdr-notif-latest">No feed messages</span>
         </div>
@@ -108,7 +110,7 @@
     </div><!-- /hdr-content -->
 
     <!-- Panel toggle buttons — full height 2×2 -->
-    <div class="hdr-tools">
+    <div class="hdr-tools flex-none grid grid-cols-2 grid-rows-2 gap-1.5 p-2 border-l border-base-content/10 bg-base-content/5 w-44">
       <button class="panel-btn" id="btnFeedToggle" title="Show/hide live feed" aria-label="Toggle feed"><i class="bi bi-broadcast"></i> Feed</button>
       <button class="panel-btn" id="btnSerialToggle" title="Toggle serial monitor" aria-label="Toggle serial monitor"><i class="bi bi-terminal"></i> Serial</button>
       <button class="panel-btn" id="btnNotifToggle" title="Toggle notification history" aria-label="Toggle notifications"><i class="bi bi-bell"></i> Notifs</button>
@@ -138,36 +140,25 @@
 
 
   <!-- ===== Main Split Layout ===== -->
-  <div class="app-layout">
+  <div class="app-layout flex flex-1 overflow-hidden">
 
     <!-- Left: Controls -->
-    <div class="panel-left">
-      <nav class="section-nav">
+    <div class="panel-left flex-1 min-w-[300px] min-h-0 flex flex-col overflow-hidden bg-base-100">
+      <nav class="section-nav flex items-stretch h-11 bg-base-100 border-b border-base-300 overflow-hidden shrink-0 px-3">
         <button class="nav-btn active" data-section="messages" title="View, create, and edit OSC messages">Messages</button>
-        <button class="nav-btn" data-section="scenes" title="Manage scene groups and their messages">Scenes</button>
+        <button class="nav-btn" data-section="scenes" title="Scenes as cards with nested messages">Tracker</button>
         <button class="nav-btn" data-section="ori" title="Orientation tracking and ori conditions">Ori</button>
         <button class="nav-btn" data-section="shows" title="Named show snapshots — save and load full device state">Shows</button>
         <button class="nav-btn" data-section="advanced" title="Raw OSC, bridges, and advanced tools">Advanced</button>
         <button class="nav-btn" data-section="script" id="navScript" title="Write Python scripts for custom routing and processing" style="display:none">Python</button>
       </nav>
 
-      <div class="section-content">
+      <div class="section-content flex-1 overflow-y-auto p-3 scrollbar-none bg-base-200">
 
         <!-- ===== MESSAGES ===== -->
         <section class="section active" id="sec-messages">
 
-          <!-- Welcome banner (shown when no devices added yet) -->
-          <div id="welcomeBanner" class="welcome-banner" style="display:none">
-            <div class="welcome-title">Welcome to annieData</div>
-            <div class="welcome-steps">
-              <div class="welcome-step"><span class="step-num">1</span> Add a device using the <strong>+</strong> button above</div>
-              <div class="welcome-step"><span class="step-num">2</span> Click its tab and choose Query to load its configuration</div>
-              <div class="welcome-step"><span class="step-num">3</span> Create messages and scenes to start sending OSC</div>
-            </div>
-            <button id="btnOnboardTour" class="btn btn-primary welcome-tour-btn">Take a tour!</button>
-          </div>
-
-          <div class="card msg-tracker-card">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm msg-tracker-card">
             <div id="msgSceneFilter" class="msg-scene-filter" style="display:none">
               <span class="msg-filter-label">Scene:</span>
               <button class="msg-filter-chip msg-filter-all active" data-filter="all">All</button>
@@ -194,20 +185,22 @@
             <!-- Bulk action row for pattern matching -->
             <div class="bulk-action-row" id="msgBulkRow">
               <label class="bulk-label">Bulk Action
-                <span class="tooltip-wrap">
-                  <span class="help-icon">?</span>
-                  <span class="tooltip-body tooltip-body-wide">
-                    Match multiple messages by name using OSC wildcards:<br>
-                    <strong>*</strong> — any sequence of characters (e.g. <em>accel*</em>)<br>
-                    <strong>?</strong> — any single character (e.g. <em>gyro?</em>)<br>
-                    <strong>[abc]</strong> — any one character in the set (e.g. <em>ch[ABC]</em>)<br>
-                    <strong>[a-z]</strong> — any one character in the range (e.g. <em>ch[0-9]</em>)<br>
-                    <strong>{foo,bar}</strong> — either name (e.g. <em>{accelX,gyroY}</em>)
-                  </span>
-                </span>
+                <div class="dropdown dropdown-hover dropdown-end inline-block align-middle relative top-[-1px] ml-0.5">
+                  <div tabindex="0" role="button" class="help-icon-btn">?</div>
+                  <div tabindex="0" class="card card-sm dropdown-content bg-base-100 rounded-box z-[9999] w-72 shadow-lg border border-base-300">
+                    <div class="card-body text-sm text-base-content leading-relaxed py-3 px-4">
+                      Match multiple messages by name using OSC wildcards:<br>
+                      <strong>*</strong> — any sequence of characters (e.g. <em>accel*</em>)<br>
+                      <strong>?</strong> — any single character (e.g. <em>gyro?</em>)<br>
+                      <strong>[abc]</strong> — any one character in the set (e.g. <em>ch[ABC]</em>)<br>
+                      <strong>[a-z]</strong> — any one character in the range (e.g. <em>ch[0-9]</em>)<br>
+                      <strong>{foo,bar}</strong> — either name (e.g. <em>{accelX,gyroY}</em>)
+                    </div>
+                  </div>
+                </div>
               </label>
               <input type="text" id="msgBulkPattern" class="bulk-input" placeholder="Pattern, e.g. accel* or {accelX,gyroY}">
-              <select id="msgBulkAction" class="bulk-select">
+              <select id="msgBulkAction" class="select select-sm bulk-select">
                 <optgroup label="Actions">
                   <option value="enable">Enable</option>
                   <option value="disable">Disable</option>
@@ -222,87 +215,98 @@
                 </optgroup>
               </select>
               <input type="text" class="bulk-set-input" id="msgBulkSetVal" placeholder="value">
-              <button class="btn btn-sm btn-primary" id="btnMsgBulk">Apply</button>
+              <button class="btn btn-sm btn-accent" id="btnMsgBulk">Apply</button>
               <span class="bulk-hint" id="msgBulkHint"></span>
             </div>
           </div>
 
-          <div class="card">
-            <h2>Create / Edit Message</h2>
-            <div class="form-row form-row-even">
-              <div class="form-group">
+          <!-- Welcome banner (shown when no devices added yet) -->
+          <div id="welcomeBanner" class="welcome-banner" style="display:none">
+            <div class="welcome-title">Welcome to annieData</div>
+            <div class="welcome-steps">
+              <div class="welcome-step"><span class="step-num">1</span> Add a device using the <strong>+</strong> button above</div>
+              <div class="welcome-step"><span class="step-num">2</span> Click its tab and choose Query to load its configuration</div>
+              <div class="welcome-step"><span class="step-num">3</span> Create messages and scenes to start sending OSC</div>
+            </div>
+            <button id="btnOnboardTour" class="btn btn-accent btn-sm welcome-tour-btn">Take a tour!</button>
+          </div>
+
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm">
+            <h2 class="card-heading">Create / Edit Message</h2>
+            <div class="form-row flex gap-2 flex-wrap items-end form-row-even [&>.form-group]:flex-1 [&>.form-group]:basis-0 [&>.form-group]:min-w-0">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgName">Name</label>
                 <input type="text" id="msgName" placeholder="e.g. accelX">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgCategory">Sensor</label>
-                <select id="msgCategory">
+                <select id="msgCategory" class="select select-sm w-full">
                   <option value="">— pick —</option>
                 </select>
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgValue">Data Stream</label>
-                <select id="msgValue">
+                <select id="msgValue" class="select select-sm w-full">
                   <option value="">— pick sensor —</option>
                 </select>
               </div>
             </div>
             <p id="msgCategoryHint" class="sensor-hint"></p>
             <p id="msgValueHint" class="sensor-hint"></p>
-            <div class="form-row">
-              <div class="form-group">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgIP">Target IP<span class="assume-ip-hint"></span></label>
-                <input type="text" id="msgIP" placeholder="192.168.1.50">
+                <input type="text" id="msgIP" placeholder="192.168.1.50" list="netDestDatalist" autocomplete="off">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="msgPort">Port</label>
                 <input type="text" id="msgPort" value="9000" placeholder="9000 or >ref">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgAdr">Address</label>
                 <input type="text" id="msgAdr" placeholder="/sensor/x">
               </div>
             </div>
-            <div class="form-row" id="msgLoHiRow">
-              <div class="form-group fg-narrow">
+            <div class="form-row flex gap-2 flex-wrap items-end" id="msgLoHiRow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="msgLow">Low</label>
                 <input type="text" id="msgLow" placeholder="0">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="msgHigh">High</label>
                 <input type="text" id="msgHigh" placeholder="1">
               </div>
-              <div class="form-group" id="msgStringGroup" style="display:none;">
+              <div class="form-group flex-1 min-w-[90px] mb-2" id="msgStringGroup" style="display:none;">
                 <label for="msgStringVal">String</label>
                 <input type="text" id="msgStringVal" placeholder="e.g. hello world" autocomplete="off">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgScene">Scene</label>
                 <input type="text" id="msgScene" placeholder="assign to scene" list="sceneNameList">
                 <datalist id="sceneNameList"></datalist>
               </div>
             </div>
             <div class="gate-section" id="msgGateSection" style="display:none;">
-              <div class="form-row gate-row">
-                <div class="form-group gate-src">
+              <div class="form-row flex gap-2 flex-wrap items-end gate-row">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-src">
                   <label for="msgGateSource">Gate Source</label>
-                  <select id="msgGateSource"></select>
+                  <select id="msgGateSource" class="select select-sm w-full"></select>
                 </div>
-                <div class="form-group gate-ori" id="msgGateOriGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-ori" id="msgGateOriGroup" style="display:none;">
                   <label for="msgGateOri">Ori</label>
                   <input type="text" id="msgGateOri" placeholder="e.g. spotlight" list="oriNameList">
                 </div>
-                <div class="form-group gate-bound" id="msgGateLoGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-bound" id="msgGateLoGroup" style="display:none;">
                   <label for="msgGateLo">Lower</label>
                   <input type="text" id="msgGateLo" placeholder="≥">
                 </div>
-                <div class="form-group gate-bound" id="msgGateHiGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-bound" id="msgGateHiGroup" style="display:none;">
                   <label for="msgGateHi">Upper</label>
                   <input type="text" id="msgGateHi" placeholder="≤">
                 </div>
-                <div class="form-group gate-mode">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-mode">
                   <label for="msgGateMode">Mode</label>
-                  <select id="msgGateMode">
+                  <select id="msgGateMode" class="select select-sm w-full">
                     <option value="">— none —</option>
                     <option value="only">Only</option>
                     <option value="not">Not</option>
@@ -312,34 +316,34 @@
               </div>
               <p id="msgGateHint" class="sensor-hint"></p>
             </div>
-            <div class="form-group">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
               <label>Config Preview</label>
               <div class="preview-input" id="msgPreviewAdr" style="margin-bottom:2px; padding:6px 10px; min-height:26px;">&nbsp;</div>
               <div class="preview-input" id="msgPreviewCfg" style="padding:6px 10px; min-height:26px;">&nbsp;</div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnMsgApply" title="Send this message config to the device">Apply to Device</button>
-              <button class="btn btn-accent" id="btnMsgDirect" title="Create message + scene and start streaming immediately (50 ms period)">→ Send Direct</button>
-              <button class="btn btn-secondary" id="btnMsgClear" title="Clear all form fields">Clear Form</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-sm" id="btnMsgApply" title="Send this message config to the device">Apply to Device</button>
+              <button class="btn btn-accent btn-outline btn-sm" id="btnMsgDirect" title="Create message + scene and start streaming immediately (50 ms period)">→ Send Direct</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnMsgClear" title="Clear all form fields">Clear Form</button>
             </div>
           </div>
 
-          <div class="card">
-            <h2>Clone / Rename Message</h2>
-            <div class="form-row">
-              <div class="form-group">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm">
+            <h2 class="card-heading">Clone / Rename Message</h2>
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgSrcName">Source</label>
                 <input type="text" id="msgSrcName" placeholder="existing name" list="msgNameList">
                 <datalist id="msgNameList"></datalist>
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="msgDestName">New Name</label>
                 <input type="text" id="msgDestName" placeholder="new name">
               </div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-mid" id="btnMsgClone" title="Duplicate a message with a new name">Clone</button>
-              <button class="btn btn-mid" id="btnMsgRename" title="Rename an existing message">Rename</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn-mid" id="btnMsgClone" title="Duplicate a message with a new name">Clone</button>
+              <button class="btn-mid" id="btnMsgRename" title="Rename an existing message">Rename</button>
             </div>
           </div>
 
@@ -347,43 +351,29 @@
 
         <!-- ===== SCENES ===== -->
         <section class="section" id="sec-scenes">
-          <div class="card scene-tracker-card">
-              <table id="sceneTable">
-                <colgroup>
-                  <col class="col-status">
-                  <col class="col-name">
-                  <col class="col-msgs">
-                  <col class="col-acts">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Name</th>
-                    <th>Messages</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody id="sceneTableBody">
-                  <tr><td colspan="4"><div class="empty-state empty-state-inline">No scenes tracked yet — Query device or create one below.</div></td></tr>
-                </tbody>
-              </table>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm scene-tracker-card">
+              <div id="sceneTrackerV1">
+                <div class="empty-state empty-state-inline">No scenes yet — Query device or create one below.</div>
+              </div>
             <!-- Bulk action row for pattern matching -->
-            <div class="bulk-action-row" id="sceneBulkRow">
+            <div class="bulk-action-row" id="sceneBulkRow" style="margin-top:10px">
               <label class="bulk-label">Bulk Action
-                <span class="tooltip-wrap">
-                  <span class="help-icon">?</span>
-                  <span class="tooltip-body tooltip-body-wide">
-                    Match multiple scenes by name using OSC wildcards:<br>
-                    <strong>*</strong> — any sequence of characters (e.g. <em>act*</em>)<br>
-                    <strong>?</strong> — any single character (e.g. <em>scene?</em>)<br>
-                    <strong>[abc]</strong> — any one character in the set (e.g. <em>sc[ABC]</em>)<br>
-                    <strong>[a-z]</strong> — any one character in the range (e.g. <em>sc[0-9]</em>)<br>
-                    <strong>{foo,bar}</strong> — either name (e.g. <em>{intro,outro}</em>)
-                  </span>
-                </span>
+                <div class="dropdown dropdown-hover dropdown-end inline-block align-middle relative top-[-1px] ml-0.5">
+                  <div tabindex="0" role="button" class="help-icon-btn">?</div>
+                  <div tabindex="0" class="card card-sm dropdown-content bg-base-100 rounded-box z-[9999] w-72 shadow-lg border border-base-300">
+                    <div class="card-body text-sm text-base-content leading-relaxed py-3 px-4">
+                      Match multiple scenes by name using OSC wildcards:<br>
+                      <strong>*</strong> — any sequence of characters (e.g. <em>act*</em>)<br>
+                      <strong>?</strong> — any single character (e.g. <em>scene?</em>)<br>
+                      <strong>[abc]</strong> — any one character in the set (e.g. <em>sc[ABC]</em>)<br>
+                      <strong>[a-z]</strong> — any one character in the range (e.g. <em>sc[0-9]</em>)<br>
+                      <strong>{foo,bar}</strong> — either name (e.g. <em>{intro,outro}</em>)
+                    </div>
+                  </div>
+                </div>
               </label>
               <input type="text" id="sceneBulkPattern" class="bulk-input" placeholder="Pattern, e.g. sens* or {mix,fx}">
-              <select id="sceneBulkAction" class="bulk-select">
+              <select id="sceneBulkAction" class="select select-sm bulk-select">
                 <optgroup label="Actions">
                   <option value="start">Start</option>
                   <option value="stop">Stop</option>
@@ -398,37 +388,39 @@
                 </optgroup>
               </select>
               <input type="text" class="bulk-set-input" id="sceneBulkSetVal" placeholder="value">
-              <button class="btn btn-sm btn-primary" id="btnSceneBulk">Apply</button>
+              <button class="btn btn-sm btn-accent" id="btnSceneBulk">Apply</button>
               <span class="bulk-hint" id="sceneBulkHint"></span>
             </div>
           </div>
 
-          <div class="card">
-            <h2>Create / Edit Scene</h2>
-            <div class="form-row">
-              <div class="form-group">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm">
+            <h2 class="card-heading">Create / Edit Scene</h2>
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="sceneName">Scene Name</label>
                 <input type="text" id="sceneName" placeholder="e.g. sensors" list="sceneNameList2">
                 <datalist id="sceneNameList2"></datalist>
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="scenePeriod">Period (ms)</label>
                 <input type="number" id="scenePeriod" value="50" min="1">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="sceneAdrMode">
                   Address Mode
-                  <span class="tooltip-wrap">
-                    <span class="help-icon">?</span>
-                    <span class="tooltip-body tooltip-body-wide">
-                      <strong>fallback</strong> — use message address; scene value only if message has none.<br>
-                      <strong>override</strong> — always use scene address instead of message address.<br>
-                      <strong>prepend</strong> — prepend scene address to message address.<br>
-                      <strong>append</strong> — append scene address after message address.
-                    </span>
-                  </span>
+                  <div class="dropdown dropdown-hover dropdown-end inline-block align-middle relative top-[-1px] ml-0.5">
+                    <div tabindex="0" role="button" class="help-icon-btn">?</div>
+                    <div tabindex="0" class="card card-sm dropdown-content bg-base-100 rounded-box z-[9999] w-72 shadow-lg border border-base-300">
+                      <div class="card-body text-sm text-base-content leading-relaxed py-3 px-4">
+                        <strong>fallback</strong> — use message address; scene value only if message has none.<br>
+                        <strong>override</strong> — always use scene address instead of message address.<br>
+                        <strong>prepend</strong> — prepend scene address to message address.<br>
+                        <strong>append</strong> — append scene address after message address.
+                      </div>
+                    </div>
+                  </div>
                 </label>
-                <select id="sceneAdrMode">
+                <select id="sceneAdrMode" class="select select-sm w-full">
                   <option value="fallback">fallback</option>
                   <option value="override">override</option>
                   <option value="prepend">prepend</option>
@@ -436,38 +428,40 @@
                 </select>
               </div>
             </div>
-            <div class="form-row">
-              <div class="form-group">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="sceneIP">IP<span class="assume-ip-hint"></span></label>
-                <input type="text" id="sceneIP" placeholder="e.g. 192.168.1.50">
+                <input type="text" id="sceneIP" placeholder="e.g. 192.168.1.50" list="netDestDatalist" autocomplete="off">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="scenePort">Port</label>
                 <input type="text" id="scenePort" value="9000" placeholder="9000 or >ref">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="sceneAdr">OSC Address</label>
                 <input type="text" id="sceneAdr" placeholder="e.g. /sensor">
               </div>
             </div>
-            <div class="form-row form-row-lowhigh">
-              <div class="form-group fg-narrow">
+            <div class="form-row flex gap-2 flex-wrap items-end form-row-lowhigh">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="sceneLow">Low</label>
                 <input type="number" id="sceneLow" step="any" placeholder="e.g. 0">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="sceneHigh">High</label>
                 <input type="number" id="sceneHigh" step="any" placeholder="e.g. 255">
               </div>
-              <div class="form-group form-group-override">
+              <div class="form-group flex-1 min-w-[90px] mb-2 form-group-override">
                 <label>
                   Override Flags
-                  <span class="tooltip-wrap">
-                    <span class="help-icon">?</span>
-                    <span class="tooltip-body tooltip-body-wide">
-                      Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
-                    </span>
-                  </span>
+                  <div class="dropdown dropdown-hover dropdown-end inline-block align-middle relative top-[-1px] ml-0.5">
+                    <div tabindex="0" role="button" class="help-icon-btn">?</div>
+                    <div tabindex="0" class="card card-sm dropdown-content bg-base-100 rounded-box z-[9999] w-72 shadow-lg border border-base-300">
+                      <div class="card-body text-sm text-base-content leading-relaxed py-3 px-4">
+                        Check each field that this scene should <strong>override</strong> in messages. When overridden, the scene's value replaces the message's value for that field when sending.
+                      </div>
+                    </div>
+                  </div>
                 </label>
                 <div class="cb-row">
                   <label class="cb-label"><input type="checkbox" id="ovIP"> ip</label>
@@ -479,26 +473,26 @@
               </div>
             </div>
             <div class="gate-section" id="sceneGateSection" style="display:none;">
-              <div class="form-row gate-row">
-                <div class="form-group gate-src">
+              <div class="form-row flex gap-2 flex-wrap items-end gate-row">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-src">
                   <label for="sceneGateSource">Scene Gate</label>
-                  <select id="sceneGateSource"></select>
+                  <select id="sceneGateSource" class="select select-sm w-full"></select>
                 </div>
-                <div class="form-group gate-ori" id="sceneGateOriGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-ori" id="sceneGateOriGroup" style="display:none;">
                   <label for="sceneGateOri">Ori</label>
                   <input type="text" id="sceneGateOri" placeholder="ori name" list="oriNameList">
                 </div>
-                <div class="form-group gate-bound" id="sceneGateLoGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-bound" id="sceneGateLoGroup" style="display:none;">
                   <label for="sceneGateLo">Lower</label>
                   <input type="text" id="sceneGateLo" placeholder="≥">
                 </div>
-                <div class="form-group gate-bound" id="sceneGateHiGroup" style="display:none;">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-bound" id="sceneGateHiGroup" style="display:none;">
                   <label for="sceneGateHi">Upper</label>
                   <input type="text" id="sceneGateHi" placeholder="≤">
                 </div>
-                <div class="form-group gate-mode">
+                <div class="form-group flex-1 min-w-[90px] mb-2 gate-mode">
                   <label for="sceneGateMode">Mode</label>
-                  <select id="sceneGateMode">
+                  <select id="sceneGateMode" class="select select-sm w-full">
                     <option value="">—</option>
                     <option value="only">Only</option>
                     <option value="not">Not</option>
@@ -509,20 +503,20 @@
               </div>
               <p id="sceneGateHint" class="sensor-hint"></p>
             </div>
-            <div class="form-group">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
               <label>Config Preview</label>
               <div class="preview-input" id="scenePreviewAdr" style="margin-bottom:2px; padding:6px 10px; min-height:26px;">&nbsp;</div>
               <div class="preview-input" id="scenePreviewCfg" style="padding:6px 10px; min-height:26px;">&nbsp;</div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-accent" id="btnSceneApplyActive" title="Apply config and start scene immediately">Apply Active</button>
-              <button class="btn btn-primary" id="btnSceneApplyStopped" title="Apply config without starting scene">Apply Stopped</button>
-              <button class="btn btn-secondary" id="btnSceneClear" title="Clear all fields in the scene editor">Clear Form</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-outline btn-sm" id="btnSceneApplyActive" title="Apply config and start scene immediately">Apply Active</button>
+              <button class="btn btn-accent btn-sm" id="btnSceneApplyStopped" title="Apply config without starting scene">Apply Stopped</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnSceneClear" title="Clear all fields in the scene editor">Clear Form</button>
             </div>
           </div>
 
-          <div class="card scene-ops-card">
-            <h2>Scene Functions</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm scene-ops-card">
+            <h2 class="card-heading">Scene Functions</h2>
             <div class="scene-ops-tabs">
               <button class="scene-ops-tab-btn active" data-tab="msgs">Messages</button>
               <button class="scene-ops-tab-btn" data-tab="clone">Clone / Rename</button>
@@ -530,13 +524,13 @@
             </div>
 
             <div class="scene-ops-tab-pane active" id="sceneOpsPane-msgs">
-              <div class="form-row">
-                <div class="form-group">
+              <div class="form-row flex gap-2 flex-wrap items-end">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="sceneMsgScene">Scene</label>
                   <input type="text" id="sceneMsgScene" placeholder="scene name" list="sceneNameList3">
                   <datalist id="sceneNameList3"></datalist>
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <div class="label-with-hint">
                     <label for="sceneMsgNames">Message(s)</label>
                     <span class="hint">(comma-sep)</span>
@@ -545,45 +539,45 @@
                   <datalist id="msgNameList2"></datalist>
                 </div>
               </div>
-              <div class="btn-row">
-                <button class="btn btn-primary" id="btnSceneAddMsg" title="Add message(s) to the scene">Add to Scene</button>
-                <button class="btn btn-warn" id="btnSceneRemoveMsg" title="Remove message(s) from the scene">Remove from Scene</button>
-                <button class="btn btn-mid" id="btnSceneMove" title="Move message(s) from their current scene to this one">Move</button>
+              <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+                <button class="btn btn-accent btn-sm" id="btnSceneAddMsg" title="Add message(s) to the scene">Add to Scene</button>
+                <button class="btn-warn" id="btnSceneRemoveMsg" title="Remove message(s) from the scene">Remove from Scene</button>
+                <button class="btn-mid" id="btnSceneMove" title="Move message(s) from their current scene to this one">Move</button>
               </div>
             </div>
 
             <div class="scene-ops-tab-pane" id="sceneOpsPane-clone">
-              <div class="form-row">
-                <div class="form-group">
+              <div class="form-row flex gap-2 flex-wrap items-end">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="sceneSrcName">Source</label>
                   <input type="text" id="sceneSrcName" placeholder="existing scene" list="sceneNameList4">
                   <datalist id="sceneNameList4"></datalist>
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="sceneDestName">New Name</label>
                   <input type="text" id="sceneDestName" placeholder="new name">
                 </div>
               </div>
-              <div class="btn-row">
-                <button class="btn btn-mid" id="btnSceneClone" title="Duplicate a scene with a new name">Clone</button>
-                <button class="btn btn-mid" id="btnSceneRename" title="Rename an existing scene">Rename</button>
+              <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+                <button class="btn-mid" id="btnSceneClone" title="Duplicate a scene with a new name">Clone</button>
+                <button class="btn-mid" id="btnSceneRename" title="Rename an existing scene">Rename</button>
               </div>
             </div>
 
             <div class="scene-ops-tab-pane" id="sceneOpsPane-setall">
-              <div class="form-row">
-                <div class="form-group">
+              <div class="form-row flex gap-2 flex-wrap items-end">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="sceneSetAllScene">Scene</label>
                   <input type="text" id="sceneSetAllScene" placeholder="scene name" list="sceneNameListSetAll">
                   <datalist id="sceneNameListSetAll"></datalist>
                 </div>
-                <div class="form-group">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="sceneSetAllCfg">Config String</label>
                   <input type="text" id="sceneSetAllCfg" placeholder="e.g. low:0, high:255">
                 </div>
               </div>
-              <div class="btn-row">
-                <button class="btn btn-primary" id="btnSceneSetAll" title="Apply this config to all messages in the scene">Apply setAll</button>
+              <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+                <button class="btn btn-accent btn-sm" id="btnSceneSetAll" title="Apply this config to all messages in the scene">Apply setAll</button>
               </div>
             </div>
           </div>
@@ -592,7 +586,7 @@
         <!-- ===== ORI ===== -->
         <section class="section" id="sec-ori">
 
-          <div class="card ori-tracker-card" data-card-id="ori-list">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm ori-tracker-card" data-card-id="ori-list">
               <table class="data-table" id="oriTable">
                 <thead>
                   <tr>
@@ -607,17 +601,17 @@
               <div class="ori-tracker-footer">
                 <input type="text" id="oriName" placeholder="ori name" autocomplete="off" list="oriNameList">
                 <datalist id="oriNameList"></datalist>
-                <div class="btn-row">
-                  <button class="btn btn-primary" id="btnRegisterOri" title="Create a named ori slot on the device">Register</button>
-                  <button class="btn btn-accent" id="btnRecordStart" title="Start a recording session — move device through all poses for this ori, then Stop">▶ Start Recording</button>
-                  <button class="btn btn-primary" id="btnOriSave" title="Instantly save the device's current orientation as a single sample">Quick-Save</button>
-                  <button class="btn btn-warn" id="btnOriClear2" title="Clear samples from this ori (keeps the slot)">Reset</button>
-                  <button class="btn btn-danger" id="btnOriDelete" title="Delete this ori from the device">Delete</button>
+                <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+                  <button class="btn btn-accent btn-sm" id="btnRegisterOri" title="Create a named ori slot on the device">Register</button>
+                  <button class="btn btn-accent btn-outline btn-sm" id="btnRecordStart" title="Start a recording session — move device through all poses for this ori, then Stop">▶ Start Recording</button>
+                  <button class="btn btn-accent btn-sm" id="btnOriSave" title="Instantly save the device's current orientation as a single sample">Quick-Save</button>
+                  <button class="btn-warn" id="btnOriClear2" title="Clear samples from this ori (keeps the slot)">Reset</button>
+                  <button class="btn btn-error btn-sm" id="btnOriDelete" title="Delete this ori from the device">Delete</button>
                 </div>
               </div>
           </div>
 
-          <div class="ori-explainer card" id="oriExplainerCard">
+          <div class="ori-explainer card bg-base-100 border border-base-300 rounded-lg p-4 mb-3 shadow-sm" id="oriExplainerCard">
             <div class="card-title-row">
               <span class="card-title">◎ How Orientations (Oris) Work</span>
               <button class="help-btn" id="oriExplainerDismiss" aria-label="Dismiss explainer" title="Dismiss">✕</button>
@@ -637,56 +631,56 @@
           </div>
 
 
-          <div class="card" data-card-id="ori-details" id="oriDetailsCard" style="display:none">
-            <h2>Ori Details</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="ori-details" id="oriDetailsCard" style="display:none">
+            <h2 class="card-heading">Ori Details</h2>
             <div id="oriDetailsContent"></div>
           </div>
 
-          <div class="card" data-card-id="ori-actions">
-            <h2>Global Ori Actions</h2>
-            <div class="btn-row" style="align-items:flex-end;">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="ori-actions">
+            <h2 class="card-heading">Global Ori Actions</h2>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1" style="align-items:flex-end;">
               <div style="display:flex;flex-direction:column;gap:3px;">
                 <label for="oriThreshold">Threshold <span style="text-transform:none;font-weight:400;">(rad/s)</span></label>
-                <div style="display:flex;gap:0;align-items:stretch;">
+                <div class="join-row">
                   <input type="number" id="oriThreshold" value="1.5" step="0.1" min="0" style="width:70px;border-radius:var(--radius,5px) 0 0 var(--radius,5px);border-right:none;">
-                  <button class="btn btn-mid" id="btnOriThreshold" title="Set motion gate threshold — device must be still below this rad/s before matching" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set Threshold</button>
+                  <button class="btn-mid" id="btnOriThreshold" title="Set motion gate threshold — device must be still below this rad/s before matching" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set Threshold</button>
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:3px;">
                 <label for="oriHysteresis">Hysteresis <span style="text-transform:none;font-weight:400;">(deg)</span></label>
-                <div style="display:flex;gap:0;align-items:stretch;">
+                <div class="join-row">
                   <input type="number" id="oriHysteresis" value="5" step="1" min="0" style="width:60px;border-radius:var(--radius,5px) 0 0 var(--radius,5px);border-right:none;">
-                  <button class="btn btn-mid" id="btnOriHysteresis" title="Challenger ori must beat current by this many degrees before switching — prevents boundary toggling" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set</button>
+                  <button class="btn-mid" id="btnOriHysteresis" title="Challenger ori must beat current by this many degrees before switching — prevents boundary toggling" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set</button>
                 </div>
               </div>
-              <button class="btn btn-secondary" id="btnOriList" title="Query device for all saved oris">List Oris</button>
-              <button class="btn btn-secondary" id="btnOriWatch" title="Toggle real-time active ori push notifications from device">Watch</button>
-              <button class="btn btn-danger" id="btnOriClear" title="Clear all oris from device">Clear All</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnOriList" title="Query device for all saved oris">List Oris</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnOriWatch" title="Toggle real-time active ori push notifications from device">Watch</button>
+              <button class="btn btn-error btn-sm" id="btnOriClear" title="Clear all oris from device">Clear All</button>
             </div>
           </div>
 
-          <div class="card" data-card-id="ori-settings">
-            <h2>Strict Matching</h2>
-            <div class="btn-row" style="align-items:flex-end;margin-bottom:8px;">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="ori-settings">
+            <h2 class="card-heading">Strict Matching</h2>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1" style="align-items:flex-end;margin-bottom:8px;">
               <div style="display:flex;flex-direction:column;gap:3px;">
                 <label for="oriTolerance">Tolerance <span style="text-transform:none;font-weight:400;">(deg)</span></label>
-                <div style="display:flex;gap:0;align-items:stretch;">
+                <div class="join-row">
                   <input type="number" id="oriTolerance" value="10" step="1" min="0" style="width:70px;border-radius:var(--radius,5px) 0 0 var(--radius,5px);border-right:none;">
-                  <button class="btn btn-mid" id="btnOriTolerance" title="Set angular match tolerance" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set Tolerance</button>
+                  <button class="btn-mid" id="btnOriTolerance" title="Set angular match tolerance" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set Tolerance</button>
                 </div>
               </div>
-              <button class="btn btn-mid" id="btnOriStrict" title="Apply strict matching — device won't fall back to nearest ori when none match">Apply Strict</button>
-              <button class="btn btn-mid" id="btnOriNearest" title="Apply nearest matching — always fall back to the closest ori when none match exactly">Apply Nearest</button>
+              <button class="btn-mid" id="btnOriStrict" title="Apply strict matching — device won't fall back to nearest ori when none match">Apply Strict</button>
+              <button class="btn-mid" id="btnOriNearest" title="Apply nearest matching — always fall back to the closest ori when none match exactly">Apply Nearest</button>
             </div>
-            <div class="btn-row" style="align-items:flex-end;">
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1" style="align-items:flex-end;">
               <div style="display:flex;flex-direction:column;gap:3px;">
                 <label for="oriGeneralName">General Ori <span style="text-transform:none;font-weight:400;">(fallback)</span></label>
-                <div style="display:flex;gap:0;align-items:stretch;">
+                <div class="join-row">
                   <input type="text" id="oriGeneralName" placeholder="ori name" list="oriNameList" style="width:160px;border-radius:var(--radius,5px) 0 0 var(--radius,5px);border-right:none;">
-                  <button class="btn btn-mid" id="btnOriGeneral" title="Set this ori as the general fallback when strict matching finds no exact match" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set General</button>
+                  <button class="btn-mid" id="btnOriGeneral" title="Set this ori as the general fallback when strict matching finds no exact match" style="border-radius:0 var(--radius,5px) var(--radius,5px) 0;">Set General</button>
                 </div>
               </div>
-              <button class="btn btn-warn" id="btnOriRemoveGeneral" title="Remove the general fallback ori">Remove General</button>
+              <button class="btn-warn" id="btnOriRemoveGeneral" title="Remove the general fallback ori">Remove General</button>
             </div>
           </div>
         </section>
@@ -694,32 +688,32 @@
         <!-- ===== SHOWS ===== -->
         <section class="section" id="sec-shows">
 
-          <div class="card" data-card-id="shows-query">
-            <h2>Query</h2>
-            <div class="btn-row">
-              <button class="btn btn-secondary" id="btnShowListDevice">Query Device Shows</button>
-              <button class="btn btn-secondary" id="btnShowListLibrary">Refresh Library</button>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="shows-query">
+            <h2 class="card-heading">Query</h2>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-ghost-bordered btn-sm" id="btnShowListDevice">Query Device Shows</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnShowListLibrary">Refresh Library</button>
             </div>
           </div>
 
-          <div class="card" data-card-id="shows-save">
-            <h2>Save Current State as Show</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="shows-save">
+            <h2 class="card-heading">Save Current State as Show</h2>
             <p class="hint-text">Snapshots all current messages, scenes, and oris on the device into a named slot (up to 4 on device, unlimited in Gooey library).</p>
-            <div class="form-row">
-              <div class="form-group">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="showSaveName">Show Name</label>
                 <input type="text" id="showSaveName" placeholder="e.g. act1" autocomplete="off" list="showNameList">
                 <datalist id="showNameList"></datalist>
               </div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnShowSaveDevice" title="Save to device NVS">Save to Device</button>
-              <button class="btn btn-secondary" id="btnShowSaveLibrary" title="Save to Gooey library (disk JSON)">Save to Library</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-sm" id="btnShowSaveDevice" title="Save to device NVS">Save to Device</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnShowSaveLibrary" title="Save to Gooey library (disk JSON)">Save to Library</button>
             </div>
           </div>
 
-          <div class="card" data-card-id="shows-device">
-            <h2>On Device</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="shows-device">
+            <h2 class="card-heading">On Device</h2>
             <p class="hint-text">Shows stored in device NVS (max 16). Loading a show replaces <strong>all</strong> current messages, scenes, and oris on the device.</p>
             <table class="data-table" id="showDeviceTable">
               <thead><tr><th>Name</th><th>Actions</th></tr></thead>
@@ -732,8 +726,8 @@
             </table>
           </div>
 
-          <div class="card" data-card-id="shows-library">
-            <h2>Local Library</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="shows-library">
+            <h2 class="card-heading">Local Library</h2>
             <p class="hint-text">Shows saved as JSON files in <code>gooey/data/shows/</code>. Human-readable and editable. Load to device pushes all data then saves a device NVS snapshot.</p>
             <table class="data-table" id="showLibraryTable">
               <thead><tr><th>Name</th><th>Saved</th><th>Actions</th></tr></thead>
@@ -752,44 +746,44 @@
         <section class="section" id="sec-advanced">
 
           <!-- IMU Calibration card -->
-          <div class="card" data-card-id="imu-cal">
-            <h2>IMU Calibration</h2>
-            <div class="form-row">
-              <div class="form-group">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="imu-cal">
+            <h2 class="card-heading">IMU Calibration</h2>
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="imuAccelScale">Accel Scale (m/s²)<span class="hint">±value maps to stream [0,1] · default 4</span></label>
                 <input type="number" id="imuAccelScale" value="4" min="0.5" max="50" step="0.5">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="imuGyroScale">Gyro Scale (rad/s)<span class="hint">±value maps to stream [0,1] · default 4</span></label>
                 <input type="number" id="imuGyroScale" value="4" min="0.5" max="20" step="0.5">
               </div>
-              <div class="form-group fg-narrow" style="align-self:flex-end;display:flex;flex-direction:column;gap:4px;">
-                <button class="btn btn-secondary" id="btnImuScaleSet">Set Scales</button>
-                <button class="btn btn-ghost btn-sm" id="btnImuScaleQuery">Query</button>
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow" style="align-self:flex-end;display:flex;flex-direction:column;gap:4px;">
+                <button class="btn btn-ghost-bordered btn-sm" id="btnImuScaleSet">Set Scales</button>
+                <button class="btn btn-ghost-bordered btn-sm" id="btnImuScaleQuery">Query</button>
               </div>
             </div>
-            <div class="form-row" style="margin-top:6px;">
-              <div class="form-group">
+            <div class="form-row flex gap-2 flex-wrap items-end" style="margin-top:6px;">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="imuEulerOrder">Euler Order<span class="hint">Override applied at next tare · default Auto</span></label>
-                <select id="imuEulerOrder">
+                <select id="imuEulerOrder" class="select select-sm w-full">
                   <option value="auto">Auto (recommended)</option>
                   <option value="zyx">ZYX — singular on pitch</option>
                   <option value="zxy">ZXY — singular on roll</option>
                 </select>
               </div>
-              <div class="form-group fg-narrow" style="align-self:flex-end;">
-                <button class="btn btn-secondary" id="btnImuEulerOrderSet">Set Order</button>
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow" style="align-self:flex-end;">
+                <button class="btn btn-ghost-bordered btn-sm" id="btnImuEulerOrderSet">Set Order</button>
               </div>
             </div>
-            <div class="form-row" style="margin-top:6px;">
-              <div class="form-group fg-narrow" style="align-self:flex-end;">
-                <button class="btn btn-ghost btn-sm" id="btnImuTareStatus" title="Query tare status, active euler order, and swing-twist offsets from device">Query Tare Status</button>
+            <div class="form-row flex gap-2 flex-wrap items-end" style="margin-top:6px;">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow" style="align-self:flex-end;">
+                <button class="btn btn-ghost-bordered btn-sm" id="btnImuTareStatus" title="Query tare status, active euler order, and swing-twist offsets from device">Query Tare Status</button>
               </div>
             </div>
           </div>
 
-          <div class="card" data-card-id="advanced-tools">
-            <h2>Advanced Tools</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="advanced-tools">
+            <h2 class="card-heading">Advanced Tools</h2>
             <div class="cb-row">
               <label class="cb-label cb-label-lg" title="After Send Direct, automatically start the scene immediately"><input type="checkbox" id="chkDirectAutoStart" style="transform: scale(1.25);" checked>  Auto-start scene after Send Direct</label>
             </div>
@@ -809,10 +803,10 @@
               <label class="cb-label cb-label-lg" title="Show raw quaternion components (quatI/J/K/R) in data stream dropdowns"><input type="checkbox" id="chkShowQuats" style="transform: scale(1.25);">  Show quaternion data streams in data streams</label>
             </div>
             <div class="assume-ip-section">
-              <div class="form-row" style="align-items:flex-end">
-                <div class="form-group">
+              <div class="form-row flex gap-2 flex-wrap items-end" style="align-items:flex-end">
+                <div class="form-group flex-1 min-w-[90px] mb-2">
                   <label for="assumeIpSelect">Assume IP</label>
-                  <select id="assumeIpSelect">
+                  <select id="assumeIpSelect" class="select select-sm w-full">
                     <option value="">— none —</option>
                     <option value="192.168.8.">192.168.8.X</option>
                     <option value="192.168.1.">192.168.1.X</option>
@@ -826,7 +820,7 @@
                     <option value="custom">Custom…</option>
                   </select>
                 </div>
-                <div class="form-group" id="assumeIpCustomGroup" style="display:none">
+                <div class="form-group flex-1 min-w-[90px] mb-2" id="assumeIpCustomGroup" style="display:none">
                   <label for="assumeIpCustom">Custom prefix</label>
                   <input type="text" id="assumeIpCustom" placeholder="e.g. 192.168.2.">
                 </div>
@@ -835,132 +829,132 @@
             </div>
           </div>
 
-          <div class="card" data-card-id="raw-osc">
-            <h2>Raw OSC Send</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="raw-osc">
+            <h2 class="card-heading">Raw OSC Send</h2>
             <p class="hint-text">Send any arbitrary OSC message. Arguments are space-separated by default.</p>
-            <div class="form-row">
-              <div class="form-group">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="rawHost">Host<span class="assume-ip-hint"></span></label>
-                <input type="text" id="rawHost" value="127.0.0.1">
+                <input type="text" id="rawHost" value="127.0.0.1" list="netDestDatalist" autocomplete="off">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="rawPort">Port</label>
                 <input type="number" id="rawPort" value="8000" min="1" max="65535">
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
               <label for="rawAddress">OSC Address</label>
               <input type="text" id="rawAddress" placeholder="/path/to/control">
             </div>
-            <div class="form-group">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
               <label for="rawArgs">Arguments <span class="hint">(space-separated unless "single string" is checked)</span></label>
               <input type="text" id="rawArgs" placeholder='1 2.0 "hello"'>
             </div>
             <div class="cb-row">
               <label class="cb-label" title="Send the entire argument field as one string argument instead of splitting on spaces"><input type="checkbox" id="rawSingleString"> Send as single string</label>
             </div>
-            <div class="form-row">
-              <div class="form-group fg-narrow">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="rawInterval">Interval (ms)</label>
                 <input type="number" id="rawInterval" value="1000" min="10">
               </div>
             </div>
-            <div class="btn-row">
-              <button class="btn btn-primary" id="btnRawSend" title="Send this OSC message once">Send Once</button>
-              <button class="btn btn-accent" id="btnRawRepeat" title="Send this message repeatedly at the interval above">Start Repeat</button>
-              <button class="btn btn-stop" id="btnRawStop" disabled title="Stop the repeated send">Stop Repeat</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-sm" id="btnRawSend" title="Send this OSC message once">Send Once</button>
+              <button class="btn btn-accent btn-outline btn-sm" id="btnRawRepeat" title="Send this message repeatedly at the interval above">Start Repeat</button>
+              <button class="btn-stop" id="btnRawStop" disabled title="Stop the repeated send">Stop Repeat</button>
             </div>
           </div>
 
-          <div class="card" data-card-id="bridge">
-            <h2>Bridge</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="bridge">
+            <h2 class="card-heading">Bridge</h2>
             <p class="hint-text">Forward OSC messages from one port to another host/port.</p>
-            <div class="form-row">
-              <div class="form-group fg-narrow">
+            <div class="form-row flex gap-2 flex-wrap items-end">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="bridgeInPort">Listen Port</label>
                 <input type="number" id="bridgeInPort" value="7001" min="1" max="65535">
               </div>
-              <div class="form-group">
+              <div class="form-group flex-1 min-w-[90px] mb-2">
                 <label for="bridgeOutHost">→ Host<span class="assume-ip-hint"></span></label>
-                <input type="text" id="bridgeOutHost" value="127.0.0.1">
+                <input type="text" id="bridgeOutHost" value="127.0.0.1" list="netDestDatalist" autocomplete="off">
               </div>
-              <div class="form-group fg-narrow">
+              <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
                 <label for="bridgeOutPort">→ Port</label>
                 <input type="number" id="bridgeOutPort" value="7010" min="1" max="65535">
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
               <label for="bridgeFilter">Filter <span class="hint">(prefix - to exclude)</span></label>
               <input type="text" id="bridgeFilter" placeholder="e.g. sensor or -debug">
             </div>
-            <div class="btn-row">
-              <button class="btn btn-accent" id="btnBridgeStart" title="Start forwarding messages from listen port to target">Start Bridge</button>
-              <button class="btn btn-stop" id="btnBridgeStop" disabled title="Stop all active bridges">Stop All Bridges</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-outline btn-sm" id="btnBridgeStart" title="Start forwarding messages from listen port to target">Start Bridge</button>
+              <button class="btn-stop" id="btnBridgeStop" disabled title="Stop all active bridges">Stop All Bridges</button>
             </div>
             <div class="active-list" id="activeBridges"></div>
           </div>
 
 
 
-          <div class="card qr-card" data-card-id="remote-qr">
-            <h2>Mobile Remote</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm qr-card" data-card-id="remote-qr">
+            <h2 class="card-heading">Mobile Remote</h2>
             <p class="hint-text">Scan from your phone or tablet to open the annieData remote on your local network.</p>
             <img id="remoteQRImg" class="qr-canvas" src="/api/remote-qr" alt="Remote QR code">
             <div id="remoteQRUrl" class="qr-url"></div>
-            <div class="btn-row" style="margin-top:8px">
-              <button class="btn btn-secondary" id="btnCopyRemoteUrl">Copy URL</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1" style="margin-top:8px">
+              <button class="btn btn-ghost-bordered btn-sm" id="btnCopyRemoteUrl">Copy URL</button>
             </div>
           </div>
         </section>
 
         <!-- ===== PYTHON ===== -->
         <section class="section" id="sec-script">
-          <div class="card" data-card-id="script-editor">
-            <h2>Python Editor</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="script-editor">
+            <h2 class="card-heading">Python Editor</h2>
             <p class="hint-text">Write Python to process sensor data and send OSC messages. Use <code>sensor("accelX")</code> to read values and <code>osc_send(host, port, addr, val)</code> to send.</p>
 
-            <div class="form-row" style="align-items:flex-end; gap:10px;">
-              <div class="form-group" style="flex:1; min-width:130px;">
+            <div class="form-row flex gap-2 flex-wrap items-end" style="align-items:flex-end; gap:10px;">
+              <div class="form-group flex-1 min-w-[90px] mb-2" style="flex:1; min-width:130px;">
                 <label for="scriptMode">Mode</label>
-                <select id="scriptMode">
+                <select id="scriptMode" class="select select-sm w-full">
                   <option value="loop" selected>Loop</option>
                   <option value="once">Run Once</option>
                 </select>
               </div>
-              <div class="form-group" style="flex:1; min-width:130px;">
+              <div class="form-group flex-1 min-w-[90px] mb-2" style="flex:1; min-width:130px;">
                 <label for="scriptInterval" style="white-space:nowrap">Interval (ms)</label>
                 <input type="number" id="scriptInterval" value="50" min="10" max="60000" title="Minimum 10ms">
               </div>
-              <div class="form-group" style="flex:1; min-width:130px;">
+              <div class="form-group flex-1 min-w-[90px] mb-2" style="flex:1; min-width:130px;">
                 <label for="scriptListenPort">Listen Port</label>
                 <input type="number" id="scriptListenPort" value="9000" min="1" max="65535" title="OSC port to receive sensor data on">
               </div>
             </div>
 
-            <div class="form-row form-row-inline" style="align-items:flex-end; gap:6px;">
-              <div class="form-group" style="flex:1; margin-bottom:0;">
+            <div class="form-row flex gap-2 flex-wrap items-end form-row-inline" style="align-items:flex-end; gap:6px;">
+              <div class="form-group flex-1 min-w-[90px] mb-2" style="flex:1; margin-bottom:0;">
                 <label for="scriptLoadSelect">Saved Scripts</label>
-                <select id="scriptLoadSelect">
+                <select id="scriptLoadSelect" class="select select-sm w-full">
                   <option value="">-- select --</option>
                 </select>
               </div>
-              <button class="btn btn-secondary" id="btnScriptLoad" title="Load the selected script into the editor">Load</button>
-              <button class="btn btn-secondary" id="btnScriptSave" title="Save the current script">Save</button>
-              <button class="btn btn-ghost" id="btnScriptSaveAs" title="Save the current script with a new name">Save As</button>
-              <button class="btn btn-danger" id="btnScriptDelete" title="Delete the selected saved script">Delete</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnScriptLoad" title="Load the selected script into the editor">Load</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnScriptSave" title="Save the current script">Save</button>
+              <button class="btn btn-ghost-bordered btn-sm" id="btnScriptSaveAs" title="Save the current script with a new name">Save As</button>
+              <button class="btn btn-error btn-sm" id="btnScriptDelete" title="Delete the selected saved script">Delete</button>
             </div>
 
-            <div class="form-group" style="flex:1">
+            <div class="form-group flex-1 min-w-[90px] mb-2" style="flex:1">
               <label for="scriptTemplateSelect">Templates</label>
-              <div class="form-row form-row-inline" style="gap:6px; align-items:flex-end">
-                <select id="scriptTemplateSelect" style="flex:1">
+              <div class="form-row flex gap-2 flex-wrap items-end form-row-inline" style="gap:6px; align-items:flex-end">
+                <select id="scriptTemplateSelect" class="select select-sm" style="flex:1">
                   <option value="">-- select a template --</option>
                   <option value="threshold_gate">Threshold Gate</option>
                   <option value="multi_sensor">Multi-Sensor Combiner</option>
                   <option value="timed_crossfade">Timed Crossfade</option>
                   <option value="state_machine">State Machine</option>
                 </select>
-                <button class="btn btn-secondary" id="btnScriptTemplate" title="Load the selected template into the editor">Load Template</button>
+                <button class="btn btn-ghost-bordered btn-sm" id="btnScriptTemplate" title="Load the selected template into the editor">Load Template</button>
               </div>
             </div>
 
@@ -973,25 +967,25 @@
 "></textarea>
             </div>
 
-            <div class="btn-row">
-              <button class="btn btn-accent" id="btnScriptRun" title="Run the script"><i class="bi bi-play-fill"></i> Run</button>
-              <button class="btn btn-stop" id="btnScriptStop" disabled title="Stop the running script"><i class="bi bi-stop-fill"></i> Stop</button>
+            <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+              <button class="btn btn-accent btn-outline btn-sm" id="btnScriptRun" title="Run the script"><i class="bi bi-play-fill"></i> Run</button>
+              <button class="btn-stop" id="btnScriptStop" disabled title="Stop the running script"><i class="bi bi-stop-fill"></i> Stop</button>
             </div>
           </div>
 
-          <div class="card" data-card-id="script-console">
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm" data-card-id="script-console">
             <div class="card-title-row" style="display:flex; align-items:center; justify-content:space-between;">
-              <h2 style="margin:0">Python Console</h2>
+              <h2 class="card-heading" style="margin:0">Python Console</h2>
               <div style="display:flex; gap:6px; align-items:center;">
                 <label class="cb-label" style="font-size:12px; margin:0;" title="Mirror Python console output to the Live Feed panel"><input type="checkbox" id="chkScriptMirrorFeed"> Mirror to Feed</label>
-                <button class="btn btn-small btn-ghost" id="btnScriptConsoleClear" title="Clear console output">Clear</button>
+                <button class="btn btn-xs btn-ghost" id="btnScriptConsoleClear" title="Clear console output">Clear</button>
               </div>
             </div>
             <div class="script-console" id="scriptConsole"></div>
           </div>
 
-          <div class="card card-collapsed" data-card-id="script-reference">
-            <h2>Python API Reference</h2>
+          <div class="card bg-base-100 border border-accent/30 rounded-lg p-4 mb-3 shadow-sm card-collapsed" data-card-id="script-reference">
+            <h2 class="card-heading">Python API Reference</h2>
             <div class="script-ref-content">
               <table class="data-table">
                 <thead><tr><th>Function</th><th>Description</th></tr></thead>
@@ -1049,23 +1043,23 @@
     </div>
 
     <!-- Right: Multi-view panel (any combination of Feed / Serial / Reference / Notifications) -->
-    <div class="panel-right panel-hidden" id="panelRight">
+    <div class="panel-right panel-hidden flex flex-col bg-base-100 relative" id="panelRight">
       <div class="panel-resize-handle" id="panelResizeHandle" title="Drag to resize"></div>
 
       <!-- Feed view -->
       <div class="panel-view" id="viewFeed" style="display:none">
-        <div class="feed-header">
+        <div class="feed-header flex justify-between items-center min-h-11 px-3.5 border-b border-base-300 shrink-0 flex-wrap gap-1.5">
           <h2>Live Feed</h2>
-          <div class="feed-controls">
+          <div class="feed-controls flex gap-1.5 items-center flex-wrap">
             <select class="feed-device-select" id="feedDeviceFilter" title="Filter by device">
               <option value="">All devices</option>
             </select>
             <label class="toggle-label"><input type="checkbox" id="feedAutoScroll" checked> Auto-scroll</label>
             <input type="text" id="feedFilter" class="feed-filter-input" placeholder="Filter...">
-            <button class="btn btn-small btn-ghost" id="btnFeedClear" title="Clear all entries from the live feed">Clear</button>
+            <button class="btn btn-xs btn-ghost" id="btnFeedClear" title="Clear all entries from the live feed">Clear</button>
           </div>
         </div>
-        <div class="feed-log" id="feedLog"></div>
+        <div class="feed-log flex-1 overflow-y-auto p-1 px-2 text-xs bg-base-200 font-[family-name:var(--font-body)]" id="feedLog"></div>
         <div class="feed-stats">
           <span id="feedCount">0 messages</span>
           <span id="feedRate">0 msg/s</span>
@@ -1078,9 +1072,9 @@
         <div class="serial-drawer-bar">
           <span class="serial-drawer-title">Serial Monitor</span>
           <div class="serial-drawer-controls">
-            <select id="serialPortSelect" class="hdr-select-sm serial-select" title="Serial port"></select>
+            <select id="serialPortSelect" class="select select-sm hdr-select-sm serial-select" title="Serial port"></select>
             <button id="btnSerialRefreshPorts" class="hdr-btn" title="Refresh port list">&#8635;</button>
-            <select id="serialBaudSelect" class="hdr-select-sm serial-select" title="Baud rate">
+            <select id="serialBaudSelect" class="select select-sm hdr-select-sm serial-select" title="Baud rate">
               <option value="9600">9600</option>
               <option value="19200">19200</option>
               <option value="38400">38400</option>
@@ -1106,10 +1100,10 @@
       <!-- Notifications history view (above Reference) -->
       <div class="panel-vresize-handle" id="vresize-serial-notifications" style="display:none" data-above="serial" data-below="notifications"></div>
       <div class="panel-view" id="viewNotifications" style="display:none">
-        <div class="feed-header">
+        <div class="feed-header flex justify-between items-center min-h-11 px-3.5 border-b border-base-300 shrink-0 flex-wrap gap-1.5">
           <h2>Notifications</h2>
-          <div class="feed-controls">
-            <button class="btn btn-small btn-ghost" id="btnNotifClear" title="Clear all notifications">Clear</button>
+          <div class="feed-controls flex gap-1.5 items-center flex-wrap">
+            <button class="btn btn-xs btn-ghost" id="btnNotifClear" title="Clear all notifications">Clear</button>
           </div>
         </div>
         <div class="notif-history" id="notifHistory"></div>
@@ -1120,113 +1114,83 @@
       <div class="panel-view" id="viewReference" style="display:none">
         <div class="ref-panel-header">
           <h2><strong>Reference</strong></h2>
-          <div class="feed-controls">
+          <div class="feed-controls flex gap-1.5 items-center flex-wrap">
             <input type="text" id="refSearch" placeholder="Search…" class="feed-filter-input feed-filter-input-narrow">
-            <button class="btn btn-small btn-ghost" id="btnStartTour" title="Take a guided tour of the interface">Tour</button>
-            <button class="btn btn-small btn-ghost" id="btnGuide" title="Open user guide">Guide ↗</button>
+            <button class="btn btn-xs btn-ghost" id="btnStartTour" title="Take a guided tour of the interface">Tour</button>
+            <button class="btn btn-xs btn-ghost" id="btnGuide" title="Open user guide">Guide ↗</button>
           </div>
         </div>
         <div class="ref-panel-content">
-          <div class="ref-section-block">
-            <div class="ref-section-title">Commands</div>
-            <p class="hint-text-sm">All TheaterGWD OSC commands with their address patterns and expected payloads.</p>
-            <div class="ref-list" id="cmdList"></div>
+
+          <!-- Commands -->
+          <div class="collapse collapse-arrow ref-collapse" id="refSection-commands">
+            <input type="checkbox" checked id="refCollapse-commands">
+            <div class="collapse-title">Commands</div>
+            <div class="collapse-content">
+              <p class="hint-text-sm mb-2">All TheaterGWD OSC commands with their address patterns and expected payloads.</p>
+              <div class="ref-list" id="cmdList"></div>
+            </div>
           </div>
-          <div class="ref-section-block">
-            <div class="ref-section-title">Keywords &amp; Definitions</div>
-            <div class="ref-list" id="keywordList"></div>
+
+          <!-- Keywords & Definitions -->
+          <div class="collapse collapse-arrow ref-collapse" id="refSection-keywords">
+            <input type="checkbox" checked id="refCollapse-keywords">
+            <div class="collapse-title">Keywords &amp; Definitions</div>
+            <div class="collapse-content">
+              <div class="ref-list" id="keywordList"></div>
+            </div>
           </div>
-          <div class="ref-section-block">
-            <div class="ref-section-title">Config Keys</div>
-            <div class="ref-list" id="configKeyList"></div>
+
+          <!-- Config Keys -->
+          <div class="collapse collapse-arrow ref-collapse" id="refSection-config-keys">
+            <input type="checkbox" checked id="refCollapse-config-keys">
+            <div class="collapse-title">Config Keys</div>
+            <div class="collapse-content">
+              <div class="ref-list" id="configKeyList"></div>
+            </div>
           </div>
-          <div class="ref-section-block">
-            <div class="ref-section-title">Address Modes</div>
-            <div class="ref-list" id="adrModeList"></div>
+
+          <!-- Address Modes -->
+          <div class="collapse collapse-arrow ref-collapse" id="refSection-address-modes">
+            <input type="checkbox" checked id="refCollapse-address-modes">
+            <div class="collapse-title">Address Modes</div>
+            <div class="collapse-content">
+              <div class="ref-list" id="adrModeList"></div>
+            </div>
           </div>
+
         </div>
       </div>
 
     </div>
 
-  </div>
-
-  <!-- Device Settings modal (status config + debug options) -->
-  <div id="devSettingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="devSettingsTitle">
-    <div class="modal-box modal-box--wide">
-      <div class="modal-title" id="devSettingsTitle">Status Config</div>
-      <div class="modal-body">
-        <div class="form-row" style="margin-bottom:10px">
-          <div class="form-group">
-            <label for="statusConfigTarget">Target Device</label>
-            <select id="statusConfigTarget">
-              <option value="__all__">All devices</option>
-            </select>
-          </div>
-        </div>
-        <p class="hint-text" style="margin:0 0 10px">Tell the device where to send status messages so you can monitor it in the live feed.</p>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="statusIP">Your IP<span class="assume-ip-hint"></span></label>
-            <input type="text" id="statusIP" placeholder="192.168.1.x">
-          </div>
-          <div class="form-group fg-narrow">
-            <label for="statusPort">Port</label>
-            <input type="number" id="statusPort" value="9000" min="1" max="65535">
-          </div>
-          <div class="form-group">
-            <label for="statusAdr">Address</label>
-            <input type="text" id="statusAdr" value="/status" placeholder="/status">
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="statusLevel">Level</label>
-            <select id="statusLevel">
-              <option value="">— don't change —</option>
-              <option value="error">error</option>
-              <option value="warn">warn</option>
-              <option value="info" selected>info</option>
-              <option value="debug">debug</option>
-            </select>
-          </div>
-        </div>
-        <div class="btn-row" style="margin-bottom:16px">
-          <button class="btn btn-primary" id="btnStatusConfig" title="Send status destination config to device">Apply</button>
-          <button class="btn btn-mid" id="btnStatusLevel" title="Change the OSC status reporting level">Set Level</button>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button id="devSettingsClose" class="btn">Close</button>
-      </div>
-    </div>
   </div>
 
   <!-- Device config modal (add / edit) -->
   <div id="deviceConfigModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="deviceConfigTitle">
     <div class="modal-box">
-      <div class="modal-title" id="deviceConfigTitle">Add Device</div>
-      <div class="modal-body">
-        <div class="form-row">
-          <div class="form-group">
+      <div class="modal-title text-lg font-bold mb-3" id="deviceConfigTitle">Add Device</div>
+      <div class="modal-body text-sm text-neutral mb-5 leading-relaxed">
+        <div class="form-row flex gap-2 flex-wrap items-end">
+          <div class="form-group flex-1 min-w-[90px] mb-2">
             <label for="deviceConfigIP">IP Address<span class="assume-ip-hint"></span> <span class="hint">(or "me" for this computer)</span></label>
-            <input type="text" id="deviceConfigIP" placeholder="192.168.1.100" autocomplete="off">
+            <input type="text" id="deviceConfigIP" placeholder="192.168.1.100" list="netDestDatalist" autocomplete="off">
           </div>
-          <div class="form-group fg-narrow">
+          <div class="form-group flex-none w-[120px] min-w-[110px] mb-2 fg-narrow">
             <label for="deviceConfigPort">Port</label>
             <input type="number" id="deviceConfigPort" value="8000" min="1" max="65535">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
+        <div class="form-row flex gap-2 flex-wrap items-end">
+          <div class="form-group flex-1 min-w-[90px] mb-2">
             <label for="deviceConfigName">Name <span class="hint">(unique identifier, e.g. bart)</span></label>
             <input type="text" id="deviceConfigName" placeholder="e.g. bart" autocomplete="off">
           </div>
         </div>
       </div>
       <div class="modal-actions">
-        <button id="deviceConfigCancel" class="btn">Cancel</button>
-        <button id="deviceConfigSave" class="btn btn-primary">Add Device</button>
+        <button id="deviceConfigCancel" class="btn btn-ghost-bordered btn-sm">Cancel</button>
+        <button id="deviceConfigSave" class="btn btn-accent btn-sm">Add Device</button>
       </div>
     </div>
   </div>
@@ -1234,14 +1198,14 @@
   <!-- Calibrate & Zero modal -->
   <div id="tareModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="tareModalTitle">
     <div class="modal-box modal-box--wide">
-      <div class="modal-title" id="tareModalTitle">Calibrate &amp; Zero — <span id="tareModalDevice"></span></div>
+      <div class="modal-title text-lg font-bold mb-3" id="tareModalTitle">Calibrate &amp; Zero — <span id="tareModalDevice"></span></div>
 
       <div class="tare-row">
         <div class="tare-row-text">
           <strong>Zero Orientation</strong>
           <span>Current position becomes forward/neutral</span>
         </div>
-        <button class="btn btn-accent" data-tare-action="avg">Zero</button>
+        <button class="btn btn-accent btn-outline btn-sm" data-tare-action="avg">Zero</button>
       </div>
 
       <div class="tare-row">
@@ -1249,7 +1213,7 @@
           <strong>Zero All Arm Axes</strong>
           <span>Zeros wrist, direction, and tilt together</span>
         </div>
-        <button class="btn btn-primary" data-tare-action="swingtwist">Zero</button>
+        <button class="btn btn-accent btn-sm" data-tare-action="swingtwist">Zero</button>
       </div>
 
       <div class="tare-row">
@@ -1257,7 +1221,7 @@
           <strong>Zero Wrist Rotation</strong>
           <span>Twist only</span>
         </div>
-        <button class="btn btn-mid" data-tare-action="twist">Zero</button>
+        <button class="btn-mid" data-tare-action="twist">Zero</button>
       </div>
 
       <div class="tare-row">
@@ -1265,7 +1229,7 @@
           <strong>Zero Pointing Direction</strong>
           <span>Left/right horizontal direction only</span>
         </div>
-        <button class="btn btn-mid" data-tare-action="azimuth">Zero</button>
+        <button class="btn-mid" data-tare-action="azimuth">Zero</button>
       </div>
 
       <div class="tare-row">
@@ -1273,7 +1237,7 @@
           <strong>Zero Vertical Tilt</strong>
           <span>Up/down angle only</span>
         </div>
-        <button class="btn btn-mid" data-tare-action="tilt">Zero</button>
+        <button class="btn-mid" data-tare-action="tilt">Zero</button>
       </div>
 
       <div class="tare-row tare-row--reset">
@@ -1281,7 +1245,7 @@
           <strong>Clear All Arm Zeros</strong>
           <span>Return to raw values</span>
         </div>
-        <button class="btn btn-warn" data-tare-action="swingtwist/reset">Clear</button>
+        <button class="btn-warn" data-tare-action="swingtwist/reset">Clear</button>
       </div>
 
       <div class="tare-feedback" id="tareFeedbackImu"></div>
@@ -1295,12 +1259,12 @@
               <span class="tare-adv-desc">How the sensor converts rotation into three angles. Auto is almost always correct.</span>
             </div>
             <div class="tare-adv-controls">
-              <select id="tareEulerOrder" class="tare-adv-select">
+              <select id="tareEulerOrder" class="select select-sm tare-adv-select">
                 <option value="auto" selected>Auto</option>
                 <option value="zyx">ZYX</option>
                 <option value="zxy">ZXY</option>
               </select>
-              <button class="btn btn-mid" id="tareBtnEulerApply">Apply</button>
+              <button class="btn-mid" id="tareBtnEulerApply">Apply</button>
             </div>
           </div>
           <div class="tare-adv-row">
@@ -1309,15 +1273,15 @@
               <span class="tare-adv-desc">Ask the device to report its current zero state.</span>
             </div>
             <div class="tare-adv-controls">
-              <button class="btn btn-mid" id="tareBtnStatus">Query</button>
+              <button class="btn-mid" id="tareBtnStatus">Query</button>
             </div>
           </div>
           <div class="tare-adv-status" id="tareAdvStatus"></div>
         </div>
       </details>
 
-      <div class="modal-actions" style="margin-top:18px">
-        <button class="btn" id="tareModalDone">Done</button>
+      <div class="modal-actions">
+        <button class="btn btn-ghost-bordered btn-sm" id="tareModalDone">Done</button>
       </div>
     </div>
   </div>
@@ -1325,11 +1289,11 @@
   <!-- Confirmation modal -->
   <div id="confirmModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
     <div class="modal-box">
-      <div class="modal-title" id="confirmTitle">Confirm Action</div>
-      <div class="modal-body" id="confirmBody"></div>
+      <div class="modal-title text-lg font-bold mb-3" id="confirmTitle">Confirm Action</div>
+      <div class="modal-body text-sm text-neutral mb-5 leading-relaxed" id="confirmBody"></div>
       <div class="modal-actions">
-        <button id="confirmCancel" class="btn">Cancel</button>
-        <button id="confirmOk" class="btn btn-danger">Confirm</button>
+        <button id="confirmCancel" class="btn btn-ghost-bordered btn-sm">Cancel</button>
+        <button id="confirmOk" class="btn btn-error btn-sm">Confirm</button>
       </div>
     </div>
   </div>
@@ -1377,5 +1341,113 @@
       });
     }());
   </script>
+
+  <!-- Shared datalist for network destination name autocomplete on IP fields -->
+  <datalist id="netDestDatalist"></datalist>
+
+  <!-- Combined Settings modal (Network + Status Config) -->
+  <div id="networkSettingsModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="networkSettingsTitle">
+    <div class="modal-box modal-box--xl">
+      <div class="settings-split">
+
+        <!-- ── LEFT PANE: Network Settings ── -->
+        <div class="settings-pane">
+          <div class="settings-pane-title" id="networkSettingsTitle">Network Settings</div>
+
+          <!-- WiFi Network -->
+          <div class="net-section">
+            <h3 class="net-section-heading">WiFi Network</h3>
+            <p class="hint-text" style="margin-bottom:10px">Lock the connection indicator to a specific network. The status shows <strong>Wrong network</strong> when on a different WiFi.</p>
+            <div class="net-current-row">
+              <span class="text-xs text-base-content/50">Current:</span>
+              <span class="net-current-ssid" id="currentNetworkDisplay">—</span>
+              <button class="btn btn-ghost-bordered btn-xs ml-2" id="btnNetScan">Scan</button>
+            </div>
+            <div class="form-group mb-0">
+              <label for="intendedNetworkSelect">Intended network</label>
+              <select id="intendedNetworkSelect" class="select select-sm w-full">
+                <option value="">— any network —</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Network Destinations -->
+          <div class="net-section">
+            <h3 class="net-section-heading">Network Destinations</h3>
+            <p class="hint-text" style="margin-bottom:10px">Save named IP + port combos. Type the destination name into any IP field to auto-fill both IP and port.</p>
+            <div class="net-dest-add-form">
+              <div class="form-group mb-0" style="flex:2;min-width:120px">
+                <label for="netDestName">Name</label>
+                <input type="text" id="netDestName" placeholder='e.g. Stage Left' autocomplete="off">
+              </div>
+              <div class="form-group mb-0" style="flex:2;min-width:110px">
+                <label for="netDestIp">IP<span class="assume-ip-hint"></span></label>
+                <input type="text" id="netDestIp" placeholder="192.168.1.50" autocomplete="off">
+              </div>
+              <div class="form-group mb-0" style="flex:1;min-width:70px">
+                <label for="netDestPort">Port</label>
+                <input type="text" id="netDestPort" placeholder="9000" autocomplete="off">
+              </div>
+              <div class="form-group mb-0" style="align-self:flex-end">
+                <button class="btn btn-accent btn-sm" id="btnAddNetDest">Add</button>
+              </div>
+            </div>
+            <div class="net-dest-list" id="netDestListEl" style="margin-top:10px">
+              <div class="net-dest-empty">No destinations saved yet.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RIGHT PANE: Status Config ── -->
+        <div class="settings-pane settings-pane--right">
+          <div class="settings-pane-title">Status Config</div>
+          <div class="form-row flex gap-2 flex-wrap items-end" style="margin-bottom:10px">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
+              <label for="statusConfigTarget">Target Device</label>
+              <select id="statusConfigTarget" class="select select-sm w-full">
+                <option value="__all__">All devices</option>
+              </select>
+            </div>
+          </div>
+          <p class="hint-text" style="margin:0 0 10px">Tell the device where to send status messages so you can monitor it in the live feed.</p>
+          <div class="form-row flex gap-2 flex-wrap items-end">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
+              <label for="statusIP">Your IP<span class="assume-ip-hint"></span></label>
+              <input type="text" id="statusIP" placeholder="192.168.1.x" list="netDestDatalist" autocomplete="off">
+            </div>
+            <div class="form-group flex-none w-[110px] min-w-[100px] mb-2 fg-narrow">
+              <label for="statusPort">Port</label>
+              <input type="number" id="statusPort" value="9000" min="1" max="65535">
+            </div>
+            <div class="form-group flex-1 min-w-[90px] mb-2">
+              <label for="statusAdr">Address</label>
+              <input type="text" id="statusAdr" value="/status" placeholder="/status">
+            </div>
+          </div>
+          <div class="form-row flex gap-2 flex-wrap items-end">
+            <div class="form-group flex-1 min-w-[90px] mb-2">
+              <label for="statusLevel">Level</label>
+              <select id="statusLevel" class="select select-sm w-full">
+                <option value="">— don't change —</option>
+                <option value="error">error</option>
+                <option value="warn">warn</option>
+                <option value="info" selected>info</option>
+                <option value="debug">debug</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row flex gap-1.5 flex-wrap mt-1">
+            <button class="btn btn-accent btn-sm" id="btnStatusConfig" title="Send status destination config to device">Apply</button>
+            <button class="btn-mid" id="btnStatusLevel" title="Change the OSC status reporting level">Set Level</button>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-actions">
+        <button id="btnCloseNetworkModal" class="btn btn-ghost-bordered btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

@@ -1,7 +1,7 @@
 /* ── Device configuration modal & per-device dropdown ── */
 
 import { devices, activeDevice, $ } from "./state.js";
-import { toast } from "./toast.js";
+import { toast, showConfirm } from "./toast.js";
 import { api } from "./api.js";
 import { addDevice, removeDevice, generateDeviceId, getActiveDev, renderDeviceTabs } from "./device-manager.js";
 
@@ -161,6 +161,87 @@ document.addEventListener("click", function (e) {
     closeDevDropdown();
   }
 });
+
+/* ── Device dropdown item handlers ── */
+(function () {
+  function dd(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", fn);
+  }
+
+  dd("devDdEdit", function () {
+    const id = dropdownDevice.id;
+    closeDevDropdown();
+    if (id) editDevice(id);
+  });
+
+  dd("devDdBlackout", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/blackout", null).then(function (res) {
+      if (res.status === "ok") toast("Blackout: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  dd("devDdRestore", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/restore", null).then(function (res) {
+      if (res.status === "ok") toast("Restore: " + d.name, "success");
+    });
+    closeDevDropdown();
+  });
+
+  dd("devDdOnChangeOn", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/on_change", "on").then(function (res) {
+      if (res.status === "ok") toast("OnChange ON: " + d.name, "info");
+    });
+    closeDevDropdown();
+  });
+
+  dd("devDdOnChangeOff", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    sendToDevice(id, "/annieData/" + d.name + "/on_change", "off").then(function (res) {
+      if (res.status === "ok") toast("OnChange OFF: " + d.name, "info");
+    });
+    closeDevDropdown();
+  });
+
+  dd("devDdVerbose", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    d.verbose = !d.verbose;
+    toast("Verbose mode " + (d.verbose ? "ON" : "OFF") + " for " + d.name, d.verbose ? "success" : "info");
+    closeDevDropdown();
+  });
+
+  dd("devDdRemove", function () {
+    const id = dropdownDevice.id;
+    closeDevDropdown();
+    if (id) removeDevice(id);
+  });
+
+  dd("devDdNvsClear", function () {
+    const id = dropdownDevice.id;
+    if (!id || !devices[id]) { closeDevDropdown(); return; }
+    const d = devices[id];
+    closeDevDropdown();
+    showConfirm("Clear NVS", "Clear NVS for " + d.name + "? This erases all saved settings.", function () {
+      sendToDevice(id, "/annieData/" + d.name + "/nvs/clear", null).then(function (res) {
+        if (res.status === "ok") toast("NVS cleared: " + d.name, "success");
+      });
+    }, "Clear NVS", true);
+  });
+}());
 
 /** Send a command to an arbitrary device (not just the active one). */
 export function sendToDevice(deviceId, address, payload) {
